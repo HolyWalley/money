@@ -2,6 +2,7 @@
 
 name = "money"
 compatibility_date = "2025-05-25"
+compatibility_flags = ["nodejs_compat"]
 
 # Pages project configuration
 pages_build_output_dir = "dist"

@@ -4,7 +4,55 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <title>Money</title>
+    <style>
+      /* Critical CSS to prevent theme flash */
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+      }
+      
+      .dark {
+        --background: 240 10% 3.9%;
+        --foreground: 0 0% 98%;
+      }
+      
+      html {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+      }
+      
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      
+      #root {
+        min-height: 100vh;
+        background-color: hsl(var(--background));
+      }
+    </style>
+    <script>
+      // Prevent flash of wrong theme by setting theme before page renders
+      (function() {
+        const storageKey = 'finance-tracker-theme'
+        const storedTheme = localStorage.getItem(storageKey)
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        
+        let theme = 'light'
+        if (storedTheme === 'dark' || storedTheme === 'light') {
+          theme = storedTheme
+        } else if (storedTheme === 'system' || !storedTheme) {
+          theme = systemTheme
+        }
+        
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
