@@ -84,15 +84,30 @@ export class JWTUtils {
     }
   }
 
-  static getCookieOptions(isRefreshToken = false) {
+  static getCookieOptions(isRefreshToken = false, isProduction = false) {
     const maxAge = isRefreshToken ? 7 * 24 * 60 * 60 : 15 * 60 // 7 days or 15 minutes
     
     return {
       httpOnly: true,
-      secure: false, // Set to false for localhost development
-      sameSite: 'lax' as const, // Changed from 'strict' to 'lax' for better localhost compatibility
+      secure: isProduction, // Secure in production, false for localhost development
+      sameSite: isProduction ? 'strict' as const : 'lax' as const, // Strict in production, lax for development
       maxAge,
-      path: '/'
+      path: '/',
+      // Add additional security flags in production
+      ...(isProduction && {
+        priority: 'high' as const
+      })
+    }
+  }
+
+  static getClearCookieOptions() {
+    return {
+      httpOnly: true,
+      secure: false, // Keep consistent with development settings
+      sameSite: 'lax' as const,
+      maxAge: 0,
+      path: '/',
+      expires: new Date(0)
     }
   }
 }
