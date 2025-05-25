@@ -12,7 +12,7 @@ export function AuthLayout() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Personal Finance Tracker
+            Money
           </h1>
           <p className="text-muted-foreground">
             Track your expenses and manage your finances with ease

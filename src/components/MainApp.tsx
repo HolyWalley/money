@@ -18,18 +18,18 @@ export function MainApp() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-foreground">
-                Personal Finance Tracker
+                Money
               </h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
                 <span>Welcome, {user?.username}</span>
               </div>
-              
+
               <ThemeToggle />
-              
+
               <Button
                 variant="outline"
                 size="sm"
