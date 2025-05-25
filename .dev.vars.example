@@ -1,0 +1,2 @@
+# Environment variables for Cloudflare Functions development
+# Copy this file to .dev.vars and fill in actual values

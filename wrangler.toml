@@ -1,0 +1,18 @@
+# Wrangler configuration for Cloudflare Pages with Functions
+
+name = "money"
+compatibility_date = "2025-05-25"
+
+# Pages project configuration
+pages_build_output_dir = "dist"
+
+# Environment variables
+# Regular variables are defined here
+# Secret values should be set in Cloudflare Dashboard or with wrangler secret command
+[vars]
+
+# Configure KV Namespaces for the Workers
+[[kv_namespaces]]
+binding = "MONEY_USER_AUTH"
+id = "59a845744919453b8474efb06d802560"
+preview_id = "071add1338294fecb2dcd543a7be60d8"
