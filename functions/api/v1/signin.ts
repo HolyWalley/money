@@ -65,8 +65,10 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
       isValidCredentials = await PasswordUtils.verifyPassword(password, user.passwordHash)
       
       if (isValidCredentials) {
-        // Update last login time
-        await StorageUtils.updateUserLastLogin(user.userId, env)
+        // Update last login time directly
+        await StorageUtils.updateUser(user.username, {
+          lastLoginAt: new Date().toISOString()
+        }, env)
         
         SecurityUtils.logSecurityEvent('successful_signin', {
           userId: user.userId,

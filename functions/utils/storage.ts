@@ -98,33 +98,4 @@ export class StorageUtils {
     return user !== null && user.isActive
   }
 
-  static async updateUserLastLogin(userId: string, env: CloudflareEnv): Promise<boolean> {
-    try {
-      // Find user by userId (we need to iterate through users since we store by username)
-      // In a production app, you might want to maintain a userId->username mapping
-      const users = await env.MONEY_USER_AUTH.list({ prefix: 'user:' })
-      
-      for (const key of users.keys) {
-        const userData = await env.MONEY_USER_AUTH.get(key.name)
-        if (userData) {
-          const user = JSON.parse(userData) as UserRecord
-          if (user.userId === userId) {
-            const updatedUser: UserRecord = {
-              ...user,
-              lastLoginAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-            
-            await env.MONEY_USER_AUTH.put(key.name, JSON.stringify(updatedUser))
-            return true
-          }
-        }
-      }
-      
-      return false
-    } catch (error) {
-      console.error('Error updating user last login:', error)
-      return false
-    }
-  }
 }
