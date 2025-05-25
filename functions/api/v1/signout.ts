@@ -19,10 +19,10 @@ export async function onRequestPost(): Promise<Response> {
 
 export async function onRequest(context: CloudflareContext): Promise<Response> {
   const { request } = context
-  
+
   if (request.method === 'POST') {
-    return onRequestPost(context)
+    return onRequestPost()
   }
-  
+
   return ResponseUtils.methodNotAllowed()
 }

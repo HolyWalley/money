@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:functions": "npx wrangler pages dev",
+    "dev:functions": "npx wrangler pages dev public --port 8787 --local",
     "build": "tsc -b && vite build",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -19,6 +19,7 @@
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@tailwindcss/postcss": "^4.1.7",
     "@tsndr/cloudflare-worker-jwt": "^3.1.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

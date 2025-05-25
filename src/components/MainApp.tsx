@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { LogOut, User } from 'lucide-react'
 
 export function MainApp() {
@@ -11,21 +12,23 @@ export function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-foreground">
                 Personal Finance Tracker
               </h1>
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-700">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
                 <span>Welcome, {user?.username}</span>
               </div>
+              
+              <ThemeToggle />
               
               <Button
                 variant="outline"
@@ -44,8 +47,8 @@ export function MainApp() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-            <p className="text-gray-600">
+            <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
+            <p className="text-muted-foreground">
               Track your expenses and manage your finances
             </p>
           </div>
@@ -56,7 +59,7 @@ export function MainApp() {
                 <CardTitle>Recent Transactions</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">No transactions yet</p>
+                <p className="text-muted-foreground">No transactions yet</p>
               </CardContent>
             </Card>
 
@@ -65,7 +68,7 @@ export function MainApp() {
                 <CardTitle>Monthly Budget</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Set up your budget</p>
+                <p className="text-muted-foreground">Set up your budget</p>
               </CardContent>
             </Card>
 
@@ -74,7 +77,7 @@ export function MainApp() {
                 <CardTitle>Savings Goals</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Create savings goals</p>
+                <p className="text-muted-foreground">Create savings goals</p>
               </CardContent>
             </Card>
           </div>
@@ -84,10 +87,10 @@ export function MainApp() {
               <CardTitle>Getting Started</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Welcome to your personal finance tracker! Here's what you can do:
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-600">
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
                 <li>Add and categorize transactions</li>
                 <li>Set monthly budgets for different categories</li>
                 <li>Create and track savings goals</li>

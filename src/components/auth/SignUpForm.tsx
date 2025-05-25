@@ -62,7 +62,7 @@ export function SignUpForm({ onSignInClick }: SignUpFormProps) {
   }
 
   const PasswordCheck = ({ passed, text }: { passed: boolean; text: string }) => (
-    <div className={`flex items-center space-x-2 text-xs ${passed ? 'text-green-600' : 'text-gray-500'}`}>
+    <div className={`flex items-center space-x-2 text-xs ${passed ? 'text-green-600' : 'text-muted-foreground'}`}>
       {passed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
       <span>{text}</span>
     </div>
@@ -131,8 +131,8 @@ export function SignUpForm({ onSignInClick }: SignUpFormProps) {
             </div>
             
             {watchPassword && (
-              <div className="space-y-1 p-3 bg-gray-50 rounded-md">
-                <p className="text-xs font-medium text-gray-700">Password requirements:</p>
+              <div className="space-y-1 p-3 bg-muted rounded-md">
+                <p className="text-xs font-medium text-muted-foreground">Password requirements:</p>
                 <PasswordCheck passed={passwordChecks.length} text="At least 8 characters" />
                 <PasswordCheck passed={passwordChecks.lowercase} text="One lowercase letter" />
                 <PasswordCheck passed={passwordChecks.uppercase} text="One uppercase letter" />
