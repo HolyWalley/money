@@ -29,6 +29,7 @@ Personal finances tracking app built with Local First principles using:
 - React Hook Form for form handling with field-level validation
 - Tailwind CSS for styling
 - shadcn/ui for UI components
+- Lucide React for icons (consistent icon system)
 - Wrangler for Cloudflare development
 
 ### State Management Strategy
