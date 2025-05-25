@@ -71,11 +71,17 @@ Personal finances tracking app built with Local First principles using:
 
 ### Important Notes
 - Always run lint and typecheck commands after making changes
+- Run `npm run lint:fix` before every commit to ensure files end with newlines
 - Only commit when explicitly asked
 - Follow existing code conventions and patterns
 - Check for existing libraries before adding new dependencies
 - Maintain security best practices
 - No comments unless requested
+
+### Code Quality Requirements
+- **End-of-Line**: All files must end with a newline character (enforced by ESLint `eol-last` rule)
+- **Linting**: Code must pass ESLint checks before commit
+- **Type Safety**: All TypeScript errors must be resolved
 
 ### Development Setup
 - **KV Namespace**: MONEY_USER_AUTH configured in wrangler.toml
