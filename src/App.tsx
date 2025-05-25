@@ -1,16 +1,13 @@
-import { AuthProvider } from '@/contexts/AuthContext'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { MainApp } from '@/components/MainApp'
+import { AppRoutes } from '@/components/AppRoutes'
 
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="finance-tracker-theme">
-      <AuthProvider>
-        <ProtectedRoute>
-          <MainApp />
-        </ProtectedRoute>
-      </AuthProvider>
+      <Router>
+        <AppRoutes />
+      </Router>
     </ThemeProvider>
   )
 }

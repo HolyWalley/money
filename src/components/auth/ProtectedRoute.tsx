@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { AuthLayout } from './AuthLayout'
 import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {
@@ -22,7 +22,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated) {
-    return <AuthLayout />
+    return <Navigate to="/auth" replace />
   }
 
   return <>{children}</>

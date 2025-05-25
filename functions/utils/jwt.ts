@@ -89,8 +89,8 @@ export class JWTUtils {
     
     return {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict' as const,
+      secure: false, // Set to false for localhost development
+      sameSite: 'lax' as const, // Changed from 'strict' to 'lax' for better localhost compatibility
       maxAge,
       path: '/'
     }

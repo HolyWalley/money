@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 export interface User {
   userId: string
@@ -34,6 +35,8 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const isAuthenticated = user !== null
 
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok && data.success) {
         setUser(data.data.user)
+        navigate('/dashboard')
         return { success: true }
       } else {
         return { success: false, error: data.error || 'Sign in failed' }
@@ -104,6 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok && data.success) {
         setUser(data.data.user)
+        navigate('/dashboard')
         return { success: true }
       } else {
         return { 
@@ -128,6 +133,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Signout error:', error)
     } finally {
       setUser(null)
+      navigate('/auth')
     }
   }
 
