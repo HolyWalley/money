@@ -42,7 +42,7 @@ Personal finances tracking app built with Local First principles using:
 - **Prefer existing components**: Use shadcn/ui components first
 - **Customize only when needed**: Only create custom components when shadcn/ui doesn't cover the use case
 - **Consistent styling**: Follow Tailwind + shadcn/ui patterns
-- Use --legacy-peer-deps flag when installind shadcn components
+- Ask me to install needed shadcn/ui components, do not install them yourself
 
 ### Theme Requirements
 - **Two themes**: Light and Dark

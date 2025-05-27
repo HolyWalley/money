@@ -1,46 +1,11 @@
-import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { LogOut, User } from 'lucide-react'
+import { Header } from '@/components/Header'
 
 export function MainApp() {
-  const { user, signout } = useAuth()
-
-  const handleSignOut = async () => {
-    await signout()
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="bg-card shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold">
-                Money
-              </h1>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>Welcome, {user?.username}</span>
-              </div>
-
-              <ThemeToggle />
-
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">

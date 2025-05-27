@@ -116,7 +116,7 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col space-y-4">
+        <CardFooter className="flex flex-col space-y-4 pt-6">
           <Button
             type="submit"
             className="w-full"
