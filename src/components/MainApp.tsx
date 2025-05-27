@@ -12,12 +12,12 @@ export function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-foreground">
+              <h1 className="text-xl font-semibold">
                 Money
               </h1>
             </div>
@@ -32,9 +32,7 @@ export function MainApp() {
 
               <Button
                 variant="outline"
-                size="sm"
                 onClick={handleSignOut}
-                className="flex items-center space-x-2"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Sign Out</span>

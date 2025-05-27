@@ -44,13 +44,12 @@ export function ThemeToggle() {
   return (
     <Button
       variant="outline"
-      size="sm"
+      size="icon"
       onClick={cycleTheme}
       className="flex items-center space-x-2"
       title={`Current theme: ${getLabel()}. Click to cycle through themes.`}
     >
       {getIcon()}
-      <span className="hidden sm:inline">{getLabel()}</span>
     </Button>
   )
 }
