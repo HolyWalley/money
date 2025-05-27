@@ -1,28 +1,18 @@
 import type { CloudflareContext } from '../../types/cloudflare'
-import { JWTUtils } from '../../utils/jwt'
 import { StorageUtils } from '../../utils/storage'
 import { ResponseUtils } from '../../utils/response'
 
 export async function onRequestGet(context: CloudflareContext): Promise<Response> {
   try {
-    const { request, env } = context
+    const { env, data } = context
     
-    // Parse cookies
-    const cookies = ResponseUtils.parseCookies(request)
-    const accessToken = cookies.accessToken
-
-    if (!accessToken) {
-      return ResponseUtils.unauthorized('Access token not found')
+    // Get user from context (already authenticated by middleware)
+    if (!data?.user) {
+      return ResponseUtils.unauthorized('User not authenticated')
     }
 
-    // Verify access token
-    const payload = await JWTUtils.verifyAccessToken(accessToken, env)
-    if (!payload) {
-      return ResponseUtils.unauthorized('Invalid or expired access token')
-    }
-
-    // Get user data from storage
-    const user = await StorageUtils.getUserByUsername(payload.username, env)
+    // Get full user data from storage
+    const user = await StorageUtils.getUserByUsername(data.user.username, env)
     if (!user || !user.isActive) {
       return ResponseUtils.unauthorized('User not found or inactive')
     }

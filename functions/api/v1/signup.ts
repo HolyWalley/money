@@ -13,7 +13,7 @@ interface SignupRequest {
 export async function onRequestPost(context: CloudflareContext): Promise<Response> {
   try {
     const { request, env } = context
-    
+
     // Parse request body
     let body: SignupRequest
     try {
@@ -38,7 +38,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     // Sanitize username (removes dangerous characters)
     const originalUsername = username
     username = SecurityUtils.sanitizeUsername(username)
-    
+
     if (originalUsername !== username) {
       SecurityUtils.logSecurityEvent('username_sanitized', {
         original: originalUsername,
@@ -82,7 +82,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
 
     // Create user
     const user = await StorageUtils.createUser(username, passwordHash, env)
-    
+
     SecurityUtils.logSecurityEvent('user_created', {
       userId: user.userId,
       username: user.username
@@ -118,17 +118,17 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Signup error:', error)
     SecurityUtils.logSecurityEvent('signup_internal_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, request)
+    }, context.request)
     return ResponseUtils.internalError('Failed to create account')
   }
 }
 
 export async function onRequest(context: CloudflareContext): Promise<Response> {
   const { request } = context
-  
+
   if (request.method === 'POST') {
     return onRequestPost(context)
   }
-  
+
   return ResponseUtils.methodNotAllowed()
 }

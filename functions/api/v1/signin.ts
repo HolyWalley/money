@@ -13,7 +13,7 @@ interface SigninRequest {
 export async function onRequestPost(context: CloudflareContext): Promise<Response> {
   try {
     const { request, env } = context
-    
+
     // Parse request body
     let body: SigninRequest
     try {
@@ -47,7 +47,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     // Sanitize username
     const originalUsername = username
     username = SecurityUtils.sanitizeUsername(username.trim())
-    
+
     if (originalUsername !== username) {
       SecurityUtils.logSecurityEvent('username_sanitized_signin', {
         original: originalUsername,
@@ -59,17 +59,17 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     // even if user doesn't exist
     const user = await StorageUtils.getUserByUsername(username, env)
     let isValidCredentials = false
-    
+
     if (user && user.isActive) {
       // Verify password
       isValidCredentials = await PasswordUtils.verifyPassword(password, user.passwordHash)
-      
+
       if (isValidCredentials) {
         // Update last login time directly
         await StorageUtils.updateUser(user.username, {
           lastLoginAt: new Date().toISOString()
         }, env)
-        
+
         SecurityUtils.logSecurityEvent('successful_signin', {
           userId: user.userId,
           username: user.username
@@ -86,7 +86,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
         userExists: !!user,
         userActive: user?.isActive
       }, request)
-      
+
       // Still perform a dummy password hash to prevent timing attacks
       await PasswordUtils.hashPassword('dummy_password_to_prevent_timing_attacks')
     }
@@ -127,17 +127,17 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Signin error:', error)
     SecurityUtils.logSecurityEvent('signin_internal_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, request)
+    }, context.request)
     return ResponseUtils.internalError('Failed to sign in')
   }
 }
 
 export async function onRequest(context: CloudflareContext): Promise<Response> {
   const { request } = context
-  
+
   if (request.method === 'POST') {
     return onRequestPost(context)
   }
-  
+
   return ResponseUtils.methodNotAllowed()
 }

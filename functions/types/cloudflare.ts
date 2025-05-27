@@ -10,8 +10,10 @@ export interface CloudflareContext {
   request: Request
   env: CloudflareEnv
   next: () => Promise<Response>
-  user?: {
-    userId: string
-    username: string
+  data?: {
+    user: {
+      userId: string
+      username: string
+    }
   }
 }

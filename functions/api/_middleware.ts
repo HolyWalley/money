@@ -109,9 +109,11 @@ export async function onRequest(context: CloudflareContext): Promise<Response> {
     }
 
     // Add user info to context for downstream handlers
-    context.user = {
-      userId: user.userId,
-      username: user.username
+    context.data = {
+      user: {
+        userId: user.userId,
+        username: user.username
+      }
     }
 
     // Call next middleware/handler

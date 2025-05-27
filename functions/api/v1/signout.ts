@@ -8,10 +8,10 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     const { request } = context
     
     // Log the signout event (user info is available from middleware)
-    if (context.user) {
+    if (context.data?.user) {
       SecurityUtils.logSecurityEvent('user_signout', {
-        userId: context.user.userId,
-        username: context.user.username
+        userId: context.data.user.userId,
+        username: context.data.user.username
       }, request)
     }
 
