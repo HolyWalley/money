@@ -5,7 +5,7 @@ import { ResponseUtils } from '../../utils/response'
 export async function onRequestGet(context: CloudflareContext): Promise<Response> {
   try {
     const { env, data } = context
-    
+
     // Get user from context (already authenticated by middleware)
     if (!data?.user) {
       return ResponseUtils.unauthorized('User not authenticated')
@@ -23,7 +23,8 @@ export async function onRequestGet(context: CloudflareContext): Promise<Response
         userId: user.userId,
         username: user.username,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        settings: user.settings,
       }
     })
 
@@ -35,10 +36,10 @@ export async function onRequestGet(context: CloudflareContext): Promise<Response
 
 export async function onRequest(context: CloudflareContext): Promise<Response> {
   const { request } = context
-  
+
   if (request.method === 'GET') {
     return onRequestGet(context)
   }
-  
+
   return ResponseUtils.methodNotAllowed()
 }

@@ -21,11 +21,11 @@ const RATE_LIMITS = {
 
 export async function onRequest(context: CloudflareContext): Promise<Response> {
   const { request, next, env } = context
-  
+
   try {
     const url = new URL(request.url)
     const pathname = url.pathname
-    
+
     // Security checks first
     const suspiciousActivity = SecurityUtils.detectSuspiciousActivity(request)
     if (suspiciousActivity.length > 0) {
@@ -33,30 +33,30 @@ export async function onRequest(context: CloudflareContext): Promise<Response> {
         issues: suspiciousActivity,
         pathname
       }, request)
-      
+
       // Block requests with multiple security issues
       if (suspiciousActivity.length >= 2) {
         return ResponseUtils.unauthorized('Request blocked for security reasons')
       }
     }
-    
+
     // Apply rate limiting
     const rateLimitConfig = RATE_LIMITS[pathname as keyof typeof RATE_LIMITS] || RATE_LIMITS.default
     const rateLimitResult = await SecurityUtils.checkRateLimit(request, env, rateLimitConfig)
-    
+
     if (!rateLimitResult.allowed) {
       SecurityUtils.logSecurityEvent('rate_limit_exceeded', {
         pathname,
         resetTime: rateLimitResult.resetTime
       }, request)
-      
+
       const response = ResponseUtils.error('Too many requests', 429, {
         'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
         'X-RateLimit-Limit': String(rateLimitConfig.maxRequests),
         'X-RateLimit-Remaining': '0',
         'X-RateLimit-Reset': String(rateLimitResult.resetTime)
       })
-      
+
       return SecurityUtils.addSecurityHeaders(response)
     }
 
@@ -70,12 +70,12 @@ export async function onRequest(context: CloudflareContext): Promise<Response> {
     // Skip authentication for public routes
     if (PUBLIC_ROUTES.includes(pathname)) {
       const response = await next()
-      
+
       // Add rate limit headers
       Object.entries(rateLimitHeaders).forEach(([key, value]) => {
         response.headers.set(key, value)
       })
-      
+
       return SecurityUtils.addSecurityHeaders(response)
     }
 
@@ -112,18 +112,19 @@ export async function onRequest(context: CloudflareContext): Promise<Response> {
     context.data = {
       user: {
         userId: user.userId,
-        username: user.username
+        username: user.username,
+        settings: user.settings,
       }
     }
 
     // Call next middleware/handler
     const response = await next()
-    
+
     // Add security and rate limit headers
     Object.entries(rateLimitHeaders).forEach(([key, value]) => {
       response.headers.set(key, value)
     })
-    
+
     return SecurityUtils.addSecurityHeaders(response)
 
   } catch (error) {
@@ -131,7 +132,7 @@ export async function onRequest(context: CloudflareContext): Promise<Response> {
     SecurityUtils.logSecurityEvent('middleware_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
     }, request)
-    
+
     const response = ResponseUtils.internalError('Authentication failed')
     return SecurityUtils.addSecurityHeaders(response)
   }

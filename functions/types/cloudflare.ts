@@ -1,3 +1,5 @@
+import { UserSettings } from "../../shared/types/userSettings"
+
 export interface CloudflareEnv {
   MONEY_USER_AUTH: KVNamespace
   JWT_ACCESS_SECRET: string
@@ -13,7 +15,8 @@ export interface CloudflareContext {
   data?: {
     user: {
       userId: string
-      username: string
+      username: string,
+      settings: UserSettings
     }
   }
 }

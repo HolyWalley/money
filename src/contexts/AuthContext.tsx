@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { type UserSettings } from '../../shared/types/userSettings.ts'
 
 export interface User {
   userId: string
   username: string
   createdAt: string
-  updatedAt?: string
+  updatedAt?: string,
+  settings?: UserSettings
 }
 
 export interface AuthContextType {
@@ -110,9 +112,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         navigate('/dashboard')
         return { success: true }
       } else {
-        return { 
-          success: false, 
-          error: data.errors?.join(', ') || data.error || 'Sign up failed' 
+        return {
+          success: false,
+          error: data.errors?.join(', ') || data.error || 'Sign up failed'
         }
       }
     } catch (error) {
@@ -160,7 +162,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Refresh token every 10 minutes if authenticated
     let refreshInterval: NodeJS.Timeout | null = null
-    
+
     if (isAuthenticated) {
       refreshInterval = setInterval(attemptTokenRefresh, 10 * 60 * 1000)
     }
