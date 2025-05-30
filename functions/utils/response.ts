@@ -19,7 +19,7 @@ export class ResponseUtils {
       success: true,
       data
     }
-    
+
     return new Response(JSON.stringify(response), {
       status,
       headers: {
@@ -34,7 +34,7 @@ export class ResponseUtils {
       error,
       ...(errors && { errors })
     }
-    
+
     return new Response(JSON.stringify(response), {
       status,
       headers: {
@@ -73,12 +73,12 @@ export class ResponseUtils {
 
   static setCookies(response: Response, cookies: Array<{ name: string; value: string; options: CookieOptions }>): Response {
     const newHeaders = new Headers(response.headers)
-    
+
     cookies.forEach(({ name, value, options }) => {
       const cookieString = this.formatCookie(name, value, options)
       newHeaders.append('Set-Cookie', cookieString)
     })
-    
+
     return new Response(response.body, {
       status: response.status,
       headers: newHeaders
@@ -87,7 +87,7 @@ export class ResponseUtils {
 
   static clearCookies(response: Response, cookieNames: string[]): Response {
     const newHeaders = new Headers(response.headers)
-    
+
     cookieNames.forEach(name => {
       const cookieString = this.formatCookie(name, '', {
         httpOnly: true,
@@ -98,7 +98,7 @@ export class ResponseUtils {
       })
       newHeaders.append('Set-Cookie', cookieString)
     })
-    
+
     return new Response(response.body, {
       status: response.status,
       headers: newHeaders
@@ -107,46 +107,46 @@ export class ResponseUtils {
 
   private static formatCookie(name: string, value: string, options: CookieOptions): string {
     let cookie = `${name}=${value}`
-    
+
     if (options.maxAge !== undefined) {
       cookie += `; Max-Age=${options.maxAge}`
     }
-    
+
     if (options.path) {
       cookie += `; Path=${options.path}`
     }
-    
+
     if (options.secure) {
       cookie += '; Secure'
     }
-    
+
     if (options.httpOnly) {
       cookie += '; HttpOnly'
     }
-    
+
     if (options.sameSite) {
       cookie += `; SameSite=${options.sameSite}`
     }
-    
+
     return cookie
   }
 
   static parseCookies(request: Request): Record<string, string> {
     const cookieHeader = request.headers.get('Cookie')
-    
+
     if (!cookieHeader) {
       return {}
     }
-    
+
     const cookies: Record<string, string> = {}
-    
+
     cookieHeader.split(';').forEach(cookie => {
       const [name, value] = cookie.trim().split('=')
       if (name && value) {
         cookies[name] = decodeURIComponent(value)
       }
     })
-    
+
     return cookies
   }
 }

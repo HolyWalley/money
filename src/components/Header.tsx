@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -9,16 +10,18 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { LogOut, Settings, User } from 'lucide-react'
+import { SettingsDialog } from '@/components/settings/SettingsDialog'
 
 export function Header() {
   const { user, signout } = useAuth()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signout()
   }
 
   const handleSettings = () => {
-    console.log('Settings clicked')
+    setSettingsOpen(true)
   }
 
   return (
@@ -56,6 +59,8 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   )
 }
