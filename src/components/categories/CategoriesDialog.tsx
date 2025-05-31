@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useDatabase } from '@/contexts/DatabaseContext'
-import type { Category } from '../../../shared/schemas/category.schema'
+import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
 
@@ -11,30 +9,12 @@ interface CategoriesDialogProps {
 }
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
-  const { categoryService, isInitializing } = useDatabase()
-  const [categories, setCategories] = useState<Category[]>([])
-
-  useEffect(() => {
-    async function loadCategories() {
-      if (categoryService && !isInitializing) {
-        try {
-          const cats = await categoryService.getAllCategories()
-          setCategories(cats)
-        } catch (error) {
-          console.error('Failed to load categories:', error)
-        }
-      }
-    }
-
-    if (open) {
-      loadCategories()
-    }
-  }, [open, categoryService, isInitializing])
+  const { categories, isLoading } = useLiveCategories()
 
   const incomeCategories = categories.filter(cat => cat.type === 'income')
   const expenseCategories = categories.filter(cat => cat.type === 'expense')
 
-  if (isInitializing) {
+  if (isLoading) {
     return null
   }
 

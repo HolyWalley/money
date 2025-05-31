@@ -71,4 +71,27 @@ export class CategoryService {
       throw error
     }
   }
+
+  async updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+    try {
+      const existingCategory = await this.db.categories.get(id)
+      if (!existingCategory) {
+        throw new Error('Category not found')
+      }
+      
+      const updatedCategory: Category = {
+        ...existingCategory,
+        ...updates,
+        _id: existingCategory._id,
+        userId: existingCategory.userId,
+        updatedAt: new Date().toISOString()
+      }
+      
+      await this.db.categories.put(updatedCategory)
+      return updatedCategory
+    } catch (error) {
+      console.error('Error updating category:', error)
+      throw error
+    }
+  }
 }
