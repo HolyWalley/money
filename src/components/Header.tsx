@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -9,11 +10,13 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LogOut, User, DollarSign } from 'lucide-react'
+import { LogOut, User, DollarSign, FolderOpen } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
+import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 
 export function Header() {
   const { user, signout, setUser } = useAuth()
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signout()
@@ -103,6 +106,11 @@ export function Header() {
                   </Select>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCategoriesOpen(true)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  <span>Categories</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign Out</span>
@@ -112,6 +120,8 @@ export function Header() {
           </div>
         </div>
       </div>
+      
+      <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
     </header>
   )
 }
