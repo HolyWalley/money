@@ -18,6 +18,7 @@ export interface AuthContextType {
   signup: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   signout: () => Promise<void>
   refreshAuth: () => Promise<void>
+  setUser: (user: User | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -186,7 +187,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signin,
     signup,
     signout,
-    refreshAuth
+    refreshAuth,
+    setUser
   }
 
   return (

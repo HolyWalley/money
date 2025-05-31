@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -9,19 +8,59 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings, User } from 'lucide-react'
-import { SettingsDialog } from '@/components/settings/SettingsDialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { LogOut, User, DollarSign } from 'lucide-react'
+import { currencies, type Currency } from '../../shared/types/userSettings'
 
 export function Header() {
-  const { user, signout } = useAuth()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { user, signout, setUser } = useAuth()
 
   const handleSignOut = async () => {
     await signout()
   }
 
-  const handleSettings = () => {
-    setSettingsOpen(true)
+  const handleCurrencyChange = async (newCurrency: Currency) => {
+    if (!user) return
+    
+    const previousUser = user
+    
+    // Optimistic update
+    setUser({
+      ...user,
+      settings: {
+        ...user.settings,
+        defaultCurrency: newCurrency
+      }
+    })
+    
+    try {
+      const response = await fetch('/api/v1/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          settings: { 
+            defaultCurrency: newCurrency 
+          } 
+        }),
+      })
+
+      if (!response.ok) {
+        // Revert on failure
+        setUser(previousUser)
+      } else {
+        // Update with server data
+        const data = await response.json()
+        if (data.success && data.data?.user) {
+          setUser(data.data.user)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update currency:', error)
+      // Revert on error
+      setUser(previousUser)
+    }
   }
 
   return (
@@ -44,11 +83,25 @@ export function Header() {
                   <span>{user?.username}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleSettings}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="flex items-center gap-2 px-2 py-1.5">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <Select 
+                    value={user?.settings?.defaultCurrency as Currency || 'USD'} 
+                    onValueChange={handleCurrencyChange}
+                  >
+                    <SelectTrigger className="flex-1 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((currency) => (
+                        <SelectItem key={currency} value={currency}>
+                          {currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -59,8 +112,6 @@ export function Header() {
           </div>
         </div>
       </div>
-
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   )
 }
