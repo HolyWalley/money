@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useDatabase } from '@/contexts/DatabaseContext'
 import type { Category } from '../../../shared/schemas/category.schema'
 import * as Icons from 'lucide-react'
+import { ScrollArea } from '../ui/scroll-area'
 
 interface CategoriesDialogProps {
   open: boolean
@@ -72,24 +73,22 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     </div>
   )
 
+  if (loading || isInitializing) {
+    return null
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Categories</DialogTitle>
         </DialogHeader>
-        <div className="mt-4 space-y-6 max-h-[60vh] overflow-y-auto">
-          {loading || isInitializing ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-muted-foreground">Loading categories...</div>
-            </div>
-          ) : (
-            <>
-              {renderCategoryList(incomeCategories, 'Income')}
-              {renderCategoryList(expenseCategories, 'Expenses')}
-            </>
-          )}
-        </div>
+        <ScrollArea className="mt-4 h-[60vh]">
+          <div className="pr-4 space-y-6">
+            {renderCategoryList(incomeCategories, 'Income')}
+            {renderCategoryList(expenseCategories, 'Expenses')}
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )
