@@ -105,7 +105,8 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
         userId: user.userId,
         username: user.username,
         createdAt: user.createdAt,
-        lastLoginAt: new Date().toISOString()
+        lastLoginAt: new Date().toISOString(),
+        settings: user.settings
       }
     })
 
