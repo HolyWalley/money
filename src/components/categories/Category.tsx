@@ -33,7 +33,10 @@ export function Category({ category }: CategoryProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: category._id })
+  } = useSortable({
+    id: category._id,
+    animateLayoutChanges: () => false,
+  })
 
   // Keep editedName in sync with category.name when it changes
   useEffect(() => {
@@ -94,8 +97,8 @@ export function Category({ category }: CategoryProps) {
   }
 
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       style={style}
       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent transition-colors"
     >
