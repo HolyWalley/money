@@ -197,7 +197,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
               setIsEditingName(true)
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="font-medium text-left hover:underline hover:cursor-text"
+            className="font-medium text-left hover:underline hover:cursor-text select-none"
           >
             {category.name}
           </button>
