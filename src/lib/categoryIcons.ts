@@ -111,3 +111,13 @@ export const categoryColors = [
 ] as const
 
 export type CategoryColor = typeof categoryColors[number]
+
+export function getRandomIcon(): CategoryIconName {
+  const randomIndex = Math.floor(Math.random() * categoryIcons.length)
+  return categoryIcons[randomIndex].icon
+}
+
+export function getRandomColor(): CategoryColor {
+  const randomIndex = Math.floor(Math.random() * categoryColors.length)
+  return categoryColors[randomIndex]
+}

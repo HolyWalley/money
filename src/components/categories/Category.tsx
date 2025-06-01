@@ -17,11 +17,13 @@ import { CSS } from '@dnd-kit/utilities'
 
 interface CategoryProps {
   category: CategoryType
+  startInEditMode?: boolean
+  onEditComplete?: () => void
 }
 
-export function Category({ category }: CategoryProps) {
+export function Category({ category, startInEditMode = false, onEditComplete }: CategoryProps) {
   const { categoryService } = useDatabase()
-  const [isEditingName, setIsEditingName] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(startInEditMode)
   const [editedName, setEditedName] = useState(category.name)
   const [isIconPopoverOpen, setIsIconPopoverOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -43,13 +45,22 @@ export function Category({ category }: CategoryProps) {
     setEditedName(category.name)
   }, [category.name])
 
+  // Start in edit mode if requested
+  useEffect(() => {
+    if (startInEditMode) {
+      setIsEditingName(true)
+      setEditedName(category.name)
+    }
+  }, [startInEditMode, category.name])
+
   // Hide edit mode when we've saved and the category name matches what we saved
   useEffect(() => {
     if (isSaving && category.name === editedName.trim()) {
       setIsEditingName(false)
       setIsSaving(false)
+      onEditComplete?.()
     }
-  }, [category.name, editedName, isSaving])
+  }, [category.name, editedName, isSaving, onEditComplete])
 
   const handleNameSave = async () => {
     if (editedName.trim() && editedName !== category.name && categoryService) {
@@ -66,6 +77,7 @@ export function Category({ category }: CategoryProps) {
     } else {
       setEditedName(category.name)
       setIsEditingName(false)
+      onEditComplete?.()
     }
   }
 
@@ -94,13 +106,14 @@ export function Category({ category }: CategoryProps) {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent transition-colors"
+      className="flex items-center justify-between p-3 rounded-lg border bg-card transition-colors"
     >
       <div className="flex items-center gap-3 flex-1">
         <Popover modal open={isIconPopoverOpen} onOpenChange={setIsIconPopoverOpen}>
@@ -134,6 +147,7 @@ export function Category({ category }: CategoryProps) {
               value={editedName}
               onChange={(e) => setEditedName(e.target.value)}
               onBlur={handleNameSave}
+              onFocus={(e) => e.target.select()}
               className="h-8"
               autoFocus
             />
@@ -148,6 +162,7 @@ export function Category({ category }: CategoryProps) {
               onClick={() => {
                 setEditedName(category.name)
                 setIsEditingName(false)
+                onEditComplete?.()
               }}
             >
               <Icons.X className="w-4 h-4" />
@@ -159,20 +174,20 @@ export function Category({ category }: CategoryProps) {
               setEditedName(category.name)
               setIsEditingName(true)
             }}
-            className="font-medium text-left hover:underline"
+            className="font-medium text-left hover:underline hover:cursor-text"
           >
             {category.name}
           </button>
         )}
       </div>
-      <button
+      {!isEditingName && <button
         className="cursor-grab active:cursor-grabbing p-2 hover:bg-accent rounded-md transition-colors touch-none"
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
       >
         <Icons.GripVertical className="w-4 h-4 text-muted-foreground" />
-      </button>
+      </button>}
     </div>
   )
 }

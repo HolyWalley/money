@@ -3,9 +3,11 @@ import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
 import { useDatabase } from '@/contexts/DatabaseContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useState, useEffect, useMemo } from 'react'
 import type { Category } from '../../../shared/schemas/category.schema'
+import { getRandomIcon, getRandomColor } from '@/lib/categoryIcons'
 
 interface CategoriesDialogProps {
   open: boolean
@@ -15,8 +17,10 @@ interface CategoriesDialogProps {
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
   const { categories: dbCategories, isLoading } = useLiveCategories()
   const { categoryService } = useDatabase()
+  const { user } = useAuth()
   const [localCategories, setLocalCategories] = useState<Category[]>([])
   const [isPendingUpdate, setIsPendingUpdate] = useState(false)
+  const [newCategoryId, setNewCategoryId] = useState<string | null>(null)
 
   // Initialize local state when database categories change
   useEffect(() => {
@@ -34,6 +38,31 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     localCategories.filter(cat => cat.type === 'expense').sort((a, b) => a.order - b.order),
     [localCategories]
   )
+
+  const handleAddCategory = async (type: 'income' | 'expense') => {
+    if (!categoryService || !user?.userId) return
+
+    const categoriesOfType = localCategories.filter(cat => cat.type === type)
+    const maxOrder = categoriesOfType.length
+
+    try {
+      const newCategory = await categoryService.createCategory({
+        name: 'New Category',
+        type,
+        icon: getRandomIcon(),
+        color: getRandomColor(),
+        order: maxOrder,
+        isDefault: false,
+        userId: user.userId
+      })
+
+      if (newCategory) {
+        setNewCategoryId(newCategory._id)
+      }
+    } catch (error) {
+      console.error('Failed to create category:', error)
+    }
+  }
 
   const handleReorder = async (activeId: string, overId: string, type: 'income' | 'expense') => {
     if (!categoryService) return
@@ -88,16 +117,22 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
           <DialogTitle>Categories</DialogTitle>
         </DialogHeader>
         <ScrollArea className="mt-4 h-[60vh]">
-          <div className="pr-4 space-y-6">
+          <div className="pr-4 pl-1 -ml-1 space-y-6">
             <CategoryList
               categories={incomeCategories}
               title="Income"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
+              onAddCategory={() => handleAddCategory('income')}
+              newCategoryId={newCategoryId}
+              onClearNewCategoryId={() => setNewCategoryId(null)}
             />
             <CategoryList
               categories={expenseCategories}
               title="Expenses"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'expense')}
+              onAddCategory={() => handleAddCategory('expense')}
+              newCategoryId={newCategoryId}
+              onClearNewCategoryId={() => setNewCategoryId(null)}
             />
           </div>
         </ScrollArea>

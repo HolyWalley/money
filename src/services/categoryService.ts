@@ -72,6 +72,30 @@ export class CategoryService {
     }
   }
 
+  async createCategory(categoryData: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>): Promise<Category> {
+    try {
+      const userId = categoryData.userId
+      if (!userId) {
+        throw new Error('userId is required')
+      }
+      
+      const timestamp = new Date().toISOString()
+      const newCategory: Category = {
+        ...categoryData,
+        _id: `category_${categoryData.type}_${categoryData.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`,
+        userId,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }
+      
+      await this.db.categories.put(newCategory)
+      return newCategory
+    } catch (error) {
+      console.error('Error creating category:', error)
+      throw error
+    }
+  }
+
   async updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
     try {
       const existingCategory = await this.db.categories.get(id)

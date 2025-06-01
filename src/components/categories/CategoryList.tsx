@@ -15,14 +15,18 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
+import { Plus } from 'lucide-react'
 
 interface CategoryListProps {
   categories: CategoryType[]
   title: string
   onReorder?: (activeId: string, overId: string) => void
+  onAddCategory?: () => void
+  newCategoryId?: string | null
+  onClearNewCategoryId?: () => void
 }
 
-export function CategoryList({ categories, title, onReorder }: CategoryListProps) {
+export function CategoryList({ categories, title, onReorder, onAddCategory, newCategoryId, onClearNewCategoryId }: CategoryListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -59,8 +63,22 @@ export function CategoryList({ categories, title, onReorder }: CategoryListProps
         >
           <div className="grid gap-2">
             {categories.map(category => (
-              <Category key={category._id} category={category} />
+              <Category
+                key={category._id}
+                category={category}
+                startInEditMode={category._id === newCategoryId}
+                onEditComplete={category._id === newCategoryId ? onClearNewCategoryId : undefined}
+              />
             ))}
+            {onAddCategory && (
+              <button
+                onClick={onAddCategory}
+                className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-accent/50 transition-all text-muted-foreground hover:text-foreground hover:cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">Add Category</span>
+              </button>
+            )}
           </div>
         </SortableContext>
       </DndContext>
