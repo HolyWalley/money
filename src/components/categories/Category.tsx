@@ -12,6 +12,8 @@ import { IconColorSelector } from './IconColorSelector'
 import { CategoryIcon } from './CategoryIcon'
 import { useDatabase } from '@/contexts/DatabaseContext'
 import type { CategoryColor } from '@/lib/categoryIcons'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface CategoryProps {
   category: CategoryType
@@ -23,6 +25,15 @@ export function Category({ category }: CategoryProps) {
   const [editedName, setEditedName] = useState(category.name)
   const [isIconPopoverOpen, setIsIconPopoverOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category._id })
 
   // Keep editedName in sync with category.name when it changes
   useEffect(() => {
@@ -76,8 +87,18 @@ export function Category({ category }: CategoryProps) {
     }
   }
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent transition-colors">
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent transition-colors"
+    >
       <div className="flex items-center gap-3 flex-1">
         <Popover modal open={isIconPopoverOpen} onOpenChange={setIsIconPopoverOpen}>
           <PopoverTrigger asChild>
@@ -141,6 +162,14 @@ export function Category({ category }: CategoryProps) {
           </button>
         )}
       </div>
+      <button
+        className="cursor-grab active:cursor-grabbing p-2 hover:bg-accent rounded-md transition-colors touch-none"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+      >
+        <Icons.GripVertical className="w-4 h-4 text-muted-foreground" />
+      </button>
     </div>
   )
 }
