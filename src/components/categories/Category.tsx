@@ -89,7 +89,7 @@ export function Category({ category }: CategoryProps) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
   }
 

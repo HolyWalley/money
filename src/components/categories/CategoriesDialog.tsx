@@ -4,6 +4,8 @@ import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
 import { useDatabase } from '@/contexts/DatabaseContext'
 import { arrayMove } from '@dnd-kit/sortable'
+import { useState, useEffect, useMemo } from 'react'
+import type { Category } from '../../../shared/schemas/category.schema'
 
 interface CategoriesDialogProps {
   open: boolean
@@ -11,11 +13,27 @@ interface CategoriesDialogProps {
 }
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
-  const { categories, isLoading } = useLiveCategories()
+  const { categories: dbCategories, isLoading } = useLiveCategories()
   const { categoryService } = useDatabase()
+  const [localCategories, setLocalCategories] = useState<Category[]>([])
+  const [isPendingUpdate, setIsPendingUpdate] = useState(false)
 
-  const incomeCategories = categories.filter(cat => cat.type === 'income')
-  const expenseCategories = categories.filter(cat => cat.type === 'expense')
+  // Initialize local state when database categories change
+  useEffect(() => {
+    if (!isPendingUpdate) {
+      setLocalCategories(dbCategories)
+    }
+  }, [dbCategories, isPendingUpdate])
+
+  // Use local categories for display
+  const incomeCategories = useMemo(() =>
+    localCategories.filter(cat => cat.type === 'income').sort((a, b) => a.order - b.order),
+    [localCategories]
+  )
+  const expenseCategories = useMemo(() =>
+    localCategories.filter(cat => cat.type === 'expense').sort((a, b) => a.order - b.order),
+    [localCategories]
+  )
 
   const handleReorder = async (activeId: string, overId: string, type: 'income' | 'expense') => {
     if (!categoryService) return
@@ -25,17 +43,36 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     const newIndex = categoriesList.findIndex(cat => cat._id === overId)
 
     if (oldIndex !== -1 && newIndex !== -1) {
+      // Optimistically update local state immediately
+      setIsPendingUpdate(true)
+
       const reorderedCategories = arrayMove(categoriesList, oldIndex, newIndex)
-      
-      // Update order for all affected categories
-      const updatePromises = reorderedCategories.map((cat, index) => 
-        categoryService.updateCategory(cat._id, { order: index })
+
+      // Update the order property for reordered categories
+      const updatedCategories = reorderedCategories.map((cat, index) => ({
+        ...cat,
+        order: index
+      }))
+
+      // Update local state immediately for instant visual feedback
+      setLocalCategories(prevCategories => {
+        const otherTypeCategories = prevCategories.filter(cat => cat.type !== type)
+        return [...otherTypeCategories, ...updatedCategories]
+      })
+
+      // Update database in the background
+      const updatePromises = updatedCategories.map((cat) =>
+        categoryService.updateCategory(cat._id, { order: cat.order })
       )
-      
+
       try {
         await Promise.all(updatePromises)
+        // Allow database updates to sync after successful save
+        setTimeout(() => setIsPendingUpdate(false), 100)
       } catch (error) {
         console.error('Failed to update category order:', error)
+        // On error, revert to database state
+        setIsPendingUpdate(false)
       }
     }
   }
@@ -52,14 +89,14 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
         </DialogHeader>
         <ScrollArea className="mt-4 h-[60vh]">
           <div className="pr-4 space-y-6">
-            <CategoryList 
-              categories={incomeCategories} 
-              title="Income" 
+            <CategoryList
+              categories={incomeCategories}
+              title="Income"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
             />
-            <CategoryList 
-              categories={expenseCategories} 
-              title="Expenses" 
+            <CategoryList
+              categories={expenseCategories}
+              title="Expenses"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'expense')}
             />
           </div>
