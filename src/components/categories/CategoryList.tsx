@@ -22,11 +22,12 @@ interface CategoryListProps {
   title: string
   onReorder?: (activeId: string, overId: string) => void
   onAddCategory?: () => void
+  onDeleteCategory?: (categoryId: string) => void
   newCategoryId?: string | null
   onClearNewCategoryId?: () => void
 }
 
-export function CategoryList({ categories, title, onReorder, onAddCategory, newCategoryId, onClearNewCategoryId }: CategoryListProps) {
+export function CategoryList({ categories, title, onReorder, onAddCategory, onDeleteCategory, newCategoryId, onClearNewCategoryId }: CategoryListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -68,6 +69,7 @@ export function CategoryList({ categories, title, onReorder, onAddCategory, newC
                 category={category}
                 startInEditMode={category._id === newCategoryId}
                 onEditComplete={category._id === newCategoryId ? onClearNewCategoryId : undefined}
+                onDelete={onDeleteCategory}
               />
             ))}
             {onAddCategory && (

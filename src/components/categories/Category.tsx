@@ -8,6 +8,22 @@ import {
 } from "@/components/ui/popover"
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { IconColorSelector } from './IconColorSelector'
 import { CategoryIcon } from './CategoryIcon'
 import { useDatabase } from '@/contexts/DatabaseContext'
@@ -19,14 +35,16 @@ interface CategoryProps {
   category: CategoryType
   startInEditMode?: boolean
   onEditComplete?: () => void
+  onDelete?: (categoryId: string) => void
 }
 
-export function Category({ category, startInEditMode = false, onEditComplete }: CategoryProps) {
+export function Category({ category, startInEditMode = false, onEditComplete, onDelete }: CategoryProps) {
   const { categoryService } = useDatabase()
   const [isEditingName, setIsEditingName] = useState(startInEditMode)
   const [editedName, setEditedName] = useState(category.name)
   const [isIconPopoverOpen, setIsIconPopoverOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const {
     attributes,
@@ -107,6 +125,7 @@ export function Category({ category, startInEditMode = false, onEditComplete }: 
     transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : 'auto',
+    cursor: isEditingName ? 'default' : isDragging ? 'grabbing' : 'grab',
   }
 
   return (
@@ -114,6 +133,8 @@ export function Category({ category, startInEditMode = false, onEditComplete }: 
       ref={setNodeRef}
       style={style}
       className="flex items-center justify-between p-3 rounded-lg border bg-card transition-colors"
+      {...(!isEditingName ? attributes : {})}
+      {...(!isEditingName ? listeners : {})}
     >
       <div className="flex items-center gap-3 flex-1">
         <Popover modal open={isIconPopoverOpen} onOpenChange={setIsIconPopoverOpen}>
@@ -121,6 +142,7 @@ export function Category({ category, startInEditMode = false, onEditComplete }: 
             <button
               className="cursor-pointer transition-all hover:scale-110"
               aria-label="Change icon and color"
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <CategoryIcon icon={category.icon} color={category.color} />
             </button>
@@ -174,20 +196,58 @@ export function Category({ category, startInEditMode = false, onEditComplete }: 
               setEditedName(category.name)
               setIsEditingName(true)
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="font-medium text-left hover:underline hover:cursor-text"
           >
             {category.name}
           </button>
         )}
       </div>
-      {!isEditingName && <button
-        className="cursor-grab active:cursor-grabbing p-2 hover:bg-accent rounded-md transition-colors touch-none"
-        {...attributes}
-        {...listeners}
-        aria-label="Drag to reorder"
-      >
-        <Icons.GripVertical className="w-4 h-4 text-muted-foreground" />
-      </button>}
+      {!isEditingName && onDelete && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="p-2 hover:bg-accent rounded-md transition-colors"
+              aria-label="Category options"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <Icons.MoreVertical className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Icons.Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{category.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                onDelete?.(category._id)
+                setShowDeleteConfirm(false)
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

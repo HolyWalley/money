@@ -39,6 +39,16 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     [localCategories]
   )
 
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!categoryService) return
+
+    try {
+      await categoryService.deleteCategory(categoryId)
+    } catch (error) {
+      console.error('Failed to delete category:', error)
+    }
+  }
+
   const handleAddCategory = async (type: 'income' | 'expense') => {
     if (!categoryService || !user?.userId) return
 
@@ -113,16 +123,17 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+        <DialogHeader className="pl-2">
           <DialogTitle>Categories</DialogTitle>
         </DialogHeader>
         <ScrollArea className="mt-4 h-[60vh]">
-          <div className="pr-4 pl-1 -ml-1 space-y-6">
+          <div className="pr-4 pl-2 space-y-6">
             <CategoryList
               categories={incomeCategories}
               title="Income"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
               onAddCategory={() => handleAddCategory('income')}
+              onDeleteCategory={handleDeleteCategory}
               newCategoryId={newCategoryId}
               onClearNewCategoryId={() => setNewCategoryId(null)}
             />
@@ -131,6 +142,7 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
               title="Expenses"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'expense')}
               onAddCategory={() => handleAddCategory('expense')}
+              onDeleteCategory={handleDeleteCategory}
               newCategoryId={newCategoryId}
               onClearNewCategoryId={() => setNewCategoryId(null)}
             />

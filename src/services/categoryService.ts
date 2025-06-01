@@ -11,10 +11,10 @@ export class CategoryService {
   async initializeDefaultCategories(userId: string): Promise<void> {
     try {
       const existingCategories = await this.getAllCategories()
-      
+
       if (existingCategories.length === 0) {
         const defaultCategories = createDefaultCategories(userId)
-        
+
         for (const category of defaultCategories) {
           const categoryWithId = {
             ...category,
@@ -34,15 +34,15 @@ export class CategoryService {
       const result = await this.db.categories.allDocs({
         include_docs: true
       })
-      
+
       const categories: Category[] = []
-      
+
       for (const row of result.rows) {
         if (row.doc && !row.id.startsWith('_design/')) {
           categories.push(row.doc)
         }
       }
-      
+
       return categories.sort((a, b) => {
         if (a.type !== b.type) {
           return a.type === 'income' ? -1 : 1
@@ -78,7 +78,7 @@ export class CategoryService {
       if (!userId) {
         throw new Error('userId is required')
       }
-      
+
       const timestamp = new Date().toISOString()
       const newCategory: Category = {
         ...categoryData,
@@ -87,7 +87,7 @@ export class CategoryService {
         createdAt: timestamp,
         updatedAt: timestamp
       }
-      
+
       await this.db.categories.put(newCategory)
       return newCategory
     } catch (error) {
@@ -102,7 +102,7 @@ export class CategoryService {
       if (!existingCategory) {
         throw new Error('Category not found')
       }
-      
+
       const updatedCategory: Category = {
         ...existingCategory,
         ...updates,
@@ -110,11 +110,25 @@ export class CategoryService {
         userId: existingCategory.userId,
         updatedAt: new Date().toISOString()
       }
-      
+
       await this.db.categories.put(updatedCategory)
       return updatedCategory
     } catch (error) {
       console.error('Error updating category:', error)
+      throw error
+    }
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    try {
+      const category = await this.db.categories.get(id)
+      if (!category) {
+        throw new Error('Category not found')
+      }
+
+      await this.db.categories.remove(category)
+    } catch (error) {
+      console.error('Error deleting category:', error)
       throw error
     }
   }
