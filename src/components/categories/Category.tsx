@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import * as Icons from 'lucide-react'
+import { Check, X, MoreVertical, Trash2 } from 'lucide-react'
 import type { Category as CategoryType } from '../../../shared/schemas/category.schema'
 import {
   Popover,
@@ -174,7 +174,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
               autoFocus
             />
             <Button type="submit" size="sm" variant="ghost">
-              <Icons.Check className="w-4 h-4" />
+              <Check className="w-4 h-4" />
             </Button>
             <Button
               type="button"
@@ -187,7 +187,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
                 onEditComplete?.()
               }}
             >
-              <Icons.X className="w-4 h-4" />
+              <X className="w-4 h-4" />
             </Button>
           </form>
         ) : (
@@ -211,7 +211,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
               aria-label="Category options"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <Icons.MoreVertical className="w-4 h-4 text-muted-foreground" />
+              <MoreVertical className="w-4 h-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -219,7 +219,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
               className="text-destructive focus:text-destructive"
               onClick={() => setShowDeleteConfirm(true)}
             >
-              <Icons.Trash2 className="w-4 h-4 mr-2" />
+              <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

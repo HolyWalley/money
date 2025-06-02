@@ -1,5 +1,5 @@
-import * as Icons from 'lucide-react'
 import type { CategoryColor } from '@/lib/categoryIcons'
+import { categoryIconsMap } from '@/lib/categoryIconsMap'
 import { cn } from '@/lib/utils'
 
 interface CategoryIconProps {
@@ -33,7 +33,7 @@ const iconSizeClasses = {
 }
 
 export function CategoryIcon({ icon, color, size = 'md', className }: CategoryIconProps) {
-  const Icon = Icons[icon as keyof typeof Icons] as React.FC<{ className?: string }>
+  const Icon = categoryIconsMap[icon]
   
   if (!Icon) return null
   
