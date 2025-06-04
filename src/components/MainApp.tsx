@@ -1,12 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Header } from '@/components/Header'
 
 export function MainApp() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header />
-
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
           <div>
@@ -67,6 +63,5 @@ export function MainApp() {
           </Card>
         </div>
       </main>
-    </div>
   )
 }

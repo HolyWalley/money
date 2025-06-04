@@ -22,6 +22,7 @@ export const createWalletSchema = walletSchema.pick({
 export const updateWalletSchema = walletSchema.pick({
   name: true,
   currency: true,
+  initialBalance: true,
 }).partial();
 
 export type Wallet = z.infer<typeof walletSchema>;

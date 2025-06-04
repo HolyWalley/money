@@ -4,6 +4,17 @@ import { DatabaseProvider } from '@/contexts/DatabaseContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { MainApp } from '@/components/MainApp'
+import { WalletsPage } from '@/components/wallets/WalletsPage'
+import { Header } from '@/components/Header'
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Header />
+      {children}
+    </div>
+  )
+}
 
 export function AppRoutes() {
   return (
@@ -12,14 +23,19 @@ export function AppRoutes() {
         <Routes>
           <Route path="/auth" element={<AuthLayout />} />
           <Route
-            path="/dashboard"
+            path="/*"
             element={
               <ProtectedRoute>
-                <MainApp />
+                <AppLayout>
+                  <Routes>
+                    <Route path="/dashboard" element={<MainApp />} />
+                    <Route path="/wallets" element={<WalletsPage />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
+                </AppLayout>
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </DatabaseProvider>
     </AuthProvider>

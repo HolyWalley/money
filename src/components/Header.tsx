@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -10,12 +11,13 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LogOut, User, DollarSign, FolderOpen } from 'lucide-react'
+import { LogOut, User, DollarSign, FolderOpen, Wallet } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 
 export function Header() {
   const { user, signout, setUser } = useAuth()
+  const navigate = useNavigate()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
 
   const handleSignOut = async () => {
@@ -71,9 +73,9 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-xl font-semibold">
+            <Link to="/dashboard" className="text-xl font-semibold hover:text-foreground/80 transition-colors">
               Money
-            </h1>
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -106,6 +108,10 @@ export function Header() {
                   </Select>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/wallets')}>
+                  <Wallet className="mr-2 h-4 w-4" />
+                  <span>Wallets</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCategoriesOpen(true)}>
                   <FolderOpen className="mr-2 h-4 w-4" />
                   <span>Categories</span>

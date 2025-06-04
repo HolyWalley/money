@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { createDatabase, type Database } from '../lib/db'
 import { CategoryService } from '../services/categoryService'
+import { WalletService } from '../services/walletService'
 import { useAuth } from './AuthContext'
 
 interface DatabaseContextType {
   db: Database | null
   categoryService: CategoryService | null
+  walletService: WalletService | null
   isInitializing: boolean
 }
 
@@ -15,6 +17,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [db, setDb] = useState<Database | null>(null)
   const [categoryService, setCategoryService] = useState<CategoryService | null>(null)
+  const [walletService, setWalletService] = useState<WalletService | null>(null)
   const [isInitializing, setIsInitializing] = useState(false)
 
   useEffect(() => {
@@ -28,6 +31,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         try {
           database = createDatabase(user.userId)
           const catService = new CategoryService(database)
+          const walService = new WalletService(database)
 
           if (!isCleaningUp) {
             await catService.initializeDefaultCategories(user.userId)
@@ -36,6 +40,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           if (!isCleaningUp) {
             setDb(database)
             setCategoryService(catService)
+            setWalletService(walService)
           }
         } catch (error) {
           if (!isCleaningUp) {
@@ -54,17 +59,19 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     } else {
       setDb(null)
       setCategoryService(null)
+      setWalletService(null)
     }
 
     return () => {
       isCleaningUp = true
       setDb(null)
       setCategoryService(null)
+      setWalletService(null)
     }
   }, [user])
 
   return (
-    <DatabaseContext.Provider value={{ db, categoryService, isInitializing }}>
+    <DatabaseContext.Provider value={{ db, categoryService, walletService, isInitializing }}>
       {children}
     </DatabaseContext.Provider>
   )
