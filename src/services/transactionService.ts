@@ -121,10 +121,10 @@ export class TransactionService {
       const validatedData = createTransactionSchema.parse(data)
 
       const timestamp = Date.now().toString()
-      const sanitizedDescription = validatedData.description.toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 30)
+      const sanitizedNote = (validatedData.note || 'transaction').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 30)
 
       const transaction: Transaction = {
-        _id: `transaction_${sanitizedDescription}_${timestamp}`,
+        _id: `transaction_${sanitizedNote}_${timestamp}`,
         type: 'transaction',
         userId,
         ...validatedData,

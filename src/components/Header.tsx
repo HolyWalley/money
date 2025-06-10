@@ -11,14 +11,16 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LogOut, User, DollarSign, FolderOpen, Wallet } from 'lucide-react'
+import { LogOut, User, DollarSign, FolderOpen, Wallet, Plus } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
+import { TransactionDrawer } from '@/components/transactions/TransactionDrawer'
 
 export function Header() {
   const { user, signout, setUser } = useAuth()
   const navigate = useNavigate()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [transactionDrawerOpen, setTransactionDrawerOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signout()
@@ -72,10 +74,19 @@ export function Header() {
     <header className="bg-card shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-xl font-semibold hover:text-foreground/80 transition-colors">
               Money
             </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTransactionDrawerOpen(true)}
+              className="flex items-center space-x-1"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Transaction</span>
+            </Button>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -128,6 +139,7 @@ export function Header() {
       </div>
       
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+      <TransactionDrawer open={transactionDrawerOpen} onOpenChange={setTransactionDrawerOpen} />
     </header>
   )
 }

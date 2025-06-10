@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { TransactionTable } from '@/components/transactions/TransactionTable'
 
 export function MainApp() {
   return (
@@ -13,15 +14,6 @@ export function MainApp() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">No transactions yet</p>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Monthly Budget</CardTitle>
@@ -39,7 +31,18 @@ export function MainApp() {
                 <p className="text-muted-foreground">Create savings goals</p>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">View spending insights</p>
+              </CardContent>
+            </Card>
           </div>
+
+          <TransactionTable />
 
           <Card>
             <CardHeader>

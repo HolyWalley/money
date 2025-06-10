@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { TransactionService } from '../../services/transactionService'
 import type { Database } from '../../lib/db'
 import type { Transaction, CreateTransaction } from '../../../shared/schemas/transaction.schema'
-import type PouchDB from 'pouchdb-browser'
 
 describe('TransactionService', () => {
   let transactionService: TransactionService
