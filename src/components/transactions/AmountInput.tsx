@@ -76,7 +76,6 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
             inputMode="decimal"
             pattern="[0-9]*"
             style={{ width: `${Math.max(1, displayValue.length || 1)}ch` }}
-            autoFocus
             min="0"
           />
 
