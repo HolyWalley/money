@@ -49,22 +49,22 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
           className="w-full gap-2 bg-transparent p-0"
           size="sm"
         >
-          <ToggleGroupItem 
-            value="expense" 
+          <ToggleGroupItem
+            value="expense"
             aria-label="Expense"
             className="flex-1 !rounded-full uppercase text-xs transition-colors data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted hover:text-foreground"
           >
             Expense
           </ToggleGroupItem>
-          <ToggleGroupItem 
-            value="income" 
+          <ToggleGroupItem
+            value="income"
             aria-label="Income"
             className="flex-1 !rounded-full uppercase text-xs transition-colors data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted hover:text-foreground"
           >
             Income
           </ToggleGroupItem>
-          <ToggleGroupItem 
-            value="transfer" 
+          <ToggleGroupItem
+            value="transfer"
             aria-label="Transfer"
             className="flex-1 !rounded-full uppercase text-xs transition-colors data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-muted hover:text-foreground"
           >
