@@ -1,0 +1,22 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "money",
+	"main": "worker/index.ts",
+	"compatibility_date": "2025-06-10",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "single-page-application"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"vars": {},
+	"kv_namespaces": [
+		{
+			"binding": "MONEY_USER_AUTH",
+			"id": "59a845744919453b8474efb06d802560",
+			"preview_id": "071add1338294fecb2dcd543a7be60d8"
+		}
+	]
+}

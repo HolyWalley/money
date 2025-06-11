@@ -1,17 +1,17 @@
 import { Router, IRequest } from 'itty-router'
-import { JWTUtils } from './functions/utils/jwt'
-import { StorageUtils } from './functions/utils/storage'
-import { ResponseUtils } from './functions/utils/response'
-import { SecurityUtils } from './functions/utils/security'
-import type { CloudflareEnv } from './functions/types/cloudflare'
-import type { UserSettings } from './shared/types/userSettings'
+import { JWTUtils } from '../functions/utils/jwt'
+import { StorageUtils } from '../functions/utils/storage'
+import { ResponseUtils } from '../functions/utils/response'
+import { SecurityUtils } from '../functions/utils/security'
+import type { CloudflareEnv } from '../functions/types/cloudflare'
+import type { UserSettings } from '../shared/types/userSettings'
 
 // Import route handlers
-import { handleSignin } from './functions/api/v1/signin'
-import { handleSignup } from './functions/api/v1/signup'
-import { handleSignout } from './functions/api/v1/signout'
-import { handleRefresh } from './functions/api/v1/refresh'
-import { handleMe } from './functions/api/v1/me'
+import { handleSignin } from '../functions/api/v1/signin'
+import { handleSignup } from '../functions/api/v1/signup'
+import { handleSignout } from '../functions/api/v1/signout'
+import { handleRefresh } from '../functions/api/v1/refresh'
+import { handleMe } from '../functions/api/v1/me'
 
 // Extend Request type to include our custom properties
 interface AuthenticatedRequest extends IRequest {
@@ -152,11 +152,11 @@ const withHeaders = (response: Response, request: AuthenticatedRequest) => {
   return SecurityUtils.addSecurityHeaders(response)
 }
 
-// Apply security middleware to all routes
-router.all('*', withSecurity)
+// Apply security middleware to all API routes
+router.all('/api/*', withSecurity)
 
-// Apply auth middleware to all routes (it will skip public routes internally)
-router.all('*', withAuth)
+// Apply auth middleware to all API routes (it will skip public routes internally)
+router.all('/api/*', withAuth)
 
 // Public routes
 router.post('/api/v1/signin', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
@@ -190,22 +190,29 @@ router.put('/api/v1/me', async (request: AuthenticatedRequest, env: CloudflareEn
   return withHeaders(response, request)
 })
 
-// 404 handler
-router.all('*', () => {
-  return ResponseUtils.error('Not found', 404)
+// 404 handler for API routes
+router.all('/api/*', () => {
+  return ResponseUtils.error('API endpoint not found', 404)
 })
 
 // Main fetch handler
 export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext): Promise<Response> {
-    try {
-      return await router.fetch(request, env, ctx)
-    } catch (error) {
-      console.error('Worker error:', error)
-      return SecurityUtils.addSecurityHeaders(
-        ResponseUtils.internalError('Internal server error')
-      )
+    const url = new URL(request.url)
+    
+    // Only handle API routes
+    if (url.pathname.startsWith('/api/')) {
+      try {
+        return await router.fetch(request, env, ctx)
+      } catch (error) {
+        console.error('Worker error:', error)
+        return SecurityUtils.addSecurityHeaders(
+          ResponseUtils.internalError('Internal server error')
+        )
+      }
     }
+
+    // For non-API routes, return 404 and let Cloudflare serve static assets
+    return new Response('Not found', { status: 404 })
   }
 }
-
