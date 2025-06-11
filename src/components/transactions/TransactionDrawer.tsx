@@ -30,7 +30,7 @@ export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps
     resolver: zodResolver(createTransactionSchema),
     defaultValues: {
       transactionType: 'expense',
-      amount: undefined as any,
+      amount: undefined as unknown as number,
       currency: (user?.settings?.defaultCurrency || 'USD') as 'USD' | 'EUR' | 'PLN',
       note: '',
       walletId: '',
@@ -55,7 +55,7 @@ export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps
       onOpenChange(false)
       form.reset({
         transactionType: 'expense',
-        amount: undefined as any,
+        amount: undefined as unknown as number,
         currency: (user?.settings?.defaultCurrency || 'USD') as 'USD' | 'EUR' | 'PLN',
         note: '',
         walletId: wallets[0]?._id || '',

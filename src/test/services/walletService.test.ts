@@ -15,7 +15,7 @@ describe('WalletService', () => {
         put: vi.fn(),
         remove: vi.fn(),
       },
-      categories: {} as any,
+      categories: {} as unknown as PouchDB.Database,
     } as unknown as Database
 
     walletService = new WalletService(mockDb)
@@ -50,7 +50,7 @@ describe('WalletService', () => {
 
       vi.mocked(mockDb.wallets.allDocs).mockResolvedValue({
         rows: mockWallets.map(doc => ({ doc })),
-      } as any)
+      } as unknown as PouchDB.Core.AllDocsResponse<Wallet>)
 
       const result = await walletService.getAllWallets()
 
@@ -83,7 +83,7 @@ describe('WalletService', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       }
 
-      vi.mocked(mockDb.wallets.get).mockResolvedValue(mockWallet as any)
+      vi.mocked(mockDb.wallets.get).mockResolvedValue(mockWallet as PouchDB.Core.Document<Wallet>)
 
       const result = await walletService.getWalletById('wallet_cash_123')
 
@@ -194,7 +194,7 @@ describe('WalletService', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       }
 
-      vi.mocked(mockDb.wallets.get).mockResolvedValue(existingWallet as any)
+      vi.mocked(mockDb.wallets.get).mockResolvedValue(existingWallet as PouchDB.Core.Document<Wallet>)
       vi.mocked(mockDb.wallets.put).mockResolvedValue({
         ok: true,
         id: 'wallet_cash_123',
@@ -233,10 +233,10 @@ describe('WalletService', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       }
 
-      vi.mocked(mockDb.wallets.get).mockResolvedValue(existingWallet as any)
+      vi.mocked(mockDb.wallets.get).mockResolvedValue(existingWallet as PouchDB.Core.Document<Wallet>)
 
       const invalidUpdate = {
-        currency: 'INVALID' as any,
+        currency: 'INVALID' as unknown as 'USD' | 'EUR' | 'PLN',
       }
 
       await expect(walletService.updateWallet('wallet_cash_123', invalidUpdate)).rejects.toThrow()
@@ -257,7 +257,7 @@ describe('WalletService', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       }
 
-      vi.mocked(mockDb.wallets.get).mockResolvedValue(wallet as any)
+      vi.mocked(mockDb.wallets.get).mockResolvedValue(wallet as PouchDB.Core.Document<Wallet>)
       vi.mocked(mockDb.wallets.remove).mockResolvedValue({
         ok: true,
         id: 'wallet_cash_123',

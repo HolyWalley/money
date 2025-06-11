@@ -64,7 +64,7 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
       form.setValue('amount', numValue)
     } else if (value === '') {
       // Don't set to 0, let form validation handle empty values
-      form.setValue('amount', undefined as any)
+      form.setValue('amount', undefined as unknown as number)
     } else if (value.endsWith('.')) {
       // Keep the display value but don't update the form value yet
       // This allows users to type decimal numbers
