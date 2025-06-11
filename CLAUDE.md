@@ -5,7 +5,7 @@ Personal finances tracking app built with Local First principles using:
 - PouchDB for local-first data storage
 - React with TypeScript
 - Cloudflare Pages for hosting
-- Cloudflare Functions for minimal backend needs
+- Cloudflare Worker for backend API
 - Comprehensive test coverage
 - Clean, readable code
 
@@ -22,7 +22,7 @@ Personal finances tracking app built with Local First principles using:
 - React with TypeScript
 - PouchDB for data storage
 - Cloudflare Pages deployment
-- Cloudflare Functions (minimal backend usage)
+- Cloudflare Worker for backend API
 - Jest + React Testing Library for testing
 - Vite for build tooling (with API proxy for development)
 - Zod for data validation
@@ -31,6 +31,7 @@ Personal finances tracking app built with Local First principles using:
 - shadcn/ui for UI components
 - Lucide React for icons (consistent icon system)
 - Wrangler for Cloudflare development
+- itty-router for Worker routing
 
 ### State Management Strategy
 - **Database State**: Rely on PouchDB
@@ -59,8 +60,7 @@ Personal finances tracking app built with Local First principles using:
 - **No caching for now**: Basic PWA setup without complex caching strategies
 
 ### Commands to Run
-- **Dev**: `npm run dev` (React app with API proxy to localhost:8787)
-- **Dev Functions**: `npm run dev:functions` (Cloudflare Functions on port 8787)
+- **Dev**: `npm run dev` (React app with integrated Worker development)
 - **Build**: `npm run build`
 - **Test**: `npm run test`
 - **Test UI**: `npm run test:ui`
@@ -86,9 +86,20 @@ Personal finances tracking app built with Local First principles using:
 
 ### Development Setup
 - **KV Namespace**: MONEY_USER_AUTH configured in wrangler.toml
-- **API Proxy**: /api requests proxied to localhost:8787 in development
-- **Production**: /api routes handled directly by Cloudflare Functions
-- **Dual Development**: Run both `npm run dev` and `npm run dev:functions` for full-stack development
-- **API Structure**: functions/api/v1/ for Cloudflare Functions endpoints
-- **Environment Variables**: .dev.vars for local CF Functions environment
+- **Integrated Development**: Single `npm run dev` command runs both React app and Worker
+- **Production**: /api routes handled directly by Cloudflare Worker
+- **Worker Structure**: 
+  - `worker/handlers/` - API handlers with onRequest* methods
+  - `worker/utils/` - Utility modules (jwt, security, storage, etc.)
+  - `worker/middleware/` - Security, auth, and header middleware
+  - `worker/routes/` - Route configuration
+  - `worker/types/` - Type definitions
+- **Environment Variables**: .dev.vars for local Worker environment
 - **SECURITY**: NEVER read contents of .dev.vars file under any circumstances
+
+### Worker Architecture
+- **Minimal index.ts**: Only essential imports and main fetch handler
+- **Organized modules**: Clear separation of concerns across directories
+- **Unified handlers**: Use onRequestGet, onRequestPost, onRequestPut convention
+- **Namespace imports**: Import handlers as `signin.onRequestPost` for clarity
+- **Middleware chain**: Security → Auth → Handler → Headers
