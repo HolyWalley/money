@@ -1,11 +1,9 @@
-# Wrangler configuration for Cloudflare Pages with Functions
+# Wrangler configuration for Cloudflare Worker
 
 name = "money"
+main = "worker.ts"
 compatibility_date = "2025-05-25"
 compatibility_flags = ["nodejs_compat"]
-
-# Pages project configuration
-pages_build_output_dir = "dist"
 
 # Environment variables
 # Regular variables are defined here

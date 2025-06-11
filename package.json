@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:functions": "npx wrangler pages dev public --port 8787 --local",
+    "dev:functions": "npx wrangler dev --port 8787 --local",
     "build": "tsc -b && vite build",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -40,6 +40,7 @@
     "currency-codes-ts": "^3.0.0",
     "date-fns": "^4.1.0",
     "events": "^3.3.0",
+    "itty-router": "^5.0.18",
     "lucide-react": "^0.511.0",
     "pouchdb-browser": "^9.0.0",
     "react": "^19.1.0",

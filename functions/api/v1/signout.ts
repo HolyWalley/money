@@ -1,19 +1,22 @@
-import type { CloudflareContext } from '../../types/cloudflare'
+import type { CloudflareEnv } from '../../types/cloudflare'
+import type { UserSettings } from '../../../shared/types/userSettings'
 import { ResponseUtils } from '../../utils/response'
 import { SecurityUtils } from '../../utils/security'
 import { JWTUtils } from '../../utils/jwt'
 
-export async function onRequestPost(context: CloudflareContext): Promise<Response> {
+interface UserInfo {
+  userId: string
+  username: string
+  settings: UserSettings
+}
+
+export async function handleSignout(request: Request, env: CloudflareEnv, user: UserInfo): Promise<Response> {
   try {
-    const { request } = context
-    
-    // Log the signout event (user info is available from middleware)
-    if (context.data?.user) {
-      SecurityUtils.logSecurityEvent('user_signout', {
-        userId: context.data.user.userId,
-        username: context.data.user.username
-      }, request)
-    }
+    // Log the signout event
+    SecurityUtils.logSecurityEvent('user_signout', {
+      userId: user.userId,
+      username: user.username
+    }, request)
 
     // Create success response
     const response = ResponseUtils.success({
@@ -38,17 +41,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Signout error:', error)
     SecurityUtils.logSecurityEvent('signout_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, context.request)
+    }, request)
     return ResponseUtils.internalError('Failed to sign out')
   }
-}
-
-export async function onRequest(context: CloudflareContext): Promise<Response> {
-  const { request } = context
-
-  if (request.method === 'POST') {
-    return onRequestPost(context)
-  }
-
-  return ResponseUtils.methodNotAllowed()
 }

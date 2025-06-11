@@ -3,16 +3,15 @@ import { PasswordUtils } from '../../utils/password'
 import { StorageUtils } from '../../utils/storage'
 import { ResponseUtils } from '../../utils/response'
 import { SecurityUtils } from '../../utils/security'
-import type { CloudflareContext } from '../../types/cloudflare'
+import type { CloudflareEnv } from '../../types/cloudflare'
 
 interface SignupRequest {
   username: string
   password: string
 }
 
-export async function onRequestPost(context: CloudflareContext): Promise<Response> {
+export async function handleSignup(request: Request, env: CloudflareEnv): Promise<Response> {
   try {
-    const { request, env } = context
 
     // Parse request body
     let body: SignupRequest
@@ -118,17 +117,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Signup error:', error)
     SecurityUtils.logSecurityEvent('signup_internal_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, context.request)
+    }, request)
     return ResponseUtils.internalError('Failed to create account')
   }
-}
-
-export async function onRequest(context: CloudflareContext): Promise<Response> {
-  const { request } = context
-
-  if (request.method === 'POST') {
-    return onRequestPost(context)
-  }
-
-  return ResponseUtils.methodNotAllowed()
 }

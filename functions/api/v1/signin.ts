@@ -1,4 +1,4 @@
-import type { CloudflareContext } from '../../types/cloudflare'
+import type { CloudflareEnv } from '../../types/cloudflare'
 import { JWTUtils } from '../../utils/jwt'
 import { PasswordUtils } from '../../utils/password'
 import { StorageUtils } from '../../utils/storage'
@@ -10,9 +10,8 @@ interface SigninRequest {
   password: string
 }
 
-export async function onRequestPost(context: CloudflareContext): Promise<Response> {
+export async function handleSignin(request: Request, env: CloudflareEnv): Promise<Response> {
   try {
-    const { request, env } = context
 
     // Parse request body
     let body: SigninRequest
@@ -128,17 +127,7 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Signin error:', error)
     SecurityUtils.logSecurityEvent('signin_internal_error', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, context.request)
+    }, request)
     return ResponseUtils.internalError('Failed to sign in')
   }
-}
-
-export async function onRequest(context: CloudflareContext): Promise<Response> {
-  const { request } = context
-
-  if (request.method === 'POST') {
-    return onRequestPost(context)
-  }
-
-  return ResponseUtils.methodNotAllowed()
 }

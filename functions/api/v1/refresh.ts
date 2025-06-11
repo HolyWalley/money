@@ -1,11 +1,10 @@
-import type { CloudflareContext } from '../../types/cloudflare'
+import type { CloudflareEnv } from '../../types/cloudflare'
 import { JWTUtils } from '../../utils/jwt'
 import { StorageUtils } from '../../utils/storage'
 import { ResponseUtils } from '../../utils/response'
 
-export async function onRequestPost(context: CloudflareContext): Promise<Response> {
+export async function handleRefresh(request: Request, env: CloudflareEnv): Promise<Response> {
   try {
-    const { request, env } = context
     
     // Parse cookies
     const cookies = ResponseUtils.parseCookies(request)
@@ -53,14 +52,4 @@ export async function onRequestPost(context: CloudflareContext): Promise<Respons
     console.error('Refresh error:', error)
     return ResponseUtils.internalError('Failed to refresh tokens')
   }
-}
-
-export async function onRequest(context: CloudflareContext): Promise<Response> {
-  const { request } = context
-  
-  if (request.method === 'POST') {
-    return onRequestPost(context)
-  }
-  
-  return ResponseUtils.methodNotAllowed()
 }

@@ -1,19 +1,31 @@
-import type { CloudflareContext } from '../../types/cloudflare'
+import type { CloudflareEnv } from '../../types/cloudflare'
+import type { UserSettings } from '../../../shared/types/userSettings'
 import { StorageUtils } from '../../utils/storage'
 import { ResponseUtils } from '../../utils/response'
 import { UpdateUserSchema } from '../../../shared/schemas/update_user.schema'
 
-export async function onRequestGet(context: CloudflareContext): Promise<Response> {
+interface UserInfo {
+  userId: string
+  username: string
+  settings: UserSettings
+}
+
+export async function handleMe(request: Request, env: CloudflareEnv, user: UserInfo): Promise<Response> {
+  if (request.method === 'GET') {
+    return handleGetMe(request, env, user)
+  }
+  
+  if (request.method === 'PUT') {
+    return handlePutMe(request, env, user)
+  }
+  
+  return ResponseUtils.methodNotAllowed()
+}
+
+async function handleGetMe(request: Request, env: CloudflareEnv, userInfo: UserInfo): Promise<Response> {
   try {
-    const { env, data } = context
-
-    // Get user from context (already authenticated by middleware)
-    if (!data?.user) {
-      return ResponseUtils.unauthorized('User not authenticated')
-    }
-
     // Get full user data from storage
-    const user = await StorageUtils.getUserByUsername(data.user.username, env)
+    const user = await StorageUtils.getUserByUsername(userInfo.username, env)
     if (!user || !user.isActive) {
       return ResponseUtils.unauthorized('User not found or inactive')
     }
@@ -35,15 +47,8 @@ export async function onRequestGet(context: CloudflareContext): Promise<Response
   }
 }
 
-export async function onRequestPut(context: CloudflareContext): Promise<Response> {
+async function handlePutMe(request: Request, env: CloudflareEnv, userInfo: UserInfo): Promise<Response> {
   try {
-    const { env, data, request } = context
-
-    // Get user from context (already authenticated by middleware)
-    if (!data?.user) {
-      return ResponseUtils.unauthorized('User not authenticated')
-    }
-
     // Parse request body
     const body = await request.json()
 
@@ -56,7 +61,7 @@ export async function onRequestPut(context: CloudflareContext): Promise<Response
     const updateData = validationResult.data
 
     // Get current user data
-    const user = await StorageUtils.getUserByUsername(data.user.username, env)
+    const user = await StorageUtils.getUserByUsername(userInfo.username, env)
     if (!user || !user.isActive) {
       return ResponseUtils.unauthorized('User not found or inactive')
     }
@@ -88,16 +93,3 @@ export async function onRequestPut(context: CloudflareContext): Promise<Response
   }
 }
 
-export async function onRequest(context: CloudflareContext): Promise<Response> {
-  const { request } = context
-
-  if (request.method === 'GET') {
-    return onRequestGet(context)
-  }
-
-  if (request.method === 'PUT') {
-    return onRequestPut(context)
-  }
-
-  return ResponseUtils.methodNotAllowed()
-}
