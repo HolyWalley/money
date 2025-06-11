@@ -35,13 +35,28 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
+    let value = e.target.value
 
     // Only allow positive numbers
     if (value.startsWith('-')) {
       return
     }
 
+    // Replace comma with dot immediately
+    value = value.replace(',', '.')
+
+    // Only allow numbers and dots
+    if (!/^[0-9.]*$/.test(value)) {
+      return
+    }
+
+    // Prevent multiple decimal separators
+    const separatorCount = (value.match(/\./g) || []).length
+    if (separatorCount > 1) {
+      return
+    }
+
+    // Update display value
     setDisplayValue(value)
 
     const numValue = parseFloat(value)
@@ -50,6 +65,9 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
     } else if (value === '') {
       // Don't set to 0, let form validation handle empty values
       form.setValue('amount', undefined as any)
+    } else if (value.endsWith('.')) {
+      // Keep the display value but don't update the form value yet
+      // This allows users to type decimal numbers
     }
   }
 
@@ -62,8 +80,7 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
         <div className="flex items-center justify-center gap-3">
           <input
             ref={inputRef}
-            type="number"
-            step="0.01"
+            type="text"
             value={displayValue}
             onChange={handleInputChange}
             className={cn(
@@ -74,9 +91,8 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
             placeholder="0"
             disabled={isSubmitting}
             inputMode="decimal"
-            pattern="[0-9]*"
+            pattern="[0-9.]*"
             style={{ width: `${Math.max(1, displayValue.length || 1)}ch` }}
-            min="0"
           />
 
           <Select
