@@ -44,7 +44,7 @@ export function AmountInput({ form, isSubmitting, variant = 'from', currency: ov
     if (overrideCurrency) {
       if (variant === 'to') {
         form.setValue('toCurrency', overrideCurrency as typeof currencies[number])
-      } else if (variant === 'from') {
+      } else {
         form.setValue('currency', overrideCurrency as typeof currencies[number])
       }
     }

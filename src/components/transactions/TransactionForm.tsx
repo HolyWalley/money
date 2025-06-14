@@ -20,7 +20,7 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
   const walletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
   const { wallets } = useLiveWallets()
-  
+
   const fromWallet = wallets.find(w => w._id === walletId)
   const toWallet = wallets.find(w => w._id === toWalletId)
   const isSameCurrency = fromWallet?.currency === toWallet?.currency
@@ -33,8 +33,8 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
 
       {transactionType === 'transfer' ? (
         <>
-          <AmountInput 
-            form={form} 
+          <AmountInput
+            form={form}
             isSubmitting={isSubmitting}
             variant="from"
             currency={fromWallet?.currency}
@@ -43,8 +43,8 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
           <ToWalletSelector form={form} isSubmitting={isSubmitting} />
 
           {toWallet && (
-            <AmountInput 
-              form={form} 
+            <AmountInput
+              form={form}
               isSubmitting={isSubmitting}
               variant="to"
               currency={toWallet.currency}
@@ -53,7 +53,11 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
           )}
         </>
       ) : (
-        <AmountInput form={form} isSubmitting={isSubmitting} />
+        <AmountInput
+          form={form}
+          isSubmitting={isSubmitting}
+          currency={fromWallet?.currency}
+        />
       )}
 
       {(transactionType === 'income' || transactionType === 'expense') && (
