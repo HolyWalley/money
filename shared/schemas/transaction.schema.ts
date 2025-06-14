@@ -11,6 +11,8 @@ export const transactionSchema = z.object({
   transactionType: transactionTypeSchema,
   amount: z.number().positive('Amount must be positive'),
   currency: CurrencyEnum,
+  toAmount: z.number().positive('Amount must be positive').optional(),
+  toCurrency: CurrencyEnum.optional(),
   note: z.string().max(200, 'Note is too long').optional(),
   categoryId: z.string().optional(),
   walletId: z.string(),
@@ -24,6 +26,8 @@ export const createTransactionSchema = transactionSchema.pick({
   transactionType: true,
   amount: true,
   currency: true,
+  toAmount: true,
+  toCurrency: true,
   note: true,
   categoryId: true,
   walletId: true,
@@ -39,12 +43,21 @@ export const createTransactionSchema = transactionSchema.pick({
   return true
 }, {
   message: 'Transfer transactions require toWalletId, income/expense transactions require categoryId',
+}).refine((data) => {
+  if (data.transactionType === 'transfer' && data.toAmount !== undefined) {
+    return data.toCurrency !== undefined
+  }
+  return true
+}, {
+  message: 'Transfer transactions with toAmount require toCurrency',
 })
 
 export const updateTransactionSchema = transactionSchema.pick({
   transactionType: true,
   amount: true,
   currency: true,
+  toAmount: true,
+  toCurrency: true,
   note: true,
   categoryId: true,
   walletId: true,
@@ -60,6 +73,13 @@ export const updateTransactionSchema = transactionSchema.pick({
   return true
 }, {
   message: 'Transfer transactions require toWalletId, income/expense transactions require categoryId',
+}).refine((data) => {
+  if (data.transactionType === 'transfer' && data.toAmount !== undefined) {
+    return data.toCurrency !== undefined
+  }
+  return true
+}, {
+  message: 'Transfer transactions with toAmount require toCurrency',
 })
 
 export type TransactionType = z.infer<typeof transactionTypeSchema>

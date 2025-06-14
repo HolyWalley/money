@@ -41,7 +41,9 @@ export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps
   // Set default wallet when wallets are loaded
   useEffect(() => {
     if (wallets.length > 0 && !form.watch('walletId')) {
-      form.setValue('walletId', wallets[0]._id)
+      const defaultWallet = wallets[0]
+      form.setValue('walletId', defaultWallet._id)
+      form.setValue('currency', defaultWallet.currency)
     }
   }, [wallets, form])
 

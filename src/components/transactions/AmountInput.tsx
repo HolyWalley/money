@@ -14,21 +14,41 @@ import { currencies } from '../../../shared/schemas/user_settings.schema'
 interface AmountInputProps {
   form: UseFormReturn<CreateTransaction>
   isSubmitting: boolean
+  variant?: 'from' | 'to'
+  currency?: string
+  autoFill?: boolean
 }
 
-export function AmountInput({ form, isSubmitting }: AmountInputProps) {
+export function AmountInput({ form, isSubmitting, variant = 'from', currency: overrideCurrency, autoFill = false }: AmountInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [displayValue, setDisplayValue] = useState('')
-  const amount = form.watch('amount')
-  const currency = form.watch('currency')
+  const fieldName = variant === 'from' ? 'amount' : 'toAmount'
+  const currencyFieldName = variant === 'from' ? 'currency' : 'toCurrency'
+  const amount = form.watch(fieldName as keyof CreateTransaction) as number | undefined
+  const fromAmount = form.watch('amount')
+  const currency = overrideCurrency || form.watch(currencyFieldName as keyof CreateTransaction) as string
 
   useEffect(() => {
     if (amount) {
       setDisplayValue(amount.toString())
+    } else if (autoFill && variant === 'to' && fromAmount) {
+      setDisplayValue(fromAmount.toString())
+      form.setValue('toAmount', fromAmount)
     } else {
       setDisplayValue('')
     }
-  }, [amount])
+  }, [amount, autoFill, variant, fromAmount, form])
+
+  // Set currency when overrideCurrency is provided
+  useEffect(() => {
+    if (overrideCurrency) {
+      if (variant === 'to') {
+        form.setValue('toCurrency', overrideCurrency as typeof currencies[number])
+      } else if (variant === 'from') {
+        form.setValue('currency', overrideCurrency as typeof currencies[number])
+      }
+    }
+  }, [overrideCurrency, variant, form])
 
   const handleContainerClick = () => {
     inputRef.current?.focus()
@@ -61,10 +81,24 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
 
     const numValue = parseFloat(value)
     if (!isNaN(numValue) && numValue > 0) {
-      form.setValue('amount', numValue)
+      if (variant === 'from') {
+        form.setValue('amount', numValue)
+        if (autoFill) {
+          form.setValue('toAmount', numValue)
+        }
+      } else {
+        form.setValue('toAmount', numValue)
+      }
     } else if (value === '') {
       // Don't set to 0, let form validation handle empty values
-      form.setValue('amount', undefined as unknown as number)
+      if (variant === 'from') {
+        form.setValue('amount', undefined as unknown as number)
+        if (autoFill) {
+          form.setValue('toAmount', undefined as unknown as number)
+        }
+      } else {
+        form.setValue('toAmount', undefined as unknown as number)
+      }
     } else if (value.endsWith('.')) {
       // Keep the display value but don't update the form value yet
       // This allows users to type decimal numbers
@@ -74,8 +108,11 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
   return (
     <div className="space-y-2">
       <div
-        className="bg-muted/50 rounded-lg p-2 cursor-text"
-        onClick={handleContainerClick}
+        className={cn(
+          "bg-muted/50 rounded-lg p-2",
+          autoFill && variant === 'to' ? "opacity-60" : "cursor-text"
+        )}
+        onClick={!autoFill || variant !== 'to' ? handleContainerClick : undefined}
       >
         <div className="flex items-center justify-center gap-3">
           <input
@@ -84,42 +121,57 @@ export function AmountInput({ form, isSubmitting }: AmountInputProps) {
             value={displayValue}
             onChange={handleInputChange}
             className={cn(
-              "text-5xl font-bold transition-opacity bg-transparent border-0 outline-none w-auto text-center",
+              "text-3xl font-bold transition-opacity bg-transparent border-0 outline-none w-auto text-center",
               "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
               displayValue ? "opacity-100" : "opacity-30"
             )}
             placeholder="0"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (autoFill && variant === 'to')}
             inputMode="decimal"
             pattern="[0-9.]*"
             style={{ width: `${Math.max(1, displayValue.length || 1)}ch` }}
           />
 
-          <Select
-            value={currency}
-            onValueChange={(value) => form.setValue('currency', value as typeof currencies[number])}
-            disabled={isSubmitting}
-          >
-            <SelectTrigger
-              className="w-auto border-0 !bg-transparent hover:!bg-transparent dark:!bg-transparent dark:hover:!bg-transparent text-5xl font-bold p-0 h-auto focus:ring-0 focus:ring-offset-0 [&>svg]:hidden shadow-none"
-              onClick={(e) => e.stopPropagation()}
+          {overrideCurrency ? (
+            <span className="text-3xl font-bold">{currency}</span>
+          ) : (
+            <Select
+              value={currency}
+              onValueChange={(value) => {
+                if (variant === 'from') {
+                  form.setValue('currency', value as typeof currencies[number])
+                } else {
+                  form.setValue('toCurrency', value as typeof currencies[number])
+                }
+              }}
+              disabled={isSubmitting || (autoFill && variant === 'to')}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {currencies.map((curr) => (
-                <SelectItem key={curr} value={curr}>
-                  {curr}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className="w-auto border-0 !bg-transparent hover:!bg-transparent dark:!bg-transparent dark:hover:!bg-transparent text-3xl font-bold p-0 h-auto focus:ring-0 focus:ring-offset-0 [&>svg]:hidden shadow-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currencies.map((curr) => (
+                  <SelectItem key={curr} value={curr}>
+                    {curr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
-      {form.formState.errors.amount && (
+      {variant === 'from' && form.formState.errors.amount && (
         <p className="text-sm text-destructive text-center">
           {form.formState.errors.amount.message}
+        </p>
+      )}
+      {variant === 'to' && form.formState.errors.toAmount && (
+        <p className="text-sm text-destructive text-center">
+          {form.formState.errors.toAmount.message}
         </p>
       )}
     </div>

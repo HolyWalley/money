@@ -8,6 +8,7 @@ import { DatePicker } from './DatePicker'
 import { CategoriesPicker } from './CategoryPicker'
 import { FromWalletSelector } from './FromWalletSelector'
 import { ToWalletSelector } from './ToWalletSelector'
+import { useLiveWallets } from '@/hooks/useLiveWallets'
 
 interface TransactionFormProps {
   form: UseFormReturn<CreateTransaction>
@@ -16,20 +17,47 @@ interface TransactionFormProps {
 
 export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
   const transactionType = form.watch('transactionType')
+  const walletId = form.watch('walletId')
+  const toWalletId = form.watch('toWalletId')
+  const { wallets } = useLiveWallets()
+  
+  const fromWallet = wallets.find(w => w._id === walletId)
+  const toWallet = wallets.find(w => w._id === toWalletId)
+  const isSameCurrency = fromWallet?.currency === toWallet?.currency
 
   return (
     <>
       <TransactionTypeSwitch form={form} isSubmitting={isSubmitting} />
-      <AmountInput form={form} isSubmitting={isSubmitting} />
-
-      {(transactionType === 'income' || transactionType === 'expense') && (
-        <CategoriesPicker form={form} isSubmitting={isSubmitting} />
-      )}
 
       <FromWalletSelector form={form} isSubmitting={isSubmitting} />
 
-      {transactionType === 'transfer' && (
-        <ToWalletSelector form={form} isSubmitting={isSubmitting} />
+      {transactionType === 'transfer' ? (
+        <>
+          <AmountInput 
+            form={form} 
+            isSubmitting={isSubmitting}
+            variant="from"
+            currency={fromWallet?.currency}
+          />
+
+          <ToWalletSelector form={form} isSubmitting={isSubmitting} />
+
+          {toWallet && (
+            <AmountInput 
+              form={form} 
+              isSubmitting={isSubmitting}
+              variant="to"
+              currency={toWallet.currency}
+              autoFill={isSameCurrency}
+            />
+          )}
+        </>
+      ) : (
+        <AmountInput form={form} isSubmitting={isSubmitting} />
+      )}
+
+      {(transactionType === 'income' || transactionType === 'expense') && (
+        <CategoriesPicker form={form} isSubmitting={isSubmitting} />
       )}
 
       <div className="space-y-2">
