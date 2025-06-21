@@ -7,7 +7,22 @@ import { MainApp } from '@/components/MainApp'
 import { WalletsPage } from '@/components/wallets/WalletsPage'
 import { Header } from '@/components/Header'
 
+import { useSync } from '@/hooks/useSync'
+
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem('deviceId');
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('deviceId', deviceId);
+  }
+  return deviceId;
+}
+
 function AppLayout({ children }: { children: React.ReactNode }) {
+  const { syncStatus, } = useSync(getDeviceId())
+
+  console.log('Sync Status:', syncStatus)
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />

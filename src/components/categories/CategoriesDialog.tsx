@@ -1,13 +1,17 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
-import { useDatabase } from '@/contexts/DatabaseContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useState, useEffect, useMemo } from 'react'
 import type { Category } from '../../../shared/schemas/category.schema'
 import { getRandomIcon, getRandomColor } from '@/lib/categoryIcons'
+import { addCategory } from '@/lib/crdts'
+
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/db-dexie'
+
+import { categoryService } from '@/services/categoryService'
 
 interface CategoriesDialogProps {
   open: boolean
@@ -15,8 +19,7 @@ interface CategoriesDialogProps {
 }
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
-  const { categories: dbCategories, isLoading } = useLiveCategories()
-  const { categoryService } = useDatabase()
+  const dbCategories = useLiveQuery(() => db.categories.toArray(), [], [])
   const { user } = useAuth()
   const [localCategories, setLocalCategories] = useState<Category[]>([])
   const [isPendingUpdate, setIsPendingUpdate] = useState(false)
@@ -40,8 +43,6 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
   )
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!categoryService) return
-
     try {
       await categoryService.deleteCategory(categoryId)
     } catch (error) {
@@ -50,13 +51,13 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
   }
 
   const handleAddCategory = async (type: 'income' | 'expense') => {
-    if (!categoryService || !user?.userId) return
+    if (!user?.userId) return
 
     const categoriesOfType = localCategories.filter(cat => cat.type === type)
     const maxOrder = categoriesOfType.length
 
     try {
-      const newCategory = await categoryService.createCategory({
+      addCategory({
         name: 'New Category',
         type,
         icon: getRandomIcon(),
@@ -65,18 +66,34 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
         isDefault: false,
         userId: user.userId
       })
-
-      if (newCategory) {
-        setNewCategoryId(newCategory._id)
-      }
     } catch (error) {
       console.error('Failed to create category:', error)
     }
+    // if (!categoryService || !user?.userId) return
+    //
+    // const categoriesOfType = localCategories.filter(cat => cat.type === type)
+    // const maxOrder = categoriesOfType.length
+    //
+    // try {
+    //   const newCategory = await categoryService.createCategory({
+    //     name: 'New Category',
+    //     type,
+    //     icon: getRandomIcon(),
+    //     color: getRandomColor(),
+    //     order: maxOrder,
+    //     isDefault: false,
+    //     userId: user.userId
+    //   })
+    //
+    //   if (newCategory) {
+    //     setNewCategoryId(newCategory._id)
+    //   }
+    // } catch (error) {
+    //   console.error('Failed to create category:', error)
+    // }
   }
 
   const handleReorder = async (activeId: string, overId: string, type: 'income' | 'expense') => {
-    if (!categoryService) return
-
     const categoriesList = type === 'income' ? incomeCategories : expenseCategories
     const oldIndex = categoriesList.findIndex(cat => cat._id === activeId)
     const newIndex = categoriesList.findIndex(cat => cat._id === overId)
@@ -116,9 +133,9 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     }
   }
 
-  if (isLoading) {
-    return null
-  }
+  // if (isLoading) {
+  //   return null
+  // }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
