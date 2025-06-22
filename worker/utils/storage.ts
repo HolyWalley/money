@@ -1,6 +1,11 @@
 import { UserSettings } from '../../shared/types/userSettings'
 import type { CloudflareEnv } from '../types/cloudflare'
 
+export interface IPremium {
+  active: boolean
+  activatedAt?: string // ISO timestamp when premium was last activated
+}
+
 export interface UserRecord {
   userId: string
   username: string
@@ -9,7 +14,7 @@ export interface UserRecord {
   updatedAt: string
   lastLoginAt?: string
   isActive: boolean,
-  premium: boolean,
+  premium: IPremium,
   settings: UserSettings
 }
 
@@ -33,7 +38,9 @@ export class StorageUtils {
       createdAt: now,
       updatedAt: now,
       isActive: true,
-      premium: false,
+      premium: {
+        active: false
+      },
       settings: {
         defaultCurrency: 'USD',
       }

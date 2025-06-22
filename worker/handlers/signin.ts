@@ -105,6 +105,7 @@ export async function onRequestPost(request: Request, env: CloudflareEnv): Promi
         username: user.username,
         createdAt: user.createdAt,
         lastLoginAt: new Date().toISOString(),
+        premium: user.premium,
         settings: user.settings
       }
     })

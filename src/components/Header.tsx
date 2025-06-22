@@ -18,7 +18,7 @@ import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer'
 
 export function Header() {
-  const { user, signout, setUser } = useAuth()
+  const { user, signout, setUser, isPremium } = useAuth()
   const navigate = useNavigate()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [transactionDrawerOpen, setTransactionDrawerOpen] = useState(false)
@@ -80,7 +80,7 @@ export function Header() {
               <Link to="/dashboard" className="text-xl font-semibold hover:text-foreground/80 transition-colors">
                 Money
               </Link>
-              {user?.premium && (
+              {isPremium && (
                 <Badge variant="secondary" className="text-xs">
                   Premium
                 </Badge>

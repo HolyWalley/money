@@ -36,6 +36,7 @@ export class Sync {
   private deviceId: string;
   private pushTimeout: NodeJS.Timeout | null = null;
   private readonly LAST_SYNC_KEY = 'lastSyncTimestamp';
+  private readonly LAST_PREMIUM_SYNC_KEY = 'lastPremiumSyncTimestamp';
 
   constructor(
     deviceId: string,
@@ -139,8 +140,13 @@ export class Sync {
     }
   }
 
-  async pull(): Promise<void> {
+  async pull(premiumActivatedAt?: string): Promise<void> {
     try {
+      // Check if we need to perform initial sync (push complete state)
+      if (premiumActivatedAt) {
+        await this.performInitialSyncIfNeeded(premiumActivatedAt);
+      }
+
       const lastSyncTimestamp = await this.getLastSyncTimestamp();
       const params = lastSyncTimestamp ? `?since=${lastSyncTimestamp}` : '';
       const response = await fetch(`/api/v1/sync${params}`, {
@@ -211,5 +217,71 @@ export class Sync {
       .equals(1)
       .and(update => update.timestamp < olderThan)
       .delete();
+  }
+
+  private async getLastPremiumSyncTimestamp(): Promise<number> {
+    try {
+      const metadata = await db.syncMetadata.get(this.LAST_PREMIUM_SYNC_KEY);
+      return metadata?.value || 0;
+    } catch (error) {
+      console.error('Failed to load premium sync metadata:', error);
+      return 0;
+    }
+  }
+
+  private async setLastPremiumSyncTimestamp(timestamp: number): Promise<void> {
+    try {
+      await db.syncMetadata.put({
+        key: this.LAST_PREMIUM_SYNC_KEY,
+        value: timestamp
+      });
+    } catch (error) {
+      console.error('Failed to save premium sync metadata:', error);
+    }
+  }
+
+  private async performInitialSyncIfNeeded(premiumActivatedAt: string): Promise<void> {
+    try {
+      const premiumActivatedTimestamp = new Date(premiumActivatedAt).getTime();
+      const lastPremiumSync = await this.getLastPremiumSyncTimestamp();
+      
+      // Check if we need to push complete state (haven't synced since premium activated)
+      if (lastPremiumSync < premiumActivatedTimestamp) {
+        console.log('Performing initial sync push - haven\'t synced since premium activation');
+        
+        // Get the complete state of the document
+        const stateUpdate = Y.encodeStateAsUpdate(doc);
+        
+        // Only push if we have actual state to share
+        if (stateUpdate.length > 0) {
+          // Push complete state as a regular update
+          const response = await fetch('/api/v1/sync', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify([{
+              update: Array.from(stateUpdate),
+              timestamp: Date.now(),
+              deviceId: this.deviceId
+            }]),
+            credentials: 'include'
+          });
+
+          if (!response.ok) {
+            throw new Error(`Initial sync push failed: ${response.statusText}`);
+          }
+
+          console.log('Initial sync push completed');
+        }
+
+        // Mark that we've synced as premium user
+        await this.setLastPremiumSyncTimestamp(Date.now());
+      }
+      
+    } catch (error) {
+      console.error('Initial sync error:', error);
+      // Don't throw - allow normal sync to continue
+    }
   }
 }

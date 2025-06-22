@@ -1,10 +1,11 @@
 import { UserSettings } from "../../shared/types/userSettings"
 import { MoneyObject } from "../durable-objects/MoneyObject.ts"
+import { IPremium } from "../utils/storage"
 
 export interface UserInfo {
   userId: string
   username: string
-  premium: boolean
+  premium: IPremium
   settings: UserSettings
 }
 

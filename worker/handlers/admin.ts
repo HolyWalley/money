@@ -36,20 +36,33 @@ export async function updateUserPremium(request: Request & { params?: Record<str
     }
 
     const body = await request.json();
-    const { premium } = body;
+    const { active } = body;
 
-    if (typeof premium !== 'boolean') {
-      return ResponseUtils.validationError(['Premium must be a boolean']);
+    if (typeof active !== 'boolean') {
+      return ResponseUtils.validationError(['Active must be a boolean']);
     }
+
+    const user = await StorageUtils.getUserByUsername(username, env);
+    if (!user) {
+      return ResponseUtils.notFound('User not found');
+    }
+
+    // Update premium with activation timestamp if activating
+    const premium = {
+      active,
+      ...(active && { activatedAt: new Date().toISOString() }),
+      // Preserve existing activatedAt if deactivating
+      ...(!active && user.premium.activatedAt && { activatedAt: user.premium.activatedAt })
+    };
 
     const success = await StorageUtils.updateUser(username, { premium }, env);
 
     if (!success) {
-      return ResponseUtils.notFound('User not found');
+      return ResponseUtils.notFound('Failed to update user');
     }
 
     return ResponseUtils.success({
-      message: `User ${username} premium status updated to ${premium}`,
+      message: `User ${username} premium status updated`,
       username,
       premium
     });

@@ -5,12 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 export function useSync(
   deviceId: string
 ) {
-  const { user } = useAuth()
+  const { user, isPremium } = useAuth()
   const [syncStatus, setSyncStatus] = React.useState<'idle' | 'syncing' | 'error'>('idle');
   const syncRef = React.useRef<Sync | null>(null);
 
   React.useEffect(() => {
-    if (!user?.premium) {
+    if (!isPremium) {
       return;
     }
 
@@ -19,8 +19,8 @@ export function useSync(
         setSyncStatus('syncing');
         syncRef.current = new Sync(deviceId);
 
-        // Initial pull sync on app load
-        await syncRef.current.pull();
+        // Initial pull sync on app load (pass premium activation timestamp)
+        await syncRef.current.pull(user?.premium?.activatedAt);
 
         setSyncStatus('idle');
       } catch (error) {
@@ -30,10 +30,10 @@ export function useSync(
     };
 
     initializeSync();
-  }, [deviceId, user?.premium]);
+  }, [deviceId, isPremium, user?.premium?.activatedAt]);
 
   const manualSync = React.useCallback(async () => {
-    if (!user?.premium) {
+    if (!isPremium) {
       console.warn('Manual sync is only available for premium users.');
       return;
     }
@@ -41,14 +41,14 @@ export function useSync(
     if (syncRef.current && syncStatus !== 'syncing') {
       setSyncStatus('syncing');
       try {
-        await syncRef.current.pull();
+        await syncRef.current.pull(user?.premium?.activatedAt);
         setSyncStatus('idle');
       } catch (error) {
         console.error('Manual sync failed:', error);
         setSyncStatus('error');
       }
     }
-  }, [syncStatus, user?.premium]);
+  }, [syncStatus, isPremium, user?.premium?.activatedAt]);
 
   return { syncStatus, manualSync };
 }
