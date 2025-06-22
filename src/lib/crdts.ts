@@ -101,6 +101,13 @@ export function addCategory({ name, type, icon, color, isDefault, order, userId 
   return id
 }
 
+export function addCategoryWithId(categoryData: Category) {
+  ydoc.transact(() => {
+    categories.set(categoryData._id, createCategoryMap(categoryData))
+  })
+  return categoryData._id
+}
+
 export function updateCategory(id: string, updates: Partial<Category>) {
   ydoc.transact(() => {
     const category = categories.get(id)

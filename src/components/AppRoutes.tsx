@@ -7,6 +7,7 @@ import { WalletsPage } from '@/components/wallets/WalletsPage'
 import { Header } from '@/components/Header'
 
 import { useSync } from '@/hooks/useSync'
+import { useAppInitialization } from '@/hooks/useAppInitialization'
 
 function getDeviceId(): string {
   let deviceId = localStorage.getItem('deviceId');
@@ -19,6 +20,7 @@ function getDeviceId(): string {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   useSync(getDeviceId())
+  useAppInitialization()
 
   return (
     <div className="min-h-screen bg-background text-foreground">
