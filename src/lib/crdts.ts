@@ -31,10 +31,10 @@ const wallets = ydoc.getMap<Y.Map<Wallet>>('wallets')
 const transactions = ydoc.getMap<Y.Map<Transaction>>('transactions')
 
 categories.observe(event => {
-  console.log('categories', event.keys) // Figure out why we still need it
+  const keys = event.keys // Force evaluation for Yjs observer
 
   db.transaction('rw', db.categories, async () => {
-    for (const [id, change] of event.keys) {
+    for (const [id, change] of keys) {
       if (change.action === 'delete') {
         await db.categories.delete(id);
       } else {
@@ -49,9 +49,10 @@ categories.observe(event => {
 })
 
 wallets.observe(event => {
-  console.log('Wallets keys:', event.keys);
+  const keys = event.keys // Force evaluation for Yjs observer
+
   db.transaction('rw', db.wallets, async () => {
-    for (const [id, change] of event.keys) {
+    for (const [id, change] of keys) {
       if (change.action === 'delete') {
         await db.wallets.delete(id);
       } else {
@@ -66,9 +67,10 @@ wallets.observe(event => {
 });
 
 transactions.observe(event => {
-  console.log('Transactions keys:', event.keys);
+  const keys = event.keys // Force evaluation for Yjs observer
+
   db.transaction('rw', db.transactions, async () => {
-    for (const [id, change] of event.keys) {
+    for (const [id, change] of keys) {
       if (change.action === 'delete') {
         await db.transactions.delete(id);
       } else {
