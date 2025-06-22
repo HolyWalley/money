@@ -1,6 +1,5 @@
 import type { Category } from '../../shared/schemas/category.schema'
 import * as Y from 'yjs'
-// import { createDefaultCategories } from '../lib/default-categories'
 import { ydoc, categories } from '../lib/crdts'
 
 // Helper function to create properly typed Y.Map for categories with safe type assertion
@@ -12,27 +11,6 @@ function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map
 import { v4 as uuid } from 'uuid'
 
 class CategoryService {
-  async initializeDefaultCategories(): Promise<void> {
-    // try {
-    //   const existingCategories = await this.getAllCategories()
-    //
-    //   if (existingCategories.length === 0) {
-    //     const defaultCategories = createDefaultCategories(userId)
-    //
-    //     for (const category of defaultCategories) {
-    //       const categoryWithId = {
-    //         ...category,
-    //         _id: `category_${category.type}_${category.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`
-    //       }
-    //       await this.db.categories.put(categoryWithId)
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.error('Error initializing default categories:', error)
-    //   throw error
-    // }
-  }
-
   createCategory(categoryData: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>): string {
     try {
       const { name, type, icon, color, isDefault, order, userId } = categoryData
