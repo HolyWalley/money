@@ -8,10 +8,8 @@ import type { Category } from '../../../shared/schemas/category.schema'
 import { getRandomIcon, getRandomColor } from '@/lib/categoryIcons'
 import { addCategory } from '@/lib/crdts'
 
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db-dexie'
-
 import { categoryService } from '@/services/categoryService'
+import { useLiveCategories } from '@/hooks/useLiveCategories'
 
 interface CategoriesDialogProps {
   open: boolean
@@ -19,7 +17,7 @@ interface CategoriesDialogProps {
 }
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
-  const dbCategories = useLiveQuery(() => db.categories.toArray(), [], [])
+  const { categories: dbCategories } = useLiveCategories()
   const { user } = useAuth()
   const [localCategories, setLocalCategories] = useState<Category[]>([])
   const [isPendingUpdate, setIsPendingUpdate] = useState(false)
