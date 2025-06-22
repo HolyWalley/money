@@ -30,7 +30,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         try {
           database = createDatabase(user.userId)
           const walService = new WalletService()
-          const transService = new TransactionService(database)
+          const transService = new TransactionService()
 
           if (!isCleaningUp) {
             setDb(database)

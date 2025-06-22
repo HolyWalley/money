@@ -144,7 +144,7 @@ export function deleteWallet(id: string) {
   })
 }
 
-export function addTransaction({ type, userId, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, createdAt, updatedAt }: Transaction) {
+export function addTransaction({ type, userId, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     transactions.set(id, new Y.Map([
@@ -161,11 +161,41 @@ export function addTransaction({ type, userId, transactionType, amount, currency
       ['walletId', walletId],
       ['toWalletId', toWalletId],
       ['date', date],
-      ['createdAt', createdAt],
-      ['updatedAt', updatedAt]
+      ['createdAt', new Date().toISOString()],
+      ['updatedAt', new Date().toISOString()]
     ]) as any)
   })
   return id
+}
+
+export function updateTransaction(id: string, updates: Partial<Transaction>) {
+  ydoc.transact(() => {
+    const transaction = transactions.get(id)
+    if (!transaction) return
+    transactions.set(id, new Y.Map([
+      ['_id', id],
+      ['type', transaction.get('type')],
+      ['userId', transaction.get('userId')],
+      ['transactionType', updates.transactionType ?? transaction.get('transactionType')],
+      ['amount', updates.amount ?? transaction.get('amount')],
+      ['currency', updates.currency ?? transaction.get('currency')],
+      ['toAmount', updates.toAmount ?? transaction.get('toAmount')],
+      ['toCurrency', updates.toCurrency ?? transaction.get('toCurrency')],
+      ['note', updates.note ?? transaction.get('note')],
+      ['categoryId', updates.categoryId ?? transaction.get('categoryId')],
+      ['walletId', updates.walletId ?? transaction.get('walletId')],
+      ['toWalletId', updates.toWalletId ?? transaction.get('toWalletId')],
+      ['date', updates.date ?? transaction.get('date')],
+      ['createdAt', transaction.get('createdAt')],
+      ['updatedAt', new Date().toISOString()]
+    ]) as any)
+  })
+}
+
+export function deleteTransaction(id: string) {
+  ydoc.transact(() => {
+    transactions.delete(id)
+  })
 }
 
 export {

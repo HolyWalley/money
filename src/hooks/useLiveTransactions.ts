@@ -1,50 +1,8 @@
-import { useState, useEffect } from 'react'
-import { useDatabase } from '@/contexts/DatabaseContext'
-import type { Transaction } from '../../shared/schemas/transaction.schema'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/db-dexie'
 
 export function useLiveTransactions() {
-  const { transactionService, db, isInitializing } = useDatabase()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const transactions = useLiveQuery(() => db.transactions.orderBy('createdAt').reverse().toArray(), [], [])
 
-  useEffect(() => {
-    if (!transactionService || !db || isInitializing) return
-
-    let changes: PouchDB.Core.Changes<Transaction> | null = null
-
-    const loadTransactions = async () => {
-      try {
-        const transactionList = await transactionService.getAllTransactions()
-        setTransactions(transactionList)
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Failed to load transactions:', error)
-        setIsLoading(false)
-      }
-    }
-
-    // Initial load
-    loadTransactions()
-
-    // Listen for changes
-    changes = db.transactions.changes({
-      since: 'now',
-      live: true,
-      include_docs: true
-    }).on('change', () => {
-      // Reload transactions when any change occurs
-      loadTransactions()
-    }).on('error', (err) => {
-      console.error('Changes feed error:', err)
-    })
-
-    return () => {
-      // Cleanup listener
-      if (changes) {
-        changes.cancel()
-      }
-    }
-  }, [transactionService, db, isInitializing])
-
-  return { transactions, isLoading }
+  return { transactions, isLoading: false }
 }
