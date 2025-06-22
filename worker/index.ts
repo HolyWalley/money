@@ -27,3 +27,6 @@ export default {
     return new Response('Not found', { status: 404 })
   }
 }
+
+// Export Durable Object
+export { MoneyObject } from './durable-objects/MoneyObject'

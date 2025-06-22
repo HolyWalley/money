@@ -19,9 +19,7 @@ function getDeviceId(): string {
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
-  const { syncStatus, } = useSync(getDeviceId())
-
-  console.log('Sync Status:', syncStatus)
+  useSync(getDeviceId())
 
   return (
     <div className="min-h-screen bg-background text-foreground">

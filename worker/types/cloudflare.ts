@@ -1,6 +1,12 @@
 import { UserSettings } from "../../shared/types/userSettings"
 import { MoneyObject } from "../durable-objects/MoneyObject.ts"
 
+export interface UserInfo {
+  userId: string
+  username: string
+  settings: UserSettings
+}
+
 export interface CloudflareEnv {
   MONEY_USER_AUTH: KVNamespace
   JWT_ACCESS_SECRET: string

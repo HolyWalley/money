@@ -8,18 +8,29 @@ export function useSync(
   const syncRef = React.useRef<Sync | null>(null);
 
   React.useEffect(() => {
-    syncRef.current = new Sync(deviceId);
+    const initializeSync = async () => {
+      try {
+        setSyncStatus('syncing');
+        syncRef.current = new Sync(deviceId);
 
-    // return () => {
-    //   clearInterval(syncInterval);
-    // };
+        // Initial pull sync on app load
+        await syncRef.current.pull();
+
+        setSyncStatus('idle');
+      } catch (error) {
+        console.error('Initial sync failed:', error);
+        setSyncStatus('error');
+      }
+    };
+
+    initializeSync();
   }, [deviceId]);
 
   const manualSync = React.useCallback(async () => {
     if (syncRef.current && syncStatus !== 'syncing') {
       setSyncStatus('syncing');
       try {
-        // await syncRef.current.sync();
+        await syncRef.current.pull();
         setSyncStatus('idle');
       } catch (error) {
         console.error('Manual sync failed:', error);

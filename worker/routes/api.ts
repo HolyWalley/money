@@ -7,6 +7,7 @@ import * as signup from '../handlers/signup'
 import * as signout from '../handlers/signout'
 import * as refresh from '../handlers/refresh'
 import * as me from '../handlers/me'
+import * as sync from '../handlers/sync'
 import { ResponseUtils } from '../utils/response'
 
 export function createAPIRouter() {
@@ -47,6 +48,16 @@ export function createAPIRouter() {
 
   router.put('/api/v1/me', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await me.onRequestPut(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.get('/api/v1/sync', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await sync.onRequestGet(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.put('/api/v1/sync', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await sync.onRequestPut(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 

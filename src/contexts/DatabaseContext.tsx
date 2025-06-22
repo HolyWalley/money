@@ -26,7 +26,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
     async function initializeDatabase() {
       if (user?.userId && !isCleaningUp) {
-        console.log('Initializing database for user:', user.userId)
         setIsInitializing(true)
         try {
           database = createDatabase(user.userId)

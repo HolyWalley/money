@@ -23,7 +23,6 @@ categories.observe(event => {
         await db.categories.delete(id);
       } else {
         const category = Object.fromEntries(categories.get(id).entries());
-        console.log('category', category);
         await db.categories.put(category);
       }
     }
