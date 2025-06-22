@@ -113,7 +113,6 @@ export class Sync {
         deviceId: u.deviceId
       }));
 
-      // Send to server
       const response = await fetch('/api/v1/sync', {
         method: 'PUT',
         headers: {

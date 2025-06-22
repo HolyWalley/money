@@ -11,8 +11,8 @@ export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
     
-    // Only handle API routes
-    if (url.pathname.startsWith('/api/')) {
+    // Handle API and admin routes
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) {
       try {
         return await router.fetch(request, env, ctx)
       } catch (error) {

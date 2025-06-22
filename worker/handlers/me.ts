@@ -18,6 +18,7 @@ export async function onRequestGet(request: Request, env: CloudflareEnv, userInf
         username: user.username,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        premium: user.premium,
         settings: user.settings,
       }
     })

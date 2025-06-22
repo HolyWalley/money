@@ -1,15 +1,10 @@
-import type { CloudflareEnv } from '../types/cloudflare'
-import type { UserSettings } from '../../shared/types/userSettings'
+import type { CloudflareEnv, UserInfo } from '../types/cloudflare'
 import { SecurityUtils } from '../utils/security'
 import { ResponseUtils } from '../utils/response'
 import { IRequest } from 'itty-router'
 
 export interface AuthenticatedRequest extends IRequest {
-  user?: {
-    userId: string
-    username: string
-    settings: UserSettings
-  }
+  user?: UserInfo
   rateLimitHeaders?: Record<string, string>
 }
 

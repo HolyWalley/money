@@ -57,6 +57,7 @@ export const withAuth = async (request: AuthenticatedRequest, env: CloudflareEnv
   request.user = {
     userId: user.userId,
     username: user.username,
+    premium: user.premium,
     settings: user.settings,
   }
 }

@@ -9,7 +9,8 @@ export interface UserRecord {
   updatedAt: string
   lastLoginAt?: string
   isActive: boolean,
-  settings?: UserSettings
+  premium: boolean,
+  settings: UserSettings
 }
 
 export class StorageUtils {
@@ -32,6 +33,7 @@ export class StorageUtils {
       createdAt: now,
       updatedAt: now,
       isActive: true,
+      premium: false,
       settings: {
         defaultCurrency: 'USD',
       }

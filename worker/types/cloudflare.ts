@@ -4,6 +4,7 @@ import { MoneyObject } from "../durable-objects/MoneyObject.ts"
 export interface UserInfo {
   userId: string
   username: string
+  premium: boolean
   settings: UserSettings
 }
 
@@ -21,10 +22,6 @@ export interface CloudflareContext {
   env: CloudflareEnv
   next: () => Promise<Response>
   data?: {
-    user: {
-      userId: string
-      username: string,
-      settings: UserSettings
-    }
+    user: UserInfo
   }
 }
