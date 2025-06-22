@@ -11,6 +11,7 @@ import * as me from '../handlers/me'
 import * as sync from '../handlers/sync'
 import * as admin from '../handlers/admin'
 import { ResponseUtils } from '../utils/response'
+import { withPremium } from '../middleware/premium'
 
 export function createAPIRouter() {
   const router = Router()
@@ -56,12 +57,12 @@ export function createAPIRouter() {
     return withHeaders(response, request)
   })
 
-  router.get('/api/v1/sync', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+  router.get('/api/v1/sync', withPremium, async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await sync.onRequestGet(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 
-  router.put('/api/v1/sync', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+  router.put('/api/v1/sync', withPremium, async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await sync.onRequestPut(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })

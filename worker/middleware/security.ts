@@ -10,9 +10,9 @@ export interface AuthenticatedRequest extends IRequest {
 
 // Rate limiting configurations by endpoint
 export const RATE_LIMITS = {
-  '/api/v1/signin': { windowMs: 15 * 60 * 1000, maxRequests: 5 }, // 5 attempts per 15 minutes
+  '/api/v1/signin': { windowMs: 15 * 60 * 1000, maxRequests: 50 }, // 5 attempts per 15 minutes
   '/api/v1/signup': { windowMs: 60 * 60 * 1000, maxRequests: 3 }, // 3 signups per hour
-  '/api/v1/refresh': { windowMs: 5 * 60 * 1000, maxRequests: 10 }, // 10 refreshes per 5 minutes
+  '/api/v1/refresh': { windowMs: 5 * 60 * 1000, maxRequests: 100 }, // 10 refreshes per 5 minutes
   'default': { windowMs: 60 * 1000, maxRequests: 60 } // 60 requests per minute for other endpoints
 }
 

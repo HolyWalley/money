@@ -1,13 +1,19 @@
 import React from 'react';
 import { Sync } from '../lib/sync';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useSync(
   deviceId: string
 ) {
+  const { user } = useAuth()
   const [syncStatus, setSyncStatus] = React.useState<'idle' | 'syncing' | 'error'>('idle');
   const syncRef = React.useRef<Sync | null>(null);
 
   React.useEffect(() => {
+    if (!user?.premium) {
+      return;
+    }
+
     const initializeSync = async () => {
       try {
         setSyncStatus('syncing');
@@ -24,9 +30,14 @@ export function useSync(
     };
 
     initializeSync();
-  }, [deviceId]);
+  }, [deviceId, user?.premium]);
 
   const manualSync = React.useCallback(async () => {
+    if (!user?.premium) {
+      console.warn('Manual sync is only available for premium users.');
+      return;
+    }
+
     if (syncRef.current && syncStatus !== 'syncing') {
       setSyncStatus('syncing');
       try {
@@ -37,7 +48,7 @@ export function useSync(
         setSyncStatus('error');
       }
     }
-  }, [syncStatus]);
+  }, [syncStatus, user?.premium]);
 
   return { syncStatus, manualSync };
 }

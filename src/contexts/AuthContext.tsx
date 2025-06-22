@@ -6,6 +6,7 @@ export interface User {
   userId: string
   username: string
   createdAt: string
+  premium: boolean,
   updatedAt?: string,
   settings?: UserSettings
 }
