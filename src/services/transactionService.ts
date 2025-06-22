@@ -129,26 +129,33 @@ class TransactionService {
 
   async getWalletBalance(walletId: string): Promise<number> {
     try {
+      // Get the wallet to include initial balance
+      const wallet = await db.wallets.get(walletId)
+      if (!wallet) {
+        throw new Error('Wallet not found')
+      }
+
       const transactions = await this.getTransactionsByWallet(walletId)
-      let balance = 0
+      let transactionBalance = 0
 
       for (const transaction of transactions) {
         if (transaction.walletId === walletId) {
           if (transaction.transactionType === 'income') {
-            balance += transaction.amount
+            transactionBalance += transaction.amount
           } else if (transaction.transactionType === 'expense') {
-            balance -= transaction.amount
+            transactionBalance -= transaction.amount
           } else if (transaction.transactionType === 'transfer') {
-            balance -= transaction.amount
+            transactionBalance -= transaction.amount
           }
         }
 
         if (transaction.toWalletId === walletId && transaction.transactionType === 'transfer') {
-          balance += transaction.amount
+          transactionBalance += transaction.amount
         }
       }
 
-      return balance
+      // Return initial balance + transaction balance
+      return wallet.initialBalance + transactionBalance
     } catch (error) {
       console.error('Error calculating wallet balance:', error)
       throw error

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useWalletBalance } from '@/hooks/useWalletBalance'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
 interface WalletCardProps {
@@ -29,6 +30,8 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
     id: wallet._id,
     animateLayoutChanges: () => false,
   })
+
+  const { balance, isLoading } = useWalletBalance(wallet._id)
 
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -88,10 +91,14 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatCurrency(wallet.initialBalance, wallet.currency)}
+            {isLoading ? (
+              <span className="text-muted-foreground">...</span>
+            ) : (
+              formatCurrency(balance, wallet.currency)
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Initial balance
+            Current balance
           </p>
         </CardContent>
       </Card>
