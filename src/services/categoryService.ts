@@ -3,6 +3,12 @@ import * as Y from 'yjs'
 // import { createDefaultCategories } from '../lib/default-categories'
 import { ydoc, categories } from '../lib/crdts'
 
+// Helper function to create properly typed Y.Map for categories with safe type assertion
+function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<Category> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries) as unknown as Y.Map<Category>
+}
+
 import { v4 as uuid } from 'uuid'
 
 class CategoryService {
@@ -32,18 +38,18 @@ class CategoryService {
       const { name, type, icon, color, isDefault, order, userId } = categoryData
       const id = uuid()
       ydoc.transact(() => {
-        categories.set(id, new Y.Map([
-          ['_id', id],
-          ['name', name],
-          ['type', type],
-          ['icon', icon],
-          ['color', color],
-          ['isDefault', isDefault],
-          ['order', order],
-          ['userId', userId],
-          ['createdAt', new Date().toISOString()],
-          ['updatedAt', new Date().toISOString()]
-        ]) as any)
+        categories.set(id, createCategoryMap({
+          _id: id,
+          name,
+          type,
+          icon,
+          color,
+          isDefault,
+          order,
+          userId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }))
       })
       return id
     } catch (error) {
@@ -57,18 +63,18 @@ class CategoryService {
       ydoc.transact(() => {
         const category = categories.get(id)
         if (!category) return
-        categories.set(id, new Y.Map([
-          ['_id', id],
-          ['name', updates.name ?? category.get('name')],
-          ['type', updates.type ?? category.get('type')],
-          ['icon', updates.icon ?? category.get('icon')],
-          ['color', updates.color ?? category.get('color')],
-          ['isDefault', updates.isDefault ?? category.get('isDefault')],
-          ['order', updates.order ?? category.get('order')],
-          ['userId', category.get('userId')],
-          ['createdAt', category.get('createdAt')],
-          ['updatedAt', new Date().toISOString()]
-        ]) as any)
+        categories.set(id, createCategoryMap({
+          _id: id,
+          name: updates.name ?? (category.get('name') as unknown as string),
+          type: updates.type ?? (category.get('type') as unknown as Category['type']),
+          icon: updates.icon ?? (category.get('icon') as unknown as string),
+          color: updates.color ?? (category.get('color') as unknown as Category['color']),
+          isDefault: updates.isDefault ?? (category.get('isDefault') as unknown as boolean),
+          order: updates.order ?? (category.get('order') as unknown as number),
+          userId: category.get('userId') as unknown as string,
+          createdAt: category.get('createdAt') as unknown as string,
+          updatedAt: new Date().toISOString()
+        }))
       })
     } catch (error) {
       console.error('Error updating category:', error)

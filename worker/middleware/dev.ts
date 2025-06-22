@@ -3,6 +3,7 @@ import type { AuthenticatedRequest } from './security'
 import type { CloudflareEnv } from '../types/cloudflare'
 
 // Development-only middleware - only allows requests from localhost
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const withDevOnly = async (request: AuthenticatedRequest, env: CloudflareEnv) => {
   const url = new URL(request.url)
 

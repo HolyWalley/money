@@ -18,6 +18,7 @@ export async function getUser(request: Request & { params?: Record<string, strin
     }
 
     // Don't return password hash
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...userWithoutPassword } = user;
 
     return ResponseUtils.success(userWithoutPassword);

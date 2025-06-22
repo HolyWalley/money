@@ -19,7 +19,7 @@ interface SyncUpdate {
 
 interface SyncMetadata {
   key: string;
-  value: any;
+  value: number | string;
 }
 
 const db = new Dexie('UpdatesDB') as Dexie & {
@@ -48,7 +48,7 @@ export class Sync {
   private async getLastSyncTimestamp(): Promise<number> {
     try {
       const metadata = await db.syncMetadata.get(this.LAST_SYNC_KEY);
-      return metadata?.value || 0;
+      return (metadata?.value as number) || 0;
     } catch (error) {
       console.error('Failed to load sync metadata:', error);
       return 0;
@@ -67,7 +67,7 @@ export class Sync {
   }
 
   private setupLocalListener(): void {
-    doc.on('update', async (update: Uint8Array, origin: any) => {
+    doc.on('update', async (update: Uint8Array, origin: string | null) => {
       // Skip updates that came from sync
       if (origin === 'sync') return;
 
@@ -222,7 +222,7 @@ export class Sync {
   private async getLastPremiumSyncTimestamp(): Promise<number> {
     try {
       const metadata = await db.syncMetadata.get(this.LAST_PREMIUM_SYNC_KEY);
-      return metadata?.value || 0;
+      return (metadata?.value as number) || 0;
     } catch (error) {
       console.error('Failed to load premium sync metadata:', error);
       return 0;
