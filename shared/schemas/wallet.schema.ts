@@ -5,7 +5,6 @@ export const walletSchema = z.object({
   _id: z.string(),
   _rev: z.string().optional(),
   type: z.literal('wallet'),
-  userId: z.string(),
   name: z.string().min(1, 'Wallet name is required').max(50, 'Wallet name is too long'),
   currency: CurrencyEnum,
   initialBalance: z.number().default(0),

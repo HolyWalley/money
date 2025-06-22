@@ -1,14 +1,7 @@
-import type { CloudflareEnv } from '../types/cloudflare'
-import type { UserSettings } from '../../shared/types/userSettings'
+import type { CloudflareEnv, UserInfo } from '../types/cloudflare'
 import { StorageUtils } from '../utils/storage'
 import { ResponseUtils } from '../utils/response'
 import { UpdateUserSchema } from '../../shared/schemas/update_user.schema'
-
-interface UserInfo {
-  userId: string
-  username: string
-  settings: UserSettings
-}
 
 export async function onRequestGet(request: Request, env: CloudflareEnv, userInfo: UserInfo): Promise<Response> {
   try {
@@ -25,6 +18,7 @@ export async function onRequestGet(request: Request, env: CloudflareEnv, userInf
         username: user.username,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        premium: user.premium,
         settings: user.settings,
       }
     })

@@ -18,5 +18,19 @@
 			"id": "59a845744919453b8474efb06d802560",
 			"preview_id": "071add1338294fecb2dcd543a7be60d8"
 		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "MONEY_OBJECT",
+				"class_name": "MoneyObject"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["MoneyObject"]
+		}
 	]
 }

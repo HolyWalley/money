@@ -12,7 +12,7 @@ import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 
 export function TransactionTable() {
-  const { transactions, isLoading } = useLiveTransactions()
+  const { transactions } = useLiveTransactions()
   const { wallets } = useLiveWallets()
   const { categories } = useLiveCategories()
 
@@ -41,19 +41,6 @@ export function TransactionTable() {
     if (type === 'income') return 'text-green-600'
     if (type === 'expense') return 'text-red-600'
     return 'text-foreground'
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Loading transactions...</p>
-        </CardContent>
-      </Card>
-    )
   }
 
   if (transactions.length === 0) {

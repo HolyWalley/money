@@ -26,10 +26,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { IconColorSelector } from './IconColorSelector'
 import { CategoryIcon } from './CategoryIcon'
-import { useDatabase } from '@/contexts/DatabaseContext'
 import type { CategoryColor } from '@/lib/categoryIcons'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { categoryService } from '@/services/categoryService'
 
 interface CategoryProps {
   category: CategoryType
@@ -39,7 +39,6 @@ interface CategoryProps {
 }
 
 export function Category({ category, startInEditMode = false, onEditComplete, onDelete }: CategoryProps) {
-  const { categoryService } = useDatabase()
   const [isEditingName, setIsEditingName] = useState(startInEditMode)
   const [editedName, setEditedName] = useState(category.name)
   const [isIconPopoverOpen, setIsIconPopoverOpen] = useState(false)
@@ -81,10 +80,10 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
   }, [category.name, editedName, isSaving, onEditComplete])
 
   const handleNameSave = async () => {
-    if (editedName.trim() && editedName !== category.name && categoryService) {
+    if (editedName.trim() && editedName !== category.name) {
       try {
         setIsSaving(true)
-        await categoryService.updateCategory(category._id, { name: editedName.trim() })
+        categoryService.updateCategory(category._id, { name: editedName.trim() })
         // Don't hide the input here - let the effect handle it when the prop updates
       } catch (error) {
         console.error('Failed to update category name:', error)
@@ -100,23 +99,19 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
   }
 
   const handleIconChange = async (newIcon: string) => {
-    if (categoryService) {
-      try {
-        await categoryService.updateCategory(category._id, { icon: newIcon })
-        setIsIconPopoverOpen(false)
-      } catch (error) {
-        console.error('Failed to update category icon:', error)
-      }
+    try {
+      categoryService.updateCategory(category._id, { icon: newIcon })
+      setIsIconPopoverOpen(false)
+    } catch (error) {
+      console.error('Failed to update category icon:', error)
     }
   }
 
   const handleColorChange = async (newColor: CategoryColor) => {
-    if (categoryService) {
-      try {
-        await categoryService.updateCategory(category._id, { color: newColor })
-      } catch (error) {
-        console.error('Failed to update category color:', error)
-      }
+    try {
+      categoryService.updateCategory(category._id, { color: newColor })
+    } catch (error) {
+      console.error('Failed to update category color:', error)
     }
   }
 
@@ -225,7 +220,7 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      
+
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>

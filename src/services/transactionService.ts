@@ -1,30 +1,13 @@
-import type { Database } from '../lib/db'
+import { db } from '../lib/db-dexie'
+import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crdts'
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
 import { transactionSchema, createTransactionSchema, updateTransactionSchema } from '../../shared/schemas/transaction.schema'
 
-export class TransactionService {
-  private db: Database
-
-  constructor(db: Database) {
-    this.db = db
-  }
+class TransactionService {
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
-      const result = await this.db.transactions.allDocs({
-        include_docs: true,
-        descending: true
-      })
-
-      const transactions: Transaction[] = []
-
-      for (const row of result.rows) {
-        if (row.doc) {
-          transactions.push(row.doc)
-        }
-      }
-
-      return transactions
+      return await db.transactions.orderBy('createdAt').reverse().toArray()
     } catch (error) {
       console.error('Error fetching transactions:', error)
       throw error
@@ -33,12 +16,9 @@ export class TransactionService {
 
   async getTransactionById(id: string): Promise<Transaction | null> {
     try {
-      const transaction = await this.db.transactions.get(id)
-      return transaction
+      const transaction = await db.transactions.get(id)
+      return transaction || null
     } catch (error) {
-      if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
-        return null
-      }
       console.error('Error fetching transaction:', error)
       throw error
     }
@@ -46,19 +26,10 @@ export class TransactionService {
 
   async getTransactionsByWallet(walletId: string): Promise<Transaction[]> {
     try {
-      const result = await this.db.transactions.allDocs({
-        include_docs: true,
-        descending: true
-      })
-
-      const transactions: Transaction[] = []
-
-      for (const row of result.rows) {
-        if (row.doc && (row.doc.walletId === walletId || row.doc.toWalletId === walletId)) {
-          transactions.push(row.doc)
-        }
-      }
-
+      const transactions = await db.transactions
+        .filter(transaction => transaction.walletId === walletId || transaction.toWalletId === walletId)
+        .reverse()
+        .sortBy('createdAt')
       return transactions
     } catch (error) {
       console.error('Error fetching transactions by wallet:', error)
@@ -68,19 +39,11 @@ export class TransactionService {
 
   async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
     try {
-      const result = await this.db.transactions.allDocs({
-        include_docs: true,
-        descending: true
-      })
-
-      const transactions: Transaction[] = []
-
-      for (const row of result.rows) {
-        if (row.doc && row.doc.categoryId === categoryId) {
-          transactions.push(row.doc)
-        }
-      }
-
+      const transactions = await db.transactions
+        .where('categoryId')
+        .equals(categoryId)
+        .reverse()
+        .sortBy('createdAt')
       return transactions
     } catch (error) {
       console.error('Error fetching transactions by category:', error)
@@ -90,24 +53,16 @@ export class TransactionService {
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
     try {
-      const result = await this.db.transactions.allDocs({
-        include_docs: true,
-        descending: true
-      })
+      const start = new Date(startDate)
+      const end = new Date(endDate)
 
-      const transactions: Transaction[] = []
-
-      for (const row of result.rows) {
-        if (row.doc) {
-          const transactionDate = new Date(row.doc.date)
-          const start = new Date(startDate)
-          const end = new Date(endDate)
-          
-          if (transactionDate >= start && transactionDate <= end) {
-            transactions.push(row.doc)
-          }
-        }
-      }
+      const transactions = await db.transactions
+        .filter(transaction => {
+          const transactionDate = new Date(transaction.date)
+          return transactionDate >= start && transactionDate <= end
+        })
+        .reverse()
+        .sortBy('createdAt')
 
       return transactions
     } catch (error) {
@@ -116,29 +71,24 @@ export class TransactionService {
     }
   }
 
-  async createTransaction(userId: string, data: CreateTransaction): Promise<Transaction> {
+  async createTransaction(data: CreateTransaction): Promise<Transaction> {
     try {
       const validatedData = createTransactionSchema.parse(data)
 
-      const timestamp = Date.now().toString()
-      const sanitizedNote = (validatedData.note || 'transaction').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 30)
-
-      const transaction: Transaction = {
-        _id: `transaction_${sanitizedNote}_${timestamp}`,
+      const transaction: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'> = {
         type: 'transaction',
-        userId,
-        ...validatedData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        ...validatedData
       }
 
-      const validatedTransaction = transactionSchema.parse(transaction)
+      const validatedTransaction = transactionSchema.omit({ _id: true, createdAt: true, updatedAt: true }).parse(transaction)
 
-      const response = await this.db.transactions.put(validatedTransaction)
+      const id = addTransaction(validatedTransaction)
 
       return {
+        _id: id,
         ...validatedTransaction,
-        _rev: response.rev
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
     } catch (error) {
       console.error('Error creating transaction:', error)
@@ -150,21 +100,17 @@ export class TransactionService {
     try {
       const validatedUpdates = updateTransactionSchema.parse(updates)
 
-      const existingTransaction = await this.db.transactions.get(id)
+      const existingTransaction = await db.transactions.get(id)
+      if (!existingTransaction) {
+        throw new Error('Transaction not found')
+      }
 
-      const updatedTransaction: Transaction = {
+      updateTransaction(id, validatedUpdates)
+
+      return {
         ...existingTransaction,
         ...validatedUpdates,
         updatedAt: new Date().toISOString()
-      }
-
-      const validatedTransaction = transactionSchema.parse(updatedTransaction)
-
-      const response = await this.db.transactions.put(validatedTransaction)
-
-      return {
-        ...validatedTransaction,
-        _rev: response.rev
       }
     } catch (error) {
       console.error('Error updating transaction:', error)
@@ -174,8 +120,7 @@ export class TransactionService {
 
   async deleteTransaction(id: string): Promise<void> {
     try {
-      const transaction = await this.db.transactions.get(id)
-      await this.db.transactions.remove(transaction)
+      deleteTransaction(id)
     } catch (error) {
       console.error('Error deleting transaction:', error)
       throw error
@@ -240,3 +185,5 @@ export class TransactionService {
     }
   }
 }
+
+export const transactionService = new TransactionService()

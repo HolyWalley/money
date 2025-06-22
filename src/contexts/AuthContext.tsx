@@ -1,11 +1,17 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { type UserSettings } from '../../shared/types/userSettings.ts'
+
+export interface IPremium {
+  active: boolean
+  activatedAt?: string
+}
 
 export interface User {
   userId: string
   username: string
   createdAt: string
+  premium: IPremium,
   updatedAt?: string,
   settings?: UserSettings
 }
@@ -14,6 +20,7 @@ export interface AuthContextType {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
+  isPremium: boolean
   signin: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   signout: () => Promise<void>
@@ -41,6 +48,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const navigate = useNavigate()
 
   const isAuthenticated = user !== null
+  const isPremium = useMemo(() => user?.premium?.active ?? false, [user?.premium?.active])
 
   // Check authentication status on mount and refresh
   const checkAuth = async () => {
@@ -184,6 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     isLoading,
     isAuthenticated,
+    isPremium,
     signin,
     signup,
     signout,
