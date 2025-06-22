@@ -22,8 +22,11 @@ categories.observe(event => {
       if (change.action === 'delete') {
         await db.categories.delete(id);
       } else {
-        const category = Object.fromEntries(categories.get(id).entries());
-        await db.categories.put(category);
+        const category = categories.get(id);
+        if (category) {
+          const categoryObj = Object.fromEntries(category.entries()) as unknown as Category;
+          await db.categories.put(categoryObj);
+        }
       }
     }
   })
@@ -36,8 +39,11 @@ wallets.observe(event => {
       if (change.action === 'delete') {
         await db.wallets.delete(id);
       } else {
-        const wallet = Object.fromEntries(wallets.get(id).entries());
-        await db.wallets.put(wallet);
+        const wallet = wallets.get(id);
+        if (wallet) {
+          const walletObj = Object.fromEntries(wallet.entries()) as unknown as Wallet;
+          await db.wallets.put(walletObj);
+        }
       }
     }
   });
@@ -50,14 +56,17 @@ transactions.observe(event => {
       if (change.action === 'delete') {
         await db.transactions.delete(id);
       } else {
-        const transaction = Object.fromEntries(transactions.get(id).entries());
-        await db.transactions.put(transaction);
+        const transaction = transactions.get(id);
+        if (transaction) {
+          const transactionObj = Object.fromEntries(transaction.entries()) as unknown as Transaction;
+          await db.transactions.put(transactionObj);
+        }
       }
     }
   });
 });
 
-export function addCategory({ name, type, icon, color, isDefault, order, userId }: Category) {
+export function addCategory({ name, type, icon, color, isDefault, order, userId }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     categories.set(id, new Y.Map([
@@ -71,7 +80,7 @@ export function addCategory({ name, type, icon, color, isDefault, order, userId 
       ['userId', userId],
       ['createdAt', new Date().toISOString()],
       ['updatedAt', new Date().toISOString()]
-    ]))
+    ]) as any)
   })
   return id
 }
@@ -91,11 +100,11 @@ export function updateCategory(id: string, updates: Partial<Category>) {
       ['userId', category.get('userId')],
       ['createdAt', category.get('createdAt')],
       ['updatedAt', new Date().toISOString()]
-    ]))
+    ]) as any)
   })
 }
 
-export function addWallet({ name, type, userId, createdAt, updatedAt, currency, initialBalance }: Wallet) {
+export function addWallet({ name, type, userId, currency, initialBalance }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     wallets.set(id, new Y.Map([
@@ -103,13 +112,36 @@ export function addWallet({ name, type, userId, createdAt, updatedAt, currency, 
       ['name', name],
       ['type', type],
       ['userId', userId],
-      ['createdAt', createdAt],
-      ['updatedAt', updatedAt],
+      ['createdAt', new Date().toISOString()],
+      ['updatedAt', new Date().toISOString()],
       ['currency', currency],
       ['initialBalance', initialBalance]
-    ]))
+    ]) as any)
   })
   return id
+}
+
+export function updateWallet(id: string, updates: Partial<Wallet>) {
+  ydoc.transact(() => {
+    const wallet = wallets.get(id)
+    if (!wallet) return
+    wallets.set(id, new Y.Map([
+      ['_id', id],
+      ['name', updates.name ?? wallet.get('name')],
+      ['type', updates.type ?? wallet.get('type')],
+      ['userId', wallet.get('userId')],
+      ['createdAt', wallet.get('createdAt')],
+      ['updatedAt', new Date().toISOString()],
+      ['currency', updates.currency ?? wallet.get('currency')],
+      ['initialBalance', updates.initialBalance ?? wallet.get('initialBalance')]
+    ]) as any)
+  })
+}
+
+export function deleteWallet(id: string) {
+  ydoc.transact(() => {
+    wallets.delete(id)
+  })
 }
 
 export function addTransaction({ type, userId, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, createdAt, updatedAt }: Transaction) {
@@ -131,7 +163,7 @@ export function addTransaction({ type, userId, transactionType, amount, currency
       ['date', date],
       ['createdAt', createdAt],
       ['updatedAt', updatedAt]
-    ]))
+    ]) as any)
   })
   return id
 }

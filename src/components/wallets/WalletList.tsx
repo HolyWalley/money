@@ -18,7 +18,7 @@ import { useDatabase } from '@/contexts/DatabaseContext'
 import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema'
 
 export function WalletList() {
-  const { wallets, isLoading } = useLiveWallets()
+  const { wallets } = useLiveWallets()
   const { walletService } = useDatabase()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
@@ -47,14 +47,6 @@ export function WalletList() {
   const handleDialogClose = () => {
     setIsDialogOpen(false)
     setSelectedWallet(null)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">Loading wallets...</div>
-      </div>
-    )
   }
 
   if (wallets.length === 0) {

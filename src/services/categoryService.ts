@@ -6,7 +6,7 @@ import { ydoc, categories } from '../lib/crdts'
 import { v4 as uuid } from 'uuid'
 
 class CategoryService {
-  async initializeDefaultCategories(userId: string): Promise<void> {
+  async initializeDefaultCategories(): Promise<void> {
     // try {
     //   const existingCategories = await this.getAllCategories()
     //
@@ -43,7 +43,7 @@ class CategoryService {
           ['userId', userId],
           ['createdAt', new Date().toISOString()],
           ['updatedAt', new Date().toISOString()]
-        ]))
+        ]) as any)
       })
       return id
     } catch (error) {
@@ -68,7 +68,7 @@ class CategoryService {
           ['userId', category.get('userId')],
           ['createdAt', category.get('createdAt')],
           ['updatedAt', new Date().toISOString()]
-        ]))
+        ]) as any)
       })
     } catch (error) {
       console.error('Error updating category:', error)
