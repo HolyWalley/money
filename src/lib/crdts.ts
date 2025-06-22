@@ -127,7 +127,7 @@ export function updateCategory(id: string, updates: Partial<Category>) {
   })
 }
 
-export function addWallet({ name, type, currency, initialBalance }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addWallet({ name, type, currency, initialBalance, order }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     wallets.set(id, createWalletMap({
@@ -137,7 +137,8 @@ export function addWallet({ name, type, currency, initialBalance }: Omit<Wallet,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       currency,
-      initialBalance
+      initialBalance,
+      order
     }))
   })
   return id
@@ -154,7 +155,8 @@ export function updateWallet(id: string, updates: Partial<Wallet>) {
       createdAt: wallet.get('createdAt') as unknown as string,
       updatedAt: new Date().toISOString(),
       currency: updates.currency ?? (wallet.get('currency') as unknown as Wallet['currency']),
-      initialBalance: updates.initialBalance ?? (wallet.get('initialBalance') as unknown as number)
+      initialBalance: updates.initialBalance ?? (wallet.get('initialBalance') as unknown as number),
+      order: updates.order ?? (wallet.get('order') as unknown as number)
     }))
   })
 }

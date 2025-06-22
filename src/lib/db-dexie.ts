@@ -16,4 +16,11 @@ db.version(1).stores({
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,note,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
 });
 
+// Add new version with order field indexed for wallets
+db.version(2).stores({
+  categories: '_id,name,type,icon,color,isDefault,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,initialBalance,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,note,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
+});
+
 export { db };

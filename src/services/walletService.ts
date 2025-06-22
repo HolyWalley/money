@@ -1,12 +1,12 @@
 import { db } from '../lib/db-dexie'
-import { addWallet, updateWallet, deleteWallet } from '../lib/crdts'
+import { addWallet, updateWallet as updateWalletCRDT, deleteWallet } from '../lib/crdts'
 import type { Wallet, CreateWallet, UpdateWallet } from '../../shared/schemas/wallet.schema'
 import { walletSchema, createWalletSchema, updateWalletSchema } from '../../shared/schemas/wallet.schema'
 
 class WalletService {
   async getAllWallets(): Promise<Wallet[]> {
     try {
-      return await db.wallets.orderBy('createdAt').reverse().toArray()
+      return await db.wallets.orderBy('order').toArray()
     } catch (error) {
       console.error('Error fetching wallets:', error)
       throw error
@@ -27,9 +27,13 @@ class WalletService {
     try {
       const validatedData = createWalletSchema.parse(data)
 
+      const maxOrder = await this.getMaxOrder()
+      const order = validatedData.order ?? maxOrder + 1
+
       const wallet: Omit<Wallet, '_id'> = {
         type: 'wallet',
         ...validatedData,
+        order,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -59,7 +63,7 @@ class WalletService {
         throw new Error('Wallet not found')
       }
 
-      updateWallet(id, validatedUpdates)
+      updateWalletCRDT(id, validatedUpdates)
 
       return {
         ...existingWallet,
@@ -78,6 +82,34 @@ class WalletService {
     } catch (error) {
       console.error('Error deleting wallet:', error)
       throw error
+    }
+  }
+
+  private async getMaxOrder(): Promise<number> {
+    try {
+      const wallets = await db.wallets.orderBy('order').reverse().limit(1).toArray()
+      return wallets.length > 0 ? wallets[0].order : -1
+    } catch (error) {
+      console.error('Error getting max order:', error)
+      return -1
+    }
+  }
+
+  async initializeWalletOrders(): Promise<void> {
+    try {
+      const wallets = await db.wallets.toArray()
+      const walletsNeedingOrder = wallets.filter(wallet => 
+        wallet.order === undefined || wallet.order === null
+      )
+
+      if (walletsNeedingOrder.length > 0) {
+        for (let i = 0; i < walletsNeedingOrder.length; i++) {
+          const wallet = walletsNeedingOrder[i]
+          await this.updateWallet(wallet._id, { order: i })
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing wallet orders:', error)
     }
   }
 }
