@@ -52,7 +52,7 @@ export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps
     setIsSubmitting(true)
     try {
       console.log('Submitting transaction data:', data)
-      await transactionService.createTransaction(user.userId, data)
+      await transactionService.createTransaction(data)
       onOpenChange(false)
       form.reset({
         transactionType: 'expense',

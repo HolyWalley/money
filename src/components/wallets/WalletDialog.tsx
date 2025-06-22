@@ -65,7 +65,7 @@ export function WalletDialog({ open, onOpenChange, wallet, onSuccess }: WalletDi
       if (isEditMode && wallet) {
         await walletService.updateWallet(wallet._id, data as UpdateWallet)
       } else {
-        await walletService.createWallet(user.userId, data as CreateWallet)
+        await walletService.createWallet(data as CreateWallet)
       }
       onOpenChange(false)
       onSuccess?.()

@@ -7,7 +7,6 @@ export const transactionSchema = z.object({
   _id: z.string(),
   _rev: z.string().optional(),
   type: z.literal('transaction'),
-  userId: z.string(),
   transactionType: transactionTypeSchema,
   amount: z.number().positive('Amount must be positive'),
   currency: CurrencyEnum,

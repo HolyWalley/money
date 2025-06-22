@@ -1,7 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
-import { useAuth } from '@/contexts/AuthContext'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useState, useEffect, useMemo } from 'react'
 import type { Category } from '../../../shared/schemas/category.schema'
@@ -18,7 +17,6 @@ interface CategoriesDialogProps {
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
   const { categories: dbCategories } = useLiveCategories()
-  const { user } = useAuth()
   const [localCategories, setLocalCategories] = useState<Category[]>([])
   const [isPendingUpdate, setIsPendingUpdate] = useState(false)
   const [newCategoryId, setNewCategoryId] = useState<string | null>(null)
@@ -49,8 +47,6 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
   }
 
   const handleAddCategory = async (type: 'income' | 'expense') => {
-    if (!user?.userId) return
-
     const categoriesOfType = localCategories.filter(cat => cat.type === type)
     const maxOrder = categoriesOfType.length
 
@@ -61,8 +57,7 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
         icon: getRandomIcon(),
         color: getRandomColor(),
         order: maxOrder,
-        isDefault: false,
-        userId: user.userId
+        isDefault: false
       })
     } catch (error) {
       console.error('Failed to create category:', error)

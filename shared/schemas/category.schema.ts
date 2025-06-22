@@ -21,7 +21,6 @@ export const categorySchema = z.object({
   color: categoryColorSchema,
   isDefault: z.boolean(),
   order: z.number().int().min(0),
-  userId: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 })

@@ -71,13 +71,12 @@ class TransactionService {
     }
   }
 
-  async createTransaction(userId: string, data: CreateTransaction): Promise<Transaction> {
+  async createTransaction(data: CreateTransaction): Promise<Transaction> {
     try {
       const validatedData = createTransactionSchema.parse(data)
 
       const transaction: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'> = {
         type: 'transaction',
-        userId,
         ...validatedData
       }
 

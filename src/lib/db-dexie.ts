@@ -11,9 +11,9 @@ const db = new Dexie('MoneyDB') as Dexie & {
 }
 
 db.version(1).stores({
-  categories: '_id,name,type,icon,color,isDefault,order,userId,createdAt,updatedAt',
-  wallets: '_id,name,type,userId,createdAt,updatedAt,currency,initialBalance',
-  transactions: '_id,type,userId,transactionType,amount,currency,toAmount,toCurrency,note,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
+  categories: '_id,name,type,icon,color,isDefault,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,initialBalance',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,note,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
 });
 
 export { db };

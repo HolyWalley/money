@@ -91,7 +91,7 @@ export const defaultExpenseCategories: DefaultCategoryTemplate[] = [
   }
 ]
 
-export function createDefaultCategories(userId: string): Category[] {
+export function createDefaultCategories(): Category[] {
   const now = new Date().toISOString()
   const categories: Category[] = []
 
@@ -104,7 +104,6 @@ export function createDefaultCategories(userId: string): Category[] {
       color: cat.color,
       isDefault: true,
       order: index,
-      userId,
       createdAt: now,
       updatedAt: now
     })
@@ -119,7 +118,6 @@ export function createDefaultCategories(userId: string): Category[] {
       color: cat.color,
       isDefault: true,
       order: index,
-      userId,
       createdAt: now,
       updatedAt: now
     })

@@ -23,13 +23,12 @@ class WalletService {
     }
   }
 
-  async createWallet(userId: string, data: CreateWallet): Promise<Wallet> {
+  async createWallet(data: CreateWallet): Promise<Wallet> {
     try {
       const validatedData = createWalletSchema.parse(data)
 
       const wallet: Omit<Wallet, '_id'> = {
         type: 'wallet',
-        userId,
         ...validatedData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

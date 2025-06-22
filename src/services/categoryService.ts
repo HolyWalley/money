@@ -13,7 +13,7 @@ import { v4 as uuid } from 'uuid'
 class CategoryService {
   createCategory(categoryData: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>): string {
     try {
-      const { name, type, icon, color, isDefault, order, userId } = categoryData
+      const { name, type, icon, color, isDefault, order } = categoryData
       const id = uuid()
       ydoc.transact(() => {
         categories.set(id, createCategoryMap({
@@ -24,7 +24,6 @@ class CategoryService {
           color,
           isDefault,
           order,
-          userId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }))
@@ -49,7 +48,6 @@ class CategoryService {
           color: updates.color ?? (category.get('color') as unknown as Category['color']),
           isDefault: updates.isDefault ?? (category.get('isDefault') as unknown as boolean),
           order: updates.order ?? (category.get('order') as unknown as number),
-          userId: category.get('userId') as unknown as string,
           createdAt: category.get('createdAt') as unknown as string,
           updatedAt: new Date().toISOString()
         }))

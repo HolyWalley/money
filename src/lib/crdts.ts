@@ -82,7 +82,7 @@ transactions.observe(event => {
   });
 });
 
-export function addCategory({ name, type, icon, color, isDefault, order, userId }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addCategory({ name, type, icon, color, isDefault, order }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     categories.set(id, createCategoryMap({
@@ -93,7 +93,6 @@ export function addCategory({ name, type, icon, color, isDefault, order, userId 
       color,
       isDefault,
       order,
-      userId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -120,21 +119,19 @@ export function updateCategory(id: string, updates: Partial<Category>) {
       color: updates.color ?? (category.get('color') as unknown as Category['color']),
       isDefault: updates.isDefault ?? (category.get('isDefault') as unknown as boolean),
       order: updates.order ?? (category.get('order') as unknown as number),
-      userId: category.get('userId') as unknown as string,
       createdAt: category.get('createdAt') as unknown as string,
       updatedAt: new Date().toISOString()
     }))
   })
 }
 
-export function addWallet({ name, type, userId, currency, initialBalance }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addWallet({ name, type, currency, initialBalance }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     wallets.set(id, createWalletMap({
       _id: id,
       name,
       type,
-      userId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       currency,
@@ -152,7 +149,6 @@ export function updateWallet(id: string, updates: Partial<Wallet>) {
       _id: id,
       name: updates.name ?? (wallet.get('name') as unknown as string),
       type: updates.type ?? (wallet.get('type') as unknown as Wallet['type']),
-      userId: wallet.get('userId') as unknown as string,
       createdAt: wallet.get('createdAt') as unknown as string,
       updatedAt: new Date().toISOString(),
       currency: updates.currency ?? (wallet.get('currency') as unknown as Wallet['currency']),
@@ -167,13 +163,12 @@ export function deleteWallet(id: string) {
   })
 }
 
-export function addTransaction({ type, userId, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     transactions.set(id, createTransactionMap({
       _id: id,
       type,
-      userId,
       transactionType,
       amount,
       currency,
@@ -198,7 +193,6 @@ export function updateTransaction(id: string, updates: Partial<Transaction>) {
     transactions.set(id, createTransactionMap({
       _id: id,
       type: transaction.get('type') as unknown as Transaction['type'],
-      userId: transaction.get('userId') as unknown as string,
       transactionType: updates.transactionType ?? (transaction.get('transactionType') as unknown as Transaction['transactionType']),
       amount: updates.amount ?? (transaction.get('amount') as unknown as number),
       currency: updates.currency ?? (transaction.get('currency') as unknown as Transaction['currency']),
