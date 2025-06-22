@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { DatabaseProvider } from '@/contexts/DatabaseContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { MainApp } from '@/components/MainApp'
@@ -32,25 +31,23 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 export function AppRoutes() {
   return (
     <AuthProvider>
-      <DatabaseProvider>
-        <Routes>
-          <Route path="/auth" element={<AuthLayout />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Routes>
-                    <Route path="/dashboard" element={<MainApp />} />
-                    <Route path="/wallets" element={<WalletsPage />} />
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </DatabaseProvider>
+      <Routes>
+        <Route path="/auth" element={<AuthLayout />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Routes>
+                  <Route path="/dashboard" element={<MainApp />} />
+                  <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
     </AuthProvider>
   )
 }

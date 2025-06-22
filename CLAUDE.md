@@ -2,10 +2,11 @@
 
 ## Project Overview
 Personal finances tracking app built with Local First principles using:
-- PouchDB for local-first data storage
+- Yjs + Dexie.js for local-first data storage with conflict-free sync
 - React with TypeScript
 - Cloudflare Pages for hosting
 - Cloudflare Worker for backend API
+- Custom sync implementation for cross-device data synchronization
 - Comprehensive test coverage
 - Clean, readable code
 
@@ -20,7 +21,9 @@ Personal finances tracking app built with Local First principles using:
 
 ### Tech Stack Requirements
 - React with TypeScript
-- PouchDB for data storage
+- Yjs for conflict-free replicated data types (CRDTs)
+- Dexie.js for local IndexedDB storage
+- dexie-react-hooks for reactive queries
 - Cloudflare Pages deployment
 - Cloudflare Worker for backend API
 - Jest + React Testing Library for testing
@@ -34,10 +37,32 @@ Personal finances tracking app built with Local First principles using:
 - itty-router for Worker routing
 
 ### State Management Strategy
-- **Database State**: Rely on PouchDB
+- **Database State**: Yjs + Dexie.js with reactive queries
 - **App State** (theme, UI preferences): Context API
 - **Component State**: useState hook
 - **No Redux** - keep it simple
+
+### Database Architecture
+- **Yjs Documents**: Conflict-free replicated data types for offline-first sync
+- **Dexie.js**: IndexedDB wrapper for local storage and querying
+- **CRDT Operations**: All data mutations go through Yjs for automatic conflict resolution
+- **Reactive Queries**: Components use `useLiveQuery` for automatic updates
+- **Services**: Singleton services provide business logic layer
+- **No Context Providers**: Direct service imports eliminate provider complexity
+
+### Custom Sync Implementation
+- **Local Storage**: Yjs updates stored in IndexedDB via y-indexeddb persistence
+- **Cross-Device Sync**: Custom sync protocol using Cloudflare Worker KV storage
+- **Update Tracking**: Local database tracks which updates have been synced
+- **Conflict Resolution**: Yjs automatically merges conflicting changes using CRDTs
+- **Device Identification**: Unique device IDs prevent self-sync loops
+- **Incremental Sync**: Only new/unsynced updates are transmitted
+- **Offline Support**: App works fully offline, syncs when connection restored
+- **File Structure**:
+  - `src/lib/crdts.ts` - Yjs document setup and CRUD operations
+  - `src/lib/db-dexie.ts` - Dexie schema and configuration
+  - `src/lib/sync.ts` - Custom sync implementation
+  - `src/hooks/useSync.ts` - React hook for sync management
 
 ### UI Development Guidelines
 - **Prefer existing components**: Use shadcn/ui components first

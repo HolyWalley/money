@@ -10,7 +10,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer'
 import { TransactionForm } from './TransactionForm'
-import { useDatabase } from '@/contexts/DatabaseContext'
+import { transactionService } from '@/services/transactionService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { createTransactionSchema, type CreateTransaction } from '../../../shared/schemas/transaction.schema'
@@ -21,7 +21,6 @@ interface TransactionDrawerProps {
 }
 
 export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps) {
-  const { transactionService } = useDatabase()
   const { user } = useAuth()
   const { wallets } = useLiveWallets()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,7 +47,7 @@ export function TransactionDrawer({ open, onOpenChange }: TransactionDrawerProps
   }, [wallets, form])
 
   const handleSubmit = async (data: CreateTransaction) => {
-    if (!transactionService || !user) return
+    if (!user) return
 
     setIsSubmitting(true)
     try {

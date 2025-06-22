@@ -14,12 +14,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
-import { useDatabase } from '@/contexts/DatabaseContext'
+import { walletService } from '@/services/walletService'
 import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema'
 
 export function WalletList() {
   const { wallets } = useLiveWallets()
-  const { walletService } = useDatabase()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null)
@@ -31,7 +30,7 @@ export function WalletList() {
   }
 
   const handleDelete = async () => {
-    if (!walletToDelete || !walletService) return
+    if (!walletToDelete) return
 
     setIsDeleting(true)
     try {

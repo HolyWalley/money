@@ -3,7 +3,7 @@ import { addWallet, updateWallet, deleteWallet } from '../lib/crdts'
 import type { Wallet, CreateWallet, UpdateWallet } from '../../shared/schemas/wallet.schema'
 import { walletSchema, createWalletSchema, updateWalletSchema } from '../../shared/schemas/wallet.schema'
 
-export class WalletService {
+class WalletService {
   async getAllWallets(): Promise<Wallet[]> {
     try {
       return await db.wallets.orderBy('createdAt').reverse().toArray()
@@ -82,3 +82,5 @@ export class WalletService {
     }
   }
 }
+
+export const walletService = new WalletService()

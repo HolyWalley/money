@@ -3,7 +3,7 @@ import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crd
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
 import { transactionSchema, createTransactionSchema, updateTransactionSchema } from '../../shared/schemas/transaction.schema'
 
-export class TransactionService {
+class TransactionService {
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
@@ -55,7 +55,7 @@ export class TransactionService {
     try {
       const start = new Date(startDate)
       const end = new Date(endDate)
-      
+
       const transactions = await db.transactions
         .filter(transaction => {
           const transactionDate = new Date(transaction.date)
@@ -63,7 +63,7 @@ export class TransactionService {
         })
         .reverse()
         .sortBy('createdAt')
-      
+
       return transactions
     } catch (error) {
       console.error('Error fetching transactions by date range:', error)
@@ -186,3 +186,5 @@ export class TransactionService {
     }
   }
 }
+
+export const transactionService = new TransactionService()

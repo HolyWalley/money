@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { WalletForm } from './WalletForm'
-import { useDatabase } from '@/contexts/DatabaseContext'
+import { walletService } from '@/services/walletService'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Wallet, CreateWallet, UpdateWallet } from '../../../shared/schemas/wallet.schema'
 import { createWalletSchema, updateWalletSchema } from '../../../shared/schemas/wallet.schema'
@@ -24,7 +24,6 @@ interface WalletDialogProps {
 }
 
 export function WalletDialog({ open, onOpenChange, wallet, onSuccess }: WalletDialogProps) {
-  const { walletService } = useDatabase()
   const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +56,7 @@ export function WalletDialog({ open, onOpenChange, wallet, onSuccess }: WalletDi
   }, [wallet, form])
 
   const onSubmit = async (data: CreateWallet | UpdateWallet) => {
-    if (!walletService || !user) return
+    if (!user) return
 
     setIsSubmitting(true)
     setError(null)
