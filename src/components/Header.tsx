@@ -3,23 +3,29 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuSeparator,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LogOut, User, DollarSign, FolderOpen, Wallet, Plus } from 'lucide-react'
+import { LogOut, User, DollarSign, FolderOpen, Wallet, Plus, Moon, Sun, Monitor, Palette } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export function Header() {
   const { user, signout, setUser, isPremium } = useAuth()
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [transactionDrawerOpen, setTransactionDrawerOpen] = useState(false)
 
@@ -98,8 +104,6 @@ export function Header() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <ThemeToggle />
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2">
@@ -135,6 +139,29 @@ export function Header() {
                   <FolderOpen className="mr-2 h-4 w-4" />
                   <span>Categories</span>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Palette className="mr-2 h-4 w-4" />
+                    <span>Theme</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
+                      <DropdownMenuRadioItem value="light">
+                        <Sun className="mr-2 h-4 w-4" />
+                        <span>Light</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="dark">
+                        <Moon className="mr-2 h-4 w-4" />
+                        <span>Dark</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="system">
+                        <Monitor className="mr-2 h-4 w-4" />
+                        <span>System</span>
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
