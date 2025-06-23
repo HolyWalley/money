@@ -36,6 +36,12 @@ export const defaultExpenseCategories: DefaultCategoryTemplate[] = [
     color: 'orange'
   },
   {
+    _id: 'default-expense-groceries',
+    name: 'Groceries',
+    icon: 'ShoppingCart',
+    color: 'green'
+  },
+  {
     _id: 'default-expense-gifts',
     name: 'Gift & Donations',
     icon: 'Gift',
@@ -52,6 +58,12 @@ export const defaultExpenseCategories: DefaultCategoryTemplate[] = [
     name: 'Home',
     icon: 'Home',
     color: 'blue'
+  },
+  {
+    _id: 'default-expense-pet',
+    name: 'Pet',
+    icon: 'Cat',
+    color: 'orange'
   },
   {
     _id: 'default-expense-loans',

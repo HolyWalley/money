@@ -82,6 +82,7 @@ export const categoryIcons = [
   { name: 'Users', icon: 'Users', category: 'Personal', keywords: ['people', 'group', 'family', 'friends', 'team', 'community'] },
   { name: 'User', icon: 'User', category: 'Personal', keywords: ['person', 'individual', 'profile', 'account', 'self', 'me'] },
   { name: 'Baby', icon: 'Baby', category: 'Personal', keywords: ['child', 'kid', 'infant', 'family', 'childcare', 'parenting'] },
+  { name: 'Cat', icon: 'Cat', category: 'Personal', keywords: ['pet', 'animal', 'kitten', 'feline', 'companion', 'veterinary'] },
   { name: 'Shirt', icon: 'Shirt', category: 'Personal', keywords: ['clothing', 'clothes', 'apparel', 'fashion', 'wardrobe', 'outfit'] },
   { name: 'Sparkles', icon: 'Sparkles', category: 'Personal', keywords: ['beauty', 'cosmetics', 'makeup', 'salon', 'grooming', 'spa'] },
   { name: 'Palette', icon: 'Palette', category: 'Personal', keywords: ['art', 'creative', 'paint', 'hobby', 'craft', 'design'] },

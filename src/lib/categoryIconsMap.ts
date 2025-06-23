@@ -73,6 +73,7 @@ import {
   Star,
   Tag,
   Hash,
+  Cat,
   type LucideIcon
 } from 'lucide-react';
 
@@ -151,4 +152,5 @@ export const categoryIconsMap: Record<string, LucideIcon> = {
   Star,
   Tag,
   Hash,
+  Cat,
 };
