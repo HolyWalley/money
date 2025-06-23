@@ -16,10 +16,9 @@ import {
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LogOut, User, DollarSign, FolderOpen, Wallet, Plus, Moon, Sun, Monitor, Palette } from 'lucide-react'
+import { LogOut, User, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
-import { TransactionDrawer } from '@/components/transactions/TransactionDrawer'
 import { useTheme } from '@/contexts/ThemeContext'
 
 export function Header() {
@@ -27,7 +26,6 @@ export function Header() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
-  const [transactionDrawerOpen, setTransactionDrawerOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signout()
@@ -92,15 +90,6 @@ export function Header() {
                 </Badge>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTransactionDrawerOpen(true)}
-              className="flex items-center space-x-1"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Transaction</span>
-            </Button>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -174,7 +163,6 @@ export function Header() {
       </div>
       
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
-      <TransactionDrawer open={transactionDrawerOpen} onOpenChange={setTransactionDrawerOpen} />
     </header>
   )
 }
