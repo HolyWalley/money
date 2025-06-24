@@ -92,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok && data.success) {
         setUser(data.data.user)
         navigate('/dashboard')
+        window.scrollTo(0, 0)
         return { success: true }
       } else {
         return { success: false, error: data.error || 'Sign in failed' }
@@ -119,6 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok && data.success) {
         setUser(data.data.user)
         navigate('/dashboard')
+        window.scrollTo(0, 0)
         return { success: true }
       } else {
         return {
