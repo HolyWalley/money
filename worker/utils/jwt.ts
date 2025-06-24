@@ -84,12 +84,13 @@ export class JWTUtils {
     }
   }
 
-  static getCookieOptions(isRefreshToken = false) {
+  static getCookieOptions(isRefreshToken = false, env?: { ENVIRONMENT?: string }) {
     const maxAge = isRefreshToken ? 7 * 24 * 60 * 60 : 15 * 60 // 7 days or 15 minutes
+    const isDevelopment = env?.ENVIRONMENT === 'development'
 
     return {
       httpOnly: true,
-      secure: true,
+      secure: !isDevelopment, // Only secure in production
       sameSite: 'strict' as const,
       maxAge,
       path: '/',

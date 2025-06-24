@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import { ydoc as doc } from './crdts';
 import * as Y from 'yjs';
+import { apiClient } from './api-client';
 
 interface YjsUpdate {
   id?: number;
@@ -37,6 +38,7 @@ export class Sync {
   private pushTimeout: NodeJS.Timeout | null = null;
   private readonly LAST_SYNC_KEY = 'lastSyncTimestamp';
   private readonly LAST_PREMIUM_SYNC_KEY = 'lastPremiumSyncTimestamp';
+  private updateListener: ((update: Uint8Array, origin: string | null) => void) | null = null;
 
   constructor(
     deviceId: string,
@@ -67,7 +69,7 @@ export class Sync {
   }
 
   private setupLocalListener(): void {
-    doc.on('update', async (update: Uint8Array, origin: string | null) => {
+    this.updateListener = async (update: Uint8Array, origin: string | null) => {
       // Skip updates that came from sync
       if (origin === 'sync') return;
 
@@ -80,7 +82,9 @@ export class Sync {
 
       // Debounced push to server
       this.schedulePush();
-    });
+    };
+
+    doc.on('update', this.updateListener);
   }
 
   private schedulePush(): void {
@@ -114,17 +118,10 @@ export class Sync {
         deviceId: u.deviceId
       }));
 
-      const response = await fetch('/api/v1/sync', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-        credentials: 'include'
-      });
+      const response = await apiClient.pushSync(updates);
 
       if (!response.ok) {
-        throw new Error(`Sync failed: ${response.statusText}`);
+        throw new Error(`Sync failed: ${response.error || 'Unknown error'}`);
       }
 
       // Mark updates as synced
@@ -148,29 +145,15 @@ export class Sync {
       }
 
       const lastSyncTimestamp = await this.getLastSyncTimestamp();
-      const params = lastSyncTimestamp ? `?since=${lastSyncTimestamp}` : '';
-      const response = await fetch(`/api/v1/sync${params}`, {
-        method: 'GET',
-        credentials: 'include'
-      });
+      const lastSyncStr = lastSyncTimestamp ? lastSyncTimestamp.toString() : undefined;
+      const response = await apiClient.pullSync(lastSyncStr);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Pull sync response error:', response.status, errorText);
-        throw new Error(`Pull failed: ${response.statusText}`);
+        console.error('Pull sync response error:', response.status, response.error);
+        throw new Error(`Pull failed: ${response.error || 'Unknown error'}`);
       }
 
-      const responseText = await response.text();
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        console.error('Response text that failed to parse:', responseText);
-        throw parseError;
-      }
-      const updates: SyncUpdate[] = data.data?.updates || [];
+      const updates: SyncUpdate[] = response.data?.updates || [];
 
       if (updates.length === 0) {
         return;
@@ -255,21 +238,14 @@ export class Sync {
         // Only push if we have actual state to share
         if (stateUpdate.length > 0) {
           // Push complete state as a regular update
-          const response = await fetch('/api/v1/sync', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify([{
-              update: Array.from(stateUpdate),
-              timestamp: Date.now(),
-              deviceId: this.deviceId
-            }]),
-            credentials: 'include'
-          });
+          const response = await apiClient.pushSync([{
+            update: Array.from(stateUpdate),
+            timestamp: Date.now(),
+            deviceId: this.deviceId
+          }]);
 
           if (!response.ok) {
-            throw new Error(`Initial sync push failed: ${response.statusText}`);
+            throw new Error(`Initial sync push failed: ${response.error || 'Unknown error'}`);
           }
 
           console.log('Initial sync push completed');
@@ -282,6 +258,21 @@ export class Sync {
     } catch (error) {
       console.error('Initial sync error:', error);
       // Don't throw - allow normal sync to continue
+    }
+  }
+
+  // Cleanup method to remove event listeners and clear timeouts
+  destroy(): void {
+    // Remove event listener
+    if (this.updateListener) {
+      doc.off('update', this.updateListener);
+      this.updateListener = null;
+    }
+
+    // Clear any pending push timeout
+    if (this.pushTimeout) {
+      clearTimeout(this.pushTimeout);
+      this.pushTimeout = null;
     }
   }
 }

@@ -39,12 +39,12 @@ export async function onRequestPost(request: Request, env: CloudflareEnv): Promi
       {
         name: 'accessToken',
         value: tokens.accessToken,
-        options: JWTUtils.getCookieOptions(false)
+        options: JWTUtils.getCookieOptions(false, env)
       },
       {
         name: 'refreshToken',
         value: tokens.refreshToken,
-        options: JWTUtils.getCookieOptions(true)
+        options: JWTUtils.getCookieOptions(true, env)
       }
     ])
 

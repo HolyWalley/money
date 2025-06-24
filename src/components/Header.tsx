@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { apiClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuSub,
@@ -33,9 +34,9 @@ export function Header() {
 
   const handleCurrencyChange = async (newCurrency: Currency) => {
     if (!user) return
-    
+
     const previousUser = user
-    
+
     // Optimistic update
     setUser({
       ...user,
@@ -44,29 +45,18 @@ export function Header() {
         defaultCurrency: newCurrency
       }
     })
-    
+
     try {
-      const response = await fetch('/api/v1/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          settings: { 
-            defaultCurrency: newCurrency 
-          } 
-        }),
+      const response = await apiClient.updateUser({
+        default_currency: newCurrency
       })
 
       if (!response.ok) {
         // Revert on failure
         setUser(previousUser)
-      } else {
+      } else if (response.data) {
         // Update with server data
-        const data = await response.json()
-        if (data.success && data.data?.user) {
-          setUser(data.data.user)
-        }
+        setUser(response.data)
       }
     } catch (error) {
       console.error('Failed to update currency:', error)
@@ -103,8 +93,8 @@ export function Header() {
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <Select 
-                    value={user?.settings?.defaultCurrency as Currency || 'USD'} 
+                  <Select
+                    value={user?.settings?.defaultCurrency as Currency || 'USD'}
                     onValueChange={handleCurrencyChange}
                   >
                     <SelectTrigger className="flex-1 h-8">
@@ -161,7 +151,7 @@ export function Header() {
           </div>
         </div>
       </div>
-      
+
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
     </header>
   )

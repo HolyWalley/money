@@ -11,6 +11,16 @@ export function useSync(
 
   React.useEffect(() => {
     if (!isPremium) {
+      // Clean up sync instance if user is no longer premium
+      if (syncRef.current) {
+        syncRef.current.destroy();
+        syncRef.current = null;
+      }
+      return;
+    }
+
+    // Don't create a new instance if we already have one with the same deviceId
+    if (syncRef.current) {
       return;
     }
 
@@ -30,7 +40,15 @@ export function useSync(
     };
 
     initializeSync();
-  }, [deviceId, isPremium, user?.premium?.activatedAt]);
+
+    // Cleanup function
+    return () => {
+      if (syncRef.current) {
+        syncRef.current.destroy();
+        syncRef.current = null;
+      }
+    };
+  }, [deviceId, isPremium]);
 
   const manualSync = React.useCallback(async () => {
     if (!isPremium) {

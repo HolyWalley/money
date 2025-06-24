@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { type UserSettings } from '../../shared/types/userSettings.ts'
+import { apiClient } from '../lib/api-client'
 
 export interface IPremium {
   active: boolean
@@ -53,17 +54,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Check authentication status on mount and refresh
   const checkAuth = async () => {
     try {
-      const response = await fetch('/api/v1/me', {
-        credentials: 'include'
-      })
+      const response = await apiClient.checkAuth()
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data?.user) {
-          setUser(data.data.user)
-        } else {
-          setUser(null)
-        }
+      if (response.ok && response.data) {
+        setUser(response.data)
       } else {
         setUser(null)
       }
@@ -78,24 +72,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Signin function
   const signin = async (username: string, password: string) => {
     try {
-      const response = await fetch('/api/v1/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ username, password })
-      })
+      const response = await apiClient.signin(username, password)
 
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        setUser(data.data.user)
+      if (response.ok && response.data) {
+        setUser(response.data)
         navigate('/dashboard')
         window.scrollTo(0, 0)
         return { success: true }
       } else {
-        return { success: false, error: data.error || 'Sign in failed' }
+        return { success: false, error: response.error || 'Sign in failed' }
       }
     } catch (error) {
       console.error('Signin error:', error)
@@ -106,26 +91,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Signup function
   const signup = async (username: string, password: string) => {
     try {
-      const response = await fetch('/api/v1/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ username, password })
-      })
+      const response = await apiClient.signup(username, password)
 
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        setUser(data.data.user)
+      if (response.ok && response.data) {
+        setUser(response.data)
         navigate('/dashboard')
         window.scrollTo(0, 0)
         return { success: true }
       } else {
         return {
           success: false,
-          error: data.errors?.join(', ') || data.error || 'Sign up failed'
+          error: response.error || 'Sign up failed'
         }
       }
     } catch (error) {
@@ -137,10 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Signout function
   const signout = async () => {
     try {
-      await fetch('/api/v1/signout', {
-        method: 'POST',
-        credentials: 'include'
-      })
+      await apiClient.signout()
     } catch (error) {
       console.error('Signout error:', error)
     } finally {
@@ -154,36 +127,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await checkAuth()
   }
 
-  // Auto-refresh token when needed
+  // Since we now have automatic 401 retry with refresh in apiClient,
+  // we don't need the periodic refresh interval anymore
   useEffect(() => {
-    const attemptTokenRefresh = async () => {
-      try {
-        const response = await fetch('/api/v1/refresh', {
-          method: 'POST',
-          credentials: 'include'
-        })
-
-        if (response.ok) {
-          await checkAuth()
-        }
-      } catch (error) {
-        console.error('Token refresh error:', error)
-      }
-    }
-
-    // Refresh token every 10 minutes if authenticated
-    let refreshInterval: NodeJS.Timeout | null = null
-
-    if (isAuthenticated) {
-      refreshInterval = setInterval(attemptTokenRefresh, 10 * 60 * 1000)
-    }
-
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval)
-      }
-    }
-  }, [isAuthenticated])
+    // Auto-refresh is handled by apiClient on 401 responses
+  }, [])
 
   // Check auth on mount
   useEffect(() => {

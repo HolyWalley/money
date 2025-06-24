@@ -16,6 +16,7 @@ export interface CloudflareEnv {
   JWT_ACCESS_EXPIRES_IN: string
   JWT_REFRESH_EXPIRES_IN: string
   MONEY_OBJECT: DurableObjectNamespace<MoneyObject>;
+  ENVIRONMENT?: string; // 'development' | 'production'
 }
 
 export interface CloudflareContext {
