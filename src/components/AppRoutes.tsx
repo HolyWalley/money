@@ -10,7 +10,6 @@ import { AppSidebar } from './AppSidebar'
 import { useSync } from '@/hooks/useSync'
 import { useAppInitialization } from '@/hooks/useAppInitialization'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { SidebarProvider } from './ui/sidebar'
 
 function getDeviceId(): string {
   let deviceId = localStorage.getItem('deviceId');
@@ -27,11 +26,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <SidebarProvider open={false} defaultOpen={false}>
-        <AppSidebar />
-        <div className={`w-full ${isMobile ? 'pb-20' : ''}`}>{children}</div>
-      </SidebarProvider>
+    <div className="min-h-screen bg-background text-foreground flex">
+      <AppSidebar />
+      <div className={`flex-1 min-h-screen ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
     </div>
   )
 }

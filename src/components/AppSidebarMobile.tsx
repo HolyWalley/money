@@ -9,16 +9,18 @@ export function AppSidebarMobile() {
       <div className="flex items-center justify-between px-4 py-2">
         <Link
           to="/dashboard"
-          className="flex items-center justify-center p-3 rounded-lg hover:bg-muted transition-colors"
+          className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-muted transition-colors gap-1"
         >
           <DollarSignIcon className="h-6 w-6" />
+          <span className="text-xs">Dashboard</span>
         </Link>
 
         <Link
           to="/transactions"
-          className="flex items-center justify-center p-3 rounded-lg hover:bg-muted transition-colors"
+          className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-muted transition-colors gap-1"
         >
           <Receipt className="h-6 w-6" />
+          <span className="text-xs">Transactions</span>
         </Link>
 
         <div className="flex items-center justify-center">
@@ -27,8 +29,9 @@ export function AppSidebarMobile() {
 
         <div className="w-12"></div>
 
-        <div className="flex items-center justify-center p-3">
+        <div className="flex flex-col items-center justify-center p-2 gap-1">
           <UserDropdownMenu />
+          <span className="text-xs">Account</span>
         </div>
       </div>
     </div>
