@@ -12,7 +12,7 @@ import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
 import { AppSidebarMobile } from './AppSidebarMobile'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { DollarSignIcon } from "lucide-react"
+import { DollarSignIcon, Receipt } from "lucide-react"
 import { Link } from "react-router-dom"
 
 export function AppSidebar() {
@@ -38,6 +38,14 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <Link to="/transactions">
+                  <Receipt />
+                  <span>Transactions</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
                 <UserDropdownMenu />

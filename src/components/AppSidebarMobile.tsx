@@ -1,6 +1,6 @@
 import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
-import { DollarSignIcon } from "lucide-react"
+import { DollarSignIcon, Receipt } from "lucide-react"
 import { Link } from "react-router-dom"
 
 export function AppSidebarMobile() {
@@ -14,9 +14,18 @@ export function AppSidebarMobile() {
           <DollarSignIcon className="h-6 w-6" />
         </Link>
 
+        <Link
+          to="/transactions"
+          className="flex items-center justify-center p-3 rounded-lg hover:bg-muted transition-colors"
+        >
+          <Receipt className="h-6 w-6" />
+        </Link>
+
         <div className="flex items-center justify-center">
           <NewTransactionTrigger />
         </div>
+
+        <div className="w-12"></div>
 
         <div className="flex items-center justify-center p-3">
           <UserDropdownMenu />
