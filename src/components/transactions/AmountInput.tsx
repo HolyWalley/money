@@ -29,11 +29,18 @@ export function AmountInput({ form, isSubmitting, variant = 'from', currency: ov
   const currency = overrideCurrency || form.watch(currencyFieldName as keyof CreateTransaction) as string
 
   useEffect(() => {
-    if (amount) {
+    if (autoFill && variant === 'to') {
+      // For auto-fill "to" inputs, always mirror the from amount
+      if (fromAmount) {
+        setDisplayValue(fromAmount.toString())
+        form.setValue('toAmount', fromAmount)
+      } else {
+        setDisplayValue('')
+        form.setValue('toAmount', undefined as unknown as number)
+      }
+    } else if (amount) {
+      // For regular inputs, show the actual amount
       setDisplayValue(amount.toString())
-    } else if (autoFill && variant === 'to' && fromAmount) {
-      setDisplayValue(fromAmount.toString())
-      form.setValue('toAmount', fromAmount)
     } else {
       setDisplayValue('')
     }
@@ -83,9 +90,6 @@ export function AmountInput({ form, isSubmitting, variant = 'from', currency: ov
     if (!isNaN(numValue) && numValue > 0) {
       if (variant === 'from') {
         form.setValue('amount', numValue)
-        if (autoFill) {
-          form.setValue('toAmount', numValue)
-        }
       } else {
         form.setValue('toAmount', numValue)
       }
@@ -93,9 +97,6 @@ export function AmountInput({ form, isSubmitting, variant = 'from', currency: ov
       // Don't set to 0, let form validation handle empty values
       if (variant === 'from') {
         form.setValue('amount', undefined as unknown as number)
-        if (autoFill) {
-          form.setValue('toAmount', undefined as unknown as number)
-        }
       } else {
         form.setValue('toAmount', undefined as unknown as number)
       }
