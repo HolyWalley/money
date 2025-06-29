@@ -10,11 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useLiveTransactions } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
+import { useTransactionEdit } from '@/contexts/TransactionEditContext'
 
 export function TransactionTable() {
   const { transactions } = useLiveTransactions()
   const { wallets } = useLiveWallets()
   const { categories } = useLiveCategories()
+  const { openTransactionEdit } = useTransactionEdit()
 
   const getWalletName = (walletId: string) => {
     const wallet = wallets.find(w => w._id === walletId)
@@ -75,7 +77,11 @@ export function TransactionTable() {
           </TableHeader>
           <TableBody>
             {transactions.slice(0, 10).map((transaction) => (
-              <TableRow key={transaction._id}>
+              <TableRow
+                key={transaction._id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => openTransactionEdit(transaction)}
+              >
                 <TableCell className="font-medium">
                   {transaction.note}
                 </TableCell>

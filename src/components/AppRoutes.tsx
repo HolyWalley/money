@@ -9,6 +9,8 @@ import { Header } from '@/components/Header'
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import type { Transaction } from '../../shared/schemas/transaction.schema'
+import { TransactionEditProvider } from '@/contexts/TransactionEditContext'
 
 import { useSync } from '@/hooks/useSync'
 import { useAppInitialization } from '@/hooks/useAppInitialization'
@@ -26,6 +28,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   useSync(getDeviceId())
   useAppInitialization()
   const [transactionDrawerOpen, setTransactionDrawerOpen] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+
+  const openTransactionEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setTransactionDrawerOpen(true)
+  }
 
   // Keyboard shortcut for opening transaction drawer
   useEffect(() => {
@@ -41,9 +49,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header />
-      {children}
+    <TransactionEditProvider value={{ openTransactionEdit }}>
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        {children}
 
       {/* Floating Action Button */}
       <Button
@@ -58,9 +67,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Transaction Drawer - z-50 to be above FAB */}
       <TransactionDrawer
         open={transactionDrawerOpen}
-        onOpenChange={setTransactionDrawerOpen}
+        onOpenChange={(open) => {
+          setTransactionDrawerOpen(open)
+          if (!open) {
+            setEditingTransaction(null)
+          }
+        }}
+        transaction={editingTransaction}
       />
-    </div>
+      </div>
+    </TransactionEditProvider>
   )
 }
 
