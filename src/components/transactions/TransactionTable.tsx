@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -10,13 +11,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useLiveTransactions } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
-import { useTransactionEdit } from '@/contexts/TransactionEditContext'
+import { TransactionDrawer } from './TransactionDrawer'
+import { transactionService } from '@/services/transactionService'
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Edit } from 'lucide-react'
+import { type CreateTransaction, type Transaction } from '../../../shared/schemas/transaction.schema'
 
 export function TransactionTable() {
   const { transactions } = useLiveTransactions()
   const { wallets } = useLiveWallets()
   const { categories } = useLiveCategories()
-  const { openTransactionEdit } = useTransactionEdit()
+  const { user } = useAuth()
+
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setEditDrawerOpen(true)
+  }
+
+  const handleEditSubmit = async (data: CreateTransaction) => {
+    if (!user || !editingTransaction) return
+    console.log('Updating transaction:', editingTransaction._id, data)
+    await transactionService.updateTransaction(editingTransaction._id, data)
+  }
 
   const getWalletName = (walletId: string) => {
     const wallet = wallets.find(w => w._id === walletId)
@@ -73,15 +93,12 @@ export function TransactionTable() {
               <TableHead>Wallet</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="w-[50px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {transactions.slice(0, 10).map((transaction) => (
-              <TableRow
-                key={transaction._id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openTransactionEdit(transaction)}
-              >
+              <TableRow key={transaction._id}>
                 <TableCell className="font-medium">
                   {transaction.note}
                 </TableCell>
@@ -105,11 +122,28 @@ export function TransactionTable() {
                 <TableCell className="text-muted-foreground">
                   {new Date(transaction.date).toLocaleDateString()}
                 </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEditTransaction(transaction)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      <TransactionDrawer
+        open={editDrawerOpen}
+        onOpenChange={setEditDrawerOpen}
+        transaction={editingTransaction}
+        onSubmit={handleEditSubmit}
+      />
     </Card>
   )
 }

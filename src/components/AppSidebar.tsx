@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { TransactionDrawer } from "./transactions/TransactionDrawer"
+import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
 import { DollarSignIcon } from "lucide-react"
 import { Link } from "react-router-dom"
@@ -43,7 +43,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <TransactionDrawer />
+              <NewTransactionTrigger />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
