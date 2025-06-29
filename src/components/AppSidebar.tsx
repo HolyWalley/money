@@ -10,10 +10,18 @@ import {
 } from "@/components/ui/sidebar"
 import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
+import { AppSidebarMobile } from './AppSidebarMobile'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { DollarSignIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 
 export function AppSidebar() {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return <AppSidebarMobile />
+  }
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
