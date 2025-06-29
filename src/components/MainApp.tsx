@@ -4,7 +4,7 @@ import { TransactionTable } from '@/components/transactions/TransactionTable'
 
 export function MainApp() {
   return (
-    <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <main className="mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
