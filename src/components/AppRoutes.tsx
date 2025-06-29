@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { MainApp } from '@/components/MainApp'
 import { WalletsPage } from '@/components/wallets/WalletsPage'
+import { TransactionsPage } from '@/components/transactions/TransactionsPage'
 import { AppSidebar } from './AppSidebar'
 
 import { useSync } from '@/hooks/useSync'
@@ -48,6 +49,7 @@ export function AppRoutes() {
                 <Routes>
                   <Route path="/dashboard" element={<MainApp />} />
                   <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppLayout>
