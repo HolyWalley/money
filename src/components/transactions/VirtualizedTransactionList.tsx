@@ -15,11 +15,23 @@ interface VirtualizedTransactionListProps {
 
 export function VirtualizedTransactionList({ transactions, isMobile }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
+
+  const handleEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setIsDrawerOpen(true)
+  }
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false)
+    setEditingTransaction(null)
+  }
 
   const handleEditSubmit = async (data: CreateTransaction) => {
     if (!user || !editingTransaction) return
     await transactionService.updateTransaction(editingTransaction._id, data)
+    // Don't close here - let the drawer handle it through onOpenChange
   }
 
   const rowHeight = useMemo(() => {
@@ -33,14 +45,14 @@ export function VirtualizedTransactionList({ transactions, isMobile }: Virtualiz
       <TransactionMobileCard
         key={key}
         transaction={transaction}
-        onEdit={() => setEditingTransaction(transaction)}
+        onEdit={() => handleEdit(transaction)}
         style={style}
       />
     ) : (
       <TransactionDesktopRow
         key={key}
         transaction={transaction}
-        onEdit={() => setEditingTransaction(transaction)}
+        onEdit={() => handleEdit(transaction)}
         style={style}
       />
     )
@@ -84,14 +96,16 @@ export function VirtualizedTransactionList({ transactions, isMobile }: Virtualiz
         </div>
       </div>
 
-      {editingTransaction && (
-        <TransactionDrawer
-          transaction={editingTransaction}
-          open={!!editingTransaction}
-          onOpenChange={() => setEditingTransaction(null)}
-          onSubmit={handleEditSubmit}
-        />
-      )}
+      <TransactionDrawer
+        transaction={editingTransaction}
+        open={isDrawerOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseDrawer()
+          }
+        }}
+        onSubmit={handleEditSubmit}
+      />
     </>
   )
 }
