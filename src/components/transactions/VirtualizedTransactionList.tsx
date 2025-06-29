@@ -71,13 +71,12 @@ export function VirtualizedTransactionList({ transactions, isMobile }: Virtualiz
       <div className="border rounded-md flex flex-col h-full">
         {!isMobile && (
           <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
-            <div className="col-span-2">Note</div>
-            <div className="col-span-1">Type</div>
             <div className="col-span-2">Category</div>
-            <div className="col-span-2">Wallet</div>
-            <div className="col-span-2 text-right">Amount</div>
             <div className="col-span-2">Date</div>
-            <div className="col-span-1">Actions</div>
+            <div className="col-span-2">Wallet</div>
+            <div className="col-span-3">Note</div>
+            <div className="col-span-2 text-right">Amount</div>
+            <div className="col-span-1 text-right">Actions</div>
           </div>
         )}
         <div className="flex-1">
