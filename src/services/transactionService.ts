@@ -150,7 +150,7 @@ class TransactionService {
         }
 
         if (transaction.toWalletId === walletId && transaction.transactionType === 'transfer') {
-          transactionBalance += transaction.amount
+          transactionBalance += transaction.toAmount || 0
         }
       }
 
