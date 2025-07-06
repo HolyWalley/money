@@ -7,40 +7,43 @@
     <meta name="theme-color" content="#020817" media="(prefers-color-scheme: dark)" />
     <title>Money</title>
     <style>
-      /* Critical CSS to prevent theme flash */
+      /* Critical CSS to prevent theme flash - using OKLCH to match index.css */
       :root {
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
+        --background: oklch(1 0 0);
+        --foreground: oklch(0.145 0 0);
       }
       
       .dark {
-        --background: 240 10% 3.9%;
-        --foreground: 0 0% 98%;
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
       }
       
       html {
-        background-color: hsl(var(--background));
-        color: hsl(var(--foreground));
+        background-color: var(--background);
+        color: var(--foreground);
       }
       
       body {
-        background-color: hsl(var(--background));
-        color: hsl(var(--foreground));
+        background-color: var(--background);
+        color: var(--foreground);
         margin: 0;
         font-family: system-ui, -apple-system, sans-serif;
       }
       
       #root {
         min-height: 100vh;
-        background-color: hsl(var(--background));
+        background-color: var(--background);
       }
     </style>
     <script>
       // Prevent flash of wrong theme by setting theme before page renders
       (function() {
+        console.log('Setting theme based on localStorage or system preference')
         const storageKey = 'finance-tracker-theme'
         const storedTheme = localStorage.getItem(storageKey)
+        console.log('Stored theme:', storedTheme)
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        console.log('System theme:', systemTheme)
         
         let theme = 'light'
         if (storedTheme === 'dark' || storedTheme === 'light') {
@@ -49,6 +52,7 @@
           theme = systemTheme
         }
         
+        console.log('Final theme:', theme)
         if (theme === 'dark') {
           document.documentElement.classList.add('dark')
         }

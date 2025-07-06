@@ -29,6 +29,7 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
+  console.log('ThemeProvider initialized with theme:', theme)
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -53,7 +54,7 @@ export function ThemeProvider({
     if (theme !== 'system') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    
+
     const handleChange = () => {
       const root = window.document.documentElement
       root.classList.remove('light', 'dark')
