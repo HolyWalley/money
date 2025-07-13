@@ -7,6 +7,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
+import { Form } from '@/components/ui/form'
 import { TransactionForm } from './TransactionForm'
 import { useTransactionForm } from '@/hooks/useTransactionForm'
 import { type CreateTransaction, type Transaction } from '../../../shared/schemas/transaction.schema'
@@ -43,11 +44,13 @@ export function TransactionDrawer({ open, onOpenChange, transaction, onSubmit }:
           <DrawerHeader>
             <DrawerTitle>{transaction ? 'Edit Transaction' : 'New Transaction'}</DrawerTitle>
           </DrawerHeader>
-          <div className="px-4 max-h-[50vh] overflow-y-auto">
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pb-6">
-              <TransactionForm form={form} isSubmitting={isSubmitting} />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto">
+              <div className="space-y-4 pb-6">
+                <TransactionForm isSubmitting={isSubmitting} />
+              </div>
             </form>
-          </div>
+          </Form>
           <DrawerFooter>
             <Button
               type="submit"

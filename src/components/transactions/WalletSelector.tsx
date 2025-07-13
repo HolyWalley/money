@@ -1,5 +1,4 @@
-import type { UseFormReturn } from 'react-hook-form'
-import { Label } from '@/components/ui/label'
+import { useFormContext } from 'react-hook-form'
 import {
   Select,
   SelectContent,
@@ -7,11 +6,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
 interface WalletSelectorProps {
-  form: UseFormReturn<CreateTransaction>
   wallets: Wallet[]
   isSubmitting: boolean
   fieldName: 'walletId' | 'toWalletId'
@@ -21,7 +26,6 @@ interface WalletSelectorProps {
 }
 
 export function WalletSelector({
-  form,
   wallets,
   isSubmitting,
   fieldName,
@@ -29,33 +33,40 @@ export function WalletSelector({
   placeholder,
   excludeWalletId,
 }: WalletSelectorProps) {
+  const form = useFormContext<CreateTransaction>()
   const filteredWallets = excludeWalletId
     ? wallets.filter(w => w._id !== excludeWalletId)
     : wallets
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor={fieldName}>{label}</Label>
-      <Select
-        value={form.watch(fieldName)}
-        onValueChange={(value) => form.setValue(fieldName, value)}
-        disabled={isSubmitting}
-      >
-        <SelectTrigger id={fieldName} className="w-full">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {filteredWallets.map((wallet) => (
-            <SelectItem key={wallet._id} value={wallet._id}>
-              {wallet.name} <span className="text-muted-foreground">({wallet.currency})</span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {form.formState.errors[fieldName] && (
-        <p className="text-sm text-destructive">{form.formState.errors[fieldName]?.message}</p>
+    <FormField
+      control={form.control}
+      name={fieldName}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <Select
+            value={field.value}
+            onValueChange={field.onChange}
+            disabled={isSubmitting}
+          >
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {filteredWallets.map((wallet) => (
+                <SelectItem key={wallet._id} value={wallet._id}>
+                  {wallet.name} <span className="text-muted-foreground">({wallet.currency})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
       )}
-    </div>
+    />
   )
 }
 

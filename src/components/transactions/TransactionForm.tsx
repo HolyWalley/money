@@ -1,6 +1,12 @@
-import type { UseFormReturn } from 'react-hook-form'
+import { useFormContext } from 'react-hook-form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import { AmountInput } from './AmountInput'
 import { TransactionTypeSwitch } from './TransactionTypeSwitch'
@@ -11,11 +17,11 @@ import { ToWalletSelector } from './ToWalletSelector'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 
 interface TransactionFormProps {
-  form: UseFormReturn<CreateTransaction>
   isSubmitting: boolean
 }
 
-export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
+export function TransactionForm({ isSubmitting }: TransactionFormProps) {
+  const form = useFormContext<CreateTransaction>()
   const transactionType = form.watch('transactionType')
   const walletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
@@ -27,24 +33,22 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
 
   return (
     <>
-      <TransactionTypeSwitch form={form} isSubmitting={isSubmitting} />
+      <TransactionTypeSwitch isSubmitting={isSubmitting} />
 
-      <FromWalletSelector form={form} isSubmitting={isSubmitting} />
+      <FromWalletSelector isSubmitting={isSubmitting} />
 
       {transactionType === 'transfer' ? (
         <>
           <AmountInput
-            form={form}
             isSubmitting={isSubmitting}
             variant="from"
             currency={fromWallet?.currency}
           />
 
-          <ToWalletSelector form={form} isSubmitting={isSubmitting} />
+          <ToWalletSelector isSubmitting={isSubmitting} />
 
           {toWallet && (
             <AmountInput
-              form={form}
               isSubmitting={isSubmitting}
               variant="to"
               currency={toWallet.currency}
@@ -54,51 +58,60 @@ export function TransactionForm({ form, isSubmitting }: TransactionFormProps) {
         </>
       ) : (
         <AmountInput
-          form={form}
           isSubmitting={isSubmitting}
           currency={fromWallet?.currency}
         />
       )}
 
       {(transactionType === 'income' || transactionType === 'expense') && (
-        <CategoriesPicker form={form} isSubmitting={isSubmitting} />
+        <CategoriesPicker isSubmitting={isSubmitting} />
       )}
 
-      <div className="space-y-2">
-        <Label>Date</Label>
-        <DatePicker
-          value={(() => {
-            try {
-              const dateValue = form.watch('date')
-              return dateValue ? new Date(dateValue) : new Date()
-            } catch {
-              return new Date()
-            }
-          })()}
-          onChange={(date) => {
-            form.setValue('date', date.toISOString())
-          }}
-          disabled={isSubmitting}
-          className="w-full"
-        />
-        {form.formState.errors.date && (
-          <p className="text-sm text-destructive">{form.formState.errors.date.message}</p>
+      <FormField
+        control={form.control}
+        name="date"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Date</FormLabel>
+            <FormControl>
+              <DatePicker
+                value={(() => {
+                  try {
+                    return field.value ? new Date(field.value) : new Date()
+                  } catch {
+                    return new Date()
+                  }
+                })()}
+                onChange={(date) => {
+                  field.onChange(date.toISOString())
+                }}
+                disabled={isSubmitting}
+                className="w-full"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
         )}
-      </div>
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="note">Note</Label>
-        <Input
-          id="note"
-          {...form.register('note')}
-          placeholder="e.g., Grocery shopping, Salary, Coffee"
-          disabled={isSubmitting}
-          className="w-full"
-        />
-        {form.formState.errors.note && (
-          <p className="text-sm text-destructive">{form.formState.errors.note.message}</p>
+      <FormField
+        control={form.control}
+        name="note"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Note</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="e.g., Grocery shopping, Salary, Coffee"
+                disabled={isSubmitting}
+                className="w-full"
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
         )}
-      </div>
+      />
     </>
   )
 }

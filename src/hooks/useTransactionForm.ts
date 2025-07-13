@@ -19,6 +19,8 @@ export function useTransactionForm(transaction?: Transaction | null) {
       note: '',
       walletId: '',
       date: new Date().toISOString(),
+      split: false,
+      parts: [],
     },
   })
 
@@ -29,6 +31,8 @@ export function useTransactionForm(transaction?: Transaction | null) {
     note: '',
     walletId: wallets[0]?._id || '',
     date: new Date().toISOString(),
+    split: false,
+    parts: [],
   }), [user, wallets])
 
   const resetToDefaults = useCallback(() => {
@@ -50,19 +54,33 @@ export function useTransactionForm(transaction?: Transaction | null) {
         toCurrency: transaction.toCurrency,
         categoryId: transaction.categoryId,
         date: transaction.date,
+        split: transaction.split,
+        parts: transaction.parts,
       })
-    } else {
-      // Creating mode - reset to defaults
-      resetToDefaults()
+    } else if (!transaction && wallets.length > 0) {
+      // Creating mode - set defaults with first wallet
+      form.reset({
+        transactionType: 'expense',
+        amount: undefined as unknown as number,
+        currency: wallets[0]?.currency || (user?.settings?.defaultCurrency || 'USD') as Currency,
+        note: '',
+        walletId: wallets[0]?._id || '',
+        date: new Date().toISOString(),
+        split: false,
+        parts: [],
+      })
     }
-  }, [transaction, form, user, wallets, resetToDefaults])
+  }, [transaction, form, user, wallets])
 
   // Set default wallet when wallets are loaded (only for new transactions)
   useEffect(() => {
-    if (!transaction && wallets.length > 0 && !form.watch('walletId')) {
-      const defaultWallet = wallets[0]
-      form.setValue('walletId', defaultWallet._id)
-      form.setValue('currency', defaultWallet.currency)
+    if (!transaction && wallets.length > 0) {
+      const currentWalletId = form.getValues('walletId')
+      if (!currentWalletId) {
+        const defaultWallet = wallets[0]
+        form.setValue('walletId', defaultWallet._id)
+        form.setValue('currency', defaultWallet.currency)
+      }
     }
   }, [wallets, form, transaction])
 
