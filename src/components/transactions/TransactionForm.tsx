@@ -15,6 +15,8 @@ import { CategoriesPicker } from './CategoryPicker'
 import { FromWalletSelector } from './FromWalletSelector'
 import { ToWalletSelector } from './ToWalletSelector'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { SplitDrawer } from './SplitDrawer'
+import { ArrowRight } from 'lucide-react'
 
 interface TransactionFormProps {
   isSubmitting: boolean
@@ -35,33 +37,40 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
     <>
       <TransactionTypeSwitch isSubmitting={isSubmitting} />
 
-      <FromWalletSelector isSubmitting={isSubmitting} />
+      <div className="flex items-center gap-2 mb-4">
+        <FromWalletSelector isSubmitting={isSubmitting} />
 
-      {transactionType === 'transfer' ? (
-        <>
-          <AmountInput
-            isSubmitting={isSubmitting}
-            variant="from"
-            currency={fromWallet?.currency}
-          />
+        {
+          (transactionType === 'transfer') && <>
+            <ArrowRight />
+            <ToWalletSelector isSubmitting={isSubmitting} />
+          </>
+        }
+      </div>
 
-          <ToWalletSelector isSubmitting={isSubmitting} />
+      <div className="flex items-center gap-2 mb-4">
+        <AmountInput
+          isSubmitting={isSubmitting}
+          size={transactionType === 'transfer' ? 'sm' : 'full'}
+          variant="from"
+          currency={fromWallet?.currency}
+        />
 
-          {toWallet && (
+        {
+          (transactionType === 'transfer') && <>
+            <ArrowRight />
             <AmountInput
               isSubmitting={isSubmitting}
               variant="to"
-              currency={toWallet.currency}
+              size={transactionType === 'transfer' ? 'sm' : 'full'}
+              currency={toWallet?.currency || fromWallet?.currency}
               autoFill={isSameCurrency}
             />
-          )}
-        </>
-      ) : (
-        <AmountInput
-          isSubmitting={isSubmitting}
-          currency={fromWallet?.currency}
-        />
-      )}
+          </>
+        }
+      </div>
+
+      {transactionType === 'expense' && <SplitDrawer />}
 
       {(transactionType === 'income' || transactionType === 'expense') && (
         <CategoriesPicker isSubmitting={isSubmitting} />
@@ -72,7 +81,6 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
         name="date"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Date</FormLabel>
             <FormControl>
               <DatePicker
                 value={(() => {

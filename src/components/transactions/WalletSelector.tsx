@@ -10,7 +10,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
@@ -20,7 +19,6 @@ interface WalletSelectorProps {
   wallets: Wallet[]
   isSubmitting: boolean
   fieldName: 'walletId' | 'toWalletId'
-  label: string
   placeholder: string
   excludeWalletId?: string
 }
@@ -29,7 +27,6 @@ export function WalletSelector({
   wallets,
   isSubmitting,
   fieldName,
-  label,
   placeholder,
   excludeWalletId,
 }: WalletSelectorProps) {
@@ -43,8 +40,7 @@ export function WalletSelector({
       control={form.control}
       name={fieldName}
       render={({ field }) => (
-        <FormItem>
-          <FormLabel>{label}</FormLabel>
+        <FormItem className="flex-1">
           <Select
             value={field.value}
             onValueChange={field.onChange}

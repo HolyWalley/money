@@ -4,7 +4,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import { CategorySelector } from './CategorySelector'
@@ -25,7 +24,6 @@ export function CategoriesPicker({ isSubmitting }: CategoriesPickerProps) {
       name="categoryId"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>Category</FormLabel>
           <FormControl>
             <CategorySelector
               categories={categories

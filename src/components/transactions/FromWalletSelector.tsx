@@ -13,7 +13,6 @@ export function FromWalletSelector({ isSubmitting }: FromWalletSelectorProps) {
       wallets={wallets}
       isSubmitting={isSubmitting}
       fieldName="walletId"
-      label="From Wallet"
       placeholder="Select wallet"
     />
   )

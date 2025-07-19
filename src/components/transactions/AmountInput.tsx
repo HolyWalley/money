@@ -19,12 +19,13 @@ import { currencies } from '../../../shared/schemas/user_settings.schema'
 
 interface AmountInputProps {
   isSubmitting: boolean
+  size: 'sm' | 'full'
   variant?: 'from' | 'to'
   currency?: string
   autoFill?: boolean
 }
 
-export function AmountInput({ isSubmitting, variant = 'from', currency: overrideCurrency, autoFill = false }: AmountInputProps) {
+export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false }: AmountInputProps) {
   const form = useFormContext<CreateTransaction>()
   const inputRef = useRef<HTMLInputElement>(null)
   const [displayValue, setDisplayValue] = useState('')
@@ -117,7 +118,7 @@ export function AmountInput({ isSubmitting, variant = 'from', currency: override
       control={form.control}
       name={fieldName}
       render={() => (
-        <FormItem className="space-y-2">
+        <FormItem className="space-y-2 flex-1">
           <FormControl>
             <div
               className={cn(
@@ -135,7 +136,8 @@ export function AmountInput({ isSubmitting, variant = 'from', currency: override
                   className={cn(
                     "text-3xl font-bold transition-opacity bg-transparent border-0 outline-none w-auto text-center",
                     "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                    displayValue ? "opacity-100" : "opacity-30"
+                    displayValue ? "opacity-100" : "opacity-30",
+                    { "max-w-[3ch]": size === 'sm' }
                   )}
                   placeholder="0"
                   disabled={isSubmitting || (autoFill && variant === 'to')}

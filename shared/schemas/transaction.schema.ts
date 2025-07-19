@@ -19,6 +19,10 @@ export const transactionSchema = z.object({
   date: z.string().datetime(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  split: z.boolean().default(false).optional(),
+  parts: z.array(z.object({
+    amount: z.number().positive('Amount must be positive'),
+  })).min(2).optional(),
 })
 
 export const createTransactionSchema = transactionSchema.pick({
@@ -32,6 +36,8 @@ export const createTransactionSchema = transactionSchema.pick({
   walletId: true,
   toWalletId: true,
   date: true,
+  split: true,
+  parts: true,
 }).refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
@@ -62,6 +68,8 @@ export const updateTransactionSchema = transactionSchema.pick({
   walletId: true,
   toWalletId: true,
   date: true,
+  split: true,
+  parts: true,
 }).partial().refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId

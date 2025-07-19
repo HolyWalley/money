@@ -167,7 +167,7 @@ export function deleteWallet(id: string) {
   })
 }
 
-export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, split, parts }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     transactions.set(id, createTransactionMap({
@@ -183,6 +183,8 @@ export function addTransaction({ type, transactionType, amount, currency, toAmou
       walletId,
       toWalletId,
       date,
+      split,
+      parts,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -207,6 +209,8 @@ export function updateTransaction(id: string, updates: Partial<Transaction>) {
       walletId: updates.walletId ?? (transaction.get('walletId') as unknown as string),
       toWalletId: updates.toWalletId ?? (transaction.get('toWalletId') as unknown as unknown as string | undefined),
       date: updates.date ?? (transaction.get('date') as unknown as string),
+      split: updates.split ?? (transaction.get('split') as unknown as boolean),
+      parts: updates.parts ?? (transaction.get('parts') as unknown as Transaction['parts']),
       createdAt: transaction.get('createdAt') as unknown as string,
       updatedAt: new Date().toISOString()
     }))

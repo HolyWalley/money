@@ -17,8 +17,7 @@ export function ToWalletSelector({ isSubmitting }: ToWalletSelectorProps) {
       wallets={wallets}
       isSubmitting={isSubmitting}
       fieldName="toWalletId"
-      label="To Wallet"
-      placeholder="Select destination wallet"
+      placeholder="Select wallet"
       excludeWalletId={fromWalletId}
     />
   )
