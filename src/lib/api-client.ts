@@ -86,7 +86,7 @@ class ApiClient {
       if (response.status === 204 || !isJson) {
         return { ok: true, status: response.status };
       }
-      const result = await response.json();
+      const result = await response.json() as { success: boolean; data?: T; error?: string; errors?: string[] };
       // Backend returns { success: boolean, data?: T, error?: string }
       if (result.success && result.data) {
         return { ok: true, data: result.data, status: response.status };
@@ -103,7 +103,7 @@ class ApiClient {
     let errors: string[] | undefined;
     if (isJson) {
       try {
-        const errorData = await response.json();
+        const errorData = await response.json() as { error?: string; message?: string; errors?: string[] };
         error = errorData.error || errorData.message || error;
         errors = errorData.errors;
       } catch {
