@@ -17,6 +17,7 @@ import { ToWalletSelector } from './ToWalletSelector'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { SplitDrawer } from './SplitDrawer'
 import { ArrowRight } from 'lucide-react'
+import { ReimbursementDrawer } from './ReimbursementDrawer'
 
 interface TransactionFormProps {
   isSubmitting: boolean
@@ -70,11 +71,12 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
         }
       </div>
 
-      {transactionType === 'expense' && <SplitDrawer />}
-
       {(transactionType === 'income' || transactionType === 'expense') && (
         <CategoriesPicker isSubmitting={isSubmitting} />
       )}
+
+      {transactionType === 'expense' && <SplitDrawer />}
+      {transactionType === 'income' && <ReimbursementDrawer />}
 
       <FormField
         control={form.control}

@@ -23,6 +23,7 @@ export const transactionSchema = z.object({
   parts: z.array(z.object({
     amount: z.number().positive('Amount must be positive'),
   })).min(2).optional(),
+  reimbursement: z.boolean().default(false).optional(),
 })
 
 export const createTransactionSchema = transactionSchema.pick({
@@ -38,6 +39,7 @@ export const createTransactionSchema = transactionSchema.pick({
   date: true,
   split: true,
   parts: true,
+  reimbursement: true
 }).refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
@@ -70,6 +72,7 @@ export const updateTransactionSchema = transactionSchema.pick({
   date: true,
   split: true,
   parts: true,
+  reimbursement: true
 }).partial().refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
