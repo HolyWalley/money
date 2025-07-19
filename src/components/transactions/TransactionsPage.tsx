@@ -1,10 +1,17 @@
-import { useLiveTransactions } from '@/hooks/useLiveTransactions'
+import { useState, useCallback } from 'react'
+import { useLiveTransactions, type TransactionFilters } from '@/hooks/useLiveTransactions'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
+import { TransactionFilters as TransactionFiltersComponent } from './TransactionFilters'
 
 export function TransactionsPage() {
-  const { transactions, isLoading } = useLiveTransactions()
+  const [filters, setFilters] = useState<TransactionFilters>({})
+  const { transactions, isLoading } = useLiveTransactions(filters)
   const isMobile = useIsMobile()
+
+  const handleFiltersChange = useCallback((newFilters: TransactionFilters) => {
+    setFilters(newFilters)
+  }, [])
 
   if (isLoading) {
     return (
@@ -21,6 +28,10 @@ export function TransactionsPage() {
         <p className="text-muted-foreground">
           {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
         </p>
+        
+        <div className="mt-4">
+          <TransactionFiltersComponent onFiltersChange={handleFiltersChange} />
+        </div>
       </div>
       
       <div className="flex-1 min-h-0">
