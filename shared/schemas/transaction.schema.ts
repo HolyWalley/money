@@ -21,7 +21,7 @@ export const transactionSchema = z.object({
   updatedAt: z.string().datetime(),
   split: z.boolean().default(false).optional(),
   parts: z.array(z.object({
-    amount: z.number().positive('Amount must be positive'),
+    amount: z.number().gte(0, 'Part amount can not be negative'),
   })).min(2).optional(),
   reimbursement: z.boolean().default(false).optional(),
 })
