@@ -58,10 +58,10 @@ export function MultiSelect({
   const displayText = selectedLabels.length === 0
     ? placeholder
     : isAllSelected
-    ? 'All selected'
-    : selectedLabels.length === 1
-    ? selectedLabels[0]
-    : `${selectedLabels.length} selected`
+      ? 'All selected'
+      : selectedLabels.length === 1
+        ? selectedLabels[0]
+        : `${selectedLabels.length} selected`
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -71,7 +71,7 @@ export function MultiSelect({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            'w-[200px] justify-between',
+            'justify-between',
             className
           )}
         >
@@ -87,7 +87,7 @@ export function MultiSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="p-0">
         <div className="max-h-60 overflow-auto">
           {options.length > 0 && (
             <>
