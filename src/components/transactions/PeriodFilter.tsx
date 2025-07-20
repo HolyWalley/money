@@ -3,20 +3,20 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-reac
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, addMonths, addWeeks, addYears, subDays, isToday, setDate, setDay, setDayOfYear, startOfDay, endOfDay } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { PeriodFilter, PeriodType } from '@/hooks/useLiveTransactions'
-import { PeriodFilterDrawer } from './PeriodFilterDrawer'
+import type { TransactionFilters, PeriodFilter, PeriodType } from '@/hooks/useLiveTransactions'
+import { FiltersDrawer } from './FiltersDrawer'
 
 interface PeriodFilterProps {
-  value?: PeriodFilter
-  onChange: (period: PeriodFilter | undefined) => void
+  filters: TransactionFilters
+  onFiltersChange: (filters: TransactionFilters) => void
   className?: string
 }
 
-export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) {
+export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilterProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Default to current month if no value
-  const currentPeriod = value || {
+  const currentPeriod = filters.period || {
     type: 'monthly' as PeriodType,
     startDate: new Date(),
     currentPeriod: 0
@@ -114,7 +114,7 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
       ...currentPeriod,
       currentPeriod: (currentPeriod.currentPeriod || 0) - 1
     }
-    onChange(newPeriod)
+    onFiltersChange({ ...filters, period: newPeriod })
   }
 
   const handleNext = () => {
@@ -124,14 +124,11 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
       ...currentPeriod,
       currentPeriod: (currentPeriod.currentPeriod || 0) + 1
     }
-    onChange(newPeriod)
+    onFiltersChange({ ...filters, period: newPeriod })
   }
 
-  const handleDrawerClose = (selectedPeriod?: PeriodFilter) => {
+  const handleDrawerClose = () => {
     setIsDrawerOpen(false)
-    if (selectedPeriod) {
-      onChange(selectedPeriod)
-    }
   }
 
   const isCurrentPeriod = () => {
@@ -179,10 +176,11 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
         </Button>
       </div>
 
-      <PeriodFilterDrawer
+      <FiltersDrawer
         isOpen={isDrawerOpen}
-        currentPeriod={currentPeriod}
+        currentFilters={filters}
         onClose={handleDrawerClose}
+        onFiltersChange={onFiltersChange}
       />
     </>
   )

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useLiveTransactions, type TransactionFilters } from '@/hooks/useLiveTransactions'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
-import { TransactionFilters as TransactionFiltersComponent } from './TransactionFilters'
+import { PeriodFilter } from './PeriodFilter'
 
 export function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>({})
@@ -30,7 +30,7 @@ export function TransactionsPage() {
         </p>
 
         <div className="mt-4">
-          <TransactionFiltersComponent onFiltersChange={handleFiltersChange} />
+          <PeriodFilter filters={filters} onFiltersChange={handleFiltersChange} />
         </div>
       </div>
 
