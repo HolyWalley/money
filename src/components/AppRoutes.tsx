@@ -26,9 +26,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="bg-background text-foreground flex">
       <AppSidebar />
-      <div className={`flex-1 min-h-[100dvh] ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
+      <div className={`flex-1 min-h-[calc(100dvh)] ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
     </div>
   )
 }

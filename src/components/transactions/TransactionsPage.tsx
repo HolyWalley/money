@@ -22,20 +22,20 @@ export function TransactionsPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 h-full flex flex-col">
-      <div className="mb-6 flex-shrink-0">
+    <div className="container mx-auto h-full flex flex-col">
+      <div className="mb-4 flex-shrink-0 px-4 pt-4">
         <h1 className="text-2xl font-bold">Transactions</h1>
         <p className="text-muted-foreground">
           {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
         </p>
-        
+
         <div className="mt-4">
           <TransactionFiltersComponent onFiltersChange={handleFiltersChange} />
         </div>
       </div>
-      
-      <div className="flex-1 min-h-0">
-        <VirtualizedTransactionList 
+
+      <div className="flex-1 min-h-0 px-4 pb-4">
+        <VirtualizedTransactionList
           transactions={transactions}
           isMobile={isMobile}
         />

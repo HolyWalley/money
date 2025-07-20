@@ -63,7 +63,7 @@ export function TransactionFilters({ onFiltersChange }: TransactionFiltersProps)
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <MultiSelect
             options={categoryOptions}
             selected={currentFilters.categoryIds || []}
