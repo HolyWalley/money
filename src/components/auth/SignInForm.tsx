@@ -6,7 +6,7 @@ import { signinSchema, type SigninFormData } from '@/lib/auth-schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
@@ -36,7 +36,7 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
 
     try {
       const result = await signin(data.username, data.password)
-      
+
       if (!result.success) {
         setErrorMessage(result.error || 'Sign in failed')
       } else {
@@ -53,11 +53,8 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl text-center">Sign In</CardTitle>
-        <CardDescription className="text-center">
-          Enter your credentials to access your account
-        </CardDescription>
       </CardHeader>
-      
+
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
           {errorMessage && (
