@@ -25,6 +25,7 @@ import type { CreateTransaction } from '../../../shared/schemas/transaction.sche
 import { Checkbox } from '@/components/ui/checkbox'
 import { Split } from 'lucide-react';
 import { Slider } from '../ui/slider';
+import { MoneyInput } from './MoneyInput';
 
 export function SplitDrawer() {
   const [open, setOpen] = useState(false)
@@ -117,23 +118,14 @@ export function SplitDrawer() {
                     }}
                   />
 
-                  <input
+                  <MoneyInput
+                    defaultValue={parts?.at(0)?.amount || 0}
                     className="w-[5ch] text-right"
-                    value={parts?.at(0)?.amount || 0}
-                    type="number"
-                    inputMode="decimal"
-                    max={amount}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value)
-                      let newAmount
-                      if (!isNaN(value) && value <= amount) {
-                        newAmount = value
-                      } else {
-                        newAmount = 0
-                      }
+                    onChange={(newAmount) => {
                       field.onChange(newAmount)
                       form.setValue('parts', [{ amount: newAmount }, { amount: parseFloat((amount - newAmount).toFixed(2)) }])
                     }}
+                    overrideValue={parts?.at(0)?.amount || 0}
                   />
                 </div>
               </FormControl>
@@ -144,12 +136,11 @@ export function SplitDrawer() {
             <FormLabel>Others</FormLabel>
             <Slider max={amount} value={[parts?.at(1)?.amount || 0]} disabled />
 
-            <input
+            <MoneyInput
+              defaultValue={parts?.at(1)?.amount || 0}
               className="w-[5ch] text-right"
-              value={(parts?.at(1)?.amount || 0).toFixed(2)}
-              type="number"
-              inputMode="decimal"
               disabled
+              overrideValue={parts?.at(1)?.amount || 0}
             />
           </div>
         </div>

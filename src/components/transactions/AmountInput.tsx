@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Select,
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import { currencies } from '../../../shared/schemas/user_settings.schema'
+import { MoneyInput } from './MoneyInput'
 
 interface AmountInputProps {
   isSubmitting: boolean
@@ -27,31 +28,11 @@ interface AmountInputProps {
 
 export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false }: AmountInputProps) {
   const form = useFormContext<CreateTransaction>()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [displayValue, setDisplayValue] = useState('')
   const fieldName: keyof CreateTransaction = variant === 'from' ? 'amount' : 'toAmount'
   const currencyFieldName: keyof CreateTransaction = variant === 'from' ? 'currency' : 'toCurrency'
   const amount = form.watch(fieldName) as number | undefined
   const fromAmount = form.watch('amount')
   const currency = overrideCurrency || form.watch(currencyFieldName) as string
-
-  useEffect(() => {
-    if (autoFill && variant === 'to') {
-      // For auto-fill "to" inputs, always mirror the from amount
-      if (fromAmount) {
-        setDisplayValue(fromAmount.toString())
-        form.setValue('toAmount', fromAmount)
-      } else {
-        setDisplayValue('')
-        form.setValue('toAmount', undefined as unknown as number)
-      }
-    } else if (amount) {
-      // For regular inputs, show the actual amount
-      setDisplayValue(amount.toString())
-    } else {
-      setDisplayValue('')
-    }
-  }, [amount, autoFill, variant, fromAmount, form])
 
   // Set currency when overrideCurrency is provided
   useEffect(() => {
@@ -64,52 +45,14 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
     }
   }, [overrideCurrency, variant, form])
 
-  const handleContainerClick = () => {
-    inputRef.current?.focus()
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value
-
-    // Only allow positive numbers
-    if (value.startsWith('-')) {
-      return
-    }
-
-    // Replace comma with dot immediately
-    value = value.replace(',', '.')
-
-    // Only allow numbers and dots
-    if (!/^[0-9.]*$/.test(value)) {
-      return
-    }
-
-    // Prevent multiple decimal separators
-    const separatorCount = (value.match(/\./g) || []).length
-    if (separatorCount > 1) {
-      return
-    }
-
-    // Update display value
-    setDisplayValue(value)
-
-    const numValue = parseFloat(value)
-    if (!isNaN(numValue) && numValue > 0) {
-      if (variant === 'from') {
-        form.setValue('amount', numValue)
-      } else {
-        form.setValue('toAmount', numValue)
+  const handleAmountChange = (newAmount: number) => {
+    if (variant === 'from') {
+      form.setValue('amount', newAmount)
+      if (autoFill) {
+        form.setValue('toAmount', newAmount)
       }
-    } else if (value === '') {
-      // Don't set to 0, let form validation handle empty values
-      if (variant === 'from') {
-        form.setValue('amount', undefined as unknown as number)
-      } else {
-        form.setValue('toAmount', undefined as unknown as number)
-      }
-    } else if (value.endsWith('.')) {
-      // Keep the display value but don't update the form value yet
-      // This allows users to type decimal numbers
+    } else {
+      form.setValue('toAmount', newAmount)
     }
   }
 
@@ -125,25 +68,19 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
                 "bg-muted/50 rounded-lg p-2",
                 autoFill && variant === 'to' ? "opacity-60" : "cursor-text"
               )}
-              onClick={!autoFill || variant !== 'to' ? handleContainerClick : undefined}
             >
-              <div className="flex items-center justify-center gap-3">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={displayValue}
-                  onChange={handleInputChange}
-                  className={cn(
-                    "text-3xl font-bold transition-opacity bg-transparent border-0 outline-none w-auto text-center",
-                    "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                    displayValue ? "opacity-100" : "opacity-30",
-                    { "max-w-[3ch]": size === 'sm' }
-                  )}
-                  placeholder="0"
+              <label className="flex items-center justify-center gap-3">
+                <MoneyInput
+                  className={
+                    cn(
+                      "text-3xl font-bold",
+                      { "max-w-[3ch]": size === 'sm' },
+                    )
+                  }
+                  defaultValue={amount}
+                  onChange={handleAmountChange}
                   disabled={isSubmitting || (autoFill && variant === 'to')}
-                  inputMode="decimal"
-                  pattern="[0-9.]*"
-                  style={{ width: `${Math.max(1, displayValue.length || 1)}ch` }}
+                  overrideValue={autoFill ? fromAmount : undefined}
                 />
 
                 {overrideCurrency ? (
@@ -175,7 +112,7 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
                     )}
                   />
                 )}
-              </div>
+              </label>
             </div>
           </FormControl>
           <FormMessage className="text-center" />
