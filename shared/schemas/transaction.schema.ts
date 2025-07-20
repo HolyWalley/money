@@ -22,7 +22,7 @@ export const transactionSchema = z.object({
   split: z.boolean().default(false).optional(),
   parts: z.array(z.object({
     amount: z.number().gte(0, 'Part amount can not be negative'),
-  })).min(2).optional(),
+  })).optional(),
   reimbursement: z.boolean().default(false).optional(),
 })
 
