@@ -31,6 +31,8 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+const USER_STORAGE_KEY = 'money-app-user'
+
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {
@@ -43,16 +45,46 @@ interface AuthProviderProps {
   children: ReactNode
 }
 
+// Utility functions for localStorage
+const saveUserToStorage = (user: User | null) => {
+  if (user) {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+  } else {
+    localStorage.removeItem(USER_STORAGE_KEY)
+  }
+}
+
+const loadUserFromStorage = (): User | null => {
+  try {
+    const stored = localStorage.getItem(USER_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch (error) {
+    console.warn('Failed to load user from storage:', error)
+    localStorage.removeItem(USER_STORAGE_KEY)
+    return null
+  }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUserState] = useState<User | null>(() => loadUserFromStorage())
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
 
   const isAuthenticated = user !== null
   const isPremium = useMemo(() => user?.premium?.active ?? false, [user?.premium?.active])
 
+  // Enhanced setUser that also handles localStorage
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser)
+    saveUserToStorage(newUser)
+  }
+
   // Check authentication status on mount and refresh
-  const checkAuth = async () => {
+  const checkAuth = async (silent = false) => {
+    if (!silent) {
+      setIsLoading(true)
+    }
+    
     try {
       const response = await apiClient.checkAuth()
 
@@ -63,9 +95,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       console.error('Auth check error:', error)
-      setUser(null)
+      if (!silent) {
+        setUser(null)
+      }
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -127,15 +163,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await checkAuth()
   }
 
-  // Since we now have automatic 401 retry with refresh in apiClient,
-  // we don't need the periodic refresh interval anymore
+  // Background auth refresh when user is cached
   useEffect(() => {
-    // Auto-refresh is handled by apiClient on 401 responses
-  }, [])
-
-  // Check auth on mount
-  useEffect(() => {
-    checkAuth()
+    const cachedUser = loadUserFromStorage()
+    if (cachedUser) {
+      // User is loaded from cache, do a silent background refresh
+      checkAuth(true)
+    } else {
+      // No cached user, do a full auth check
+      checkAuth()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const value: AuthContextType = {
