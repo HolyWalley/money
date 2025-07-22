@@ -24,14 +24,11 @@ export function TransactionsPage() {
   return (
     <div className="container mx-auto h-full flex flex-col">
       <div className="mb-4 flex-shrink-0 px-4 pt-4">
-        <h1 className="text-2xl font-bold">Transactions</h1>
-        <p className="text-muted-foreground">
-          {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-        </p>
-
-        <div className="mt-4">
-          <PeriodFilter filters={filters} onFiltersChange={handleFiltersChange} />
-        </div>
+        <PeriodFilter
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+        />
       </div>
 
       <div className="flex-1 min-h-0 px-4 pb-4">

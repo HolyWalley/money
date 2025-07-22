@@ -9,10 +9,11 @@ import { FiltersDrawer } from './FiltersDrawer'
 interface PeriodFilterProps {
   filters: TransactionFilters
   onFiltersChange: (filters: TransactionFilters) => void
+  subtitle?: string
   className?: string
 }
 
-export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilterProps) {
+export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: PeriodFilterProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Default to current month if no value
@@ -82,7 +83,7 @@ export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilt
 
   const getPeriodLabel = (period: PeriodFilter): string => {
     const { start, end } = getPeriodDates(period)
-    
+
     switch (period.type) {
       case 'monthly':
         return format(start, 'MMMM yyyy')
@@ -109,7 +110,7 @@ export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilt
 
   const handlePrevious = () => {
     if (!canNavigate(currentPeriod)) return
-    
+
     const newPeriod = {
       ...currentPeriod,
       currentPeriod: (currentPeriod.currentPeriod || 0) - 1
@@ -119,7 +120,7 @@ export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilt
 
   const handleNext = () => {
     if (!canNavigate(currentPeriod)) return
-    
+
     const newPeriod = {
       ...currentPeriod,
       currentPeriod: (currentPeriod.currentPeriod || 0) + 1
@@ -155,12 +156,15 @@ export function PeriodFilter({ filters, onFiltersChange, className }: PeriodFilt
           type="button"
           variant="ghost"
           onClick={() => setIsDrawerOpen(true)}
-          className="flex-1 justify-center font-medium hover:bg-accent"
+          className="h-full flex-1 flex-col hover:bg-accent gap-1"
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          <span className={cn(isCurrentPeriod() && isToday(new Date()) && "text-primary")}>
-            {getPeriodLabel(currentPeriod)}
-          </span>
+          <div className="flex justify-center font-medium">
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            <span className={cn(isCurrentPeriod() && isToday(new Date()) && "text-primary")}>
+              {getPeriodLabel(currentPeriod)}
+            </span>
+          </div>
+          {subtitle && <p className="text-muted-foreground font-light text-xs">{subtitle}</p>}
         </Button>
 
         <Button
