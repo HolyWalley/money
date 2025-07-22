@@ -34,7 +34,7 @@ import { walletService } from '@/services/walletService'
 import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema'
 
 export function WalletList() {
-  const { wallets } = useLiveWallets()
+  const { wallets, isLoading } = useLiveWallets()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null)
@@ -122,6 +122,10 @@ export function WalletList() {
 
   const displayWallets = localWallets.length > 0 ? localWallets : wallets
   const walletIds = displayWallets.map(wallet => wallet._id)
+
+  if (isLoading) {
+    return null
+  }
 
   if (displayWallets.length === 0) {
     return (

@@ -4,6 +4,8 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
 import { PeriodFilter } from './PeriodFilter'
 
+// TODO: there is a sligh blink when wallets for transactions are not yet loaded, we are showign unknown wallet, etc. 
+// TODO: seems like filtering might not be applied from the beginning, so, we first see all transactions and then they are filtered
 export function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>({})
   const { transactions, isLoading } = useLiveTransactions(filters)
@@ -14,11 +16,7 @@ export function TransactionsPage() {
   }, [])
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto p-4 flex justify-center items-center min-h-[200px]">
-        <div className="text-muted-foreground">Loading transactions...</div>
-      </div>
-    )
+    return null
   }
 
   return (
