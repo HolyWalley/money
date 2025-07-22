@@ -2,7 +2,7 @@ import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
 import { AppSidebarMobile } from './AppSidebarMobile'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { DollarSignIcon, Receipt } from "lucide-react"
+import { ChartNoAxesCombined, Logs, Wallet } from "lucide-react"
 import { MenuItem } from './MenuItem'
 
 export function AppSidebar() {
@@ -17,18 +17,23 @@ export function AppSidebar() {
       {/* Content - Navigation Items */}
       <div className="flex-1 flex flex-col gap-2">
         <MenuItem to="/dashboard">
-          <DollarSignIcon className="h-5 w-5" />
-          <span className="text-[10px]">Dashboard</span>
+          <ChartNoAxesCombined className="h-5 w-5" />
+          <span className="text-[10px]">Overview</span>
         </MenuItem>
 
         <MenuItem to="/transactions">
-          <Receipt className="h-5 w-5" />
-          <span className="text-[10px]">Transactions</span>
+          <Logs className="h-5 w-5" />
+          <span className="text-[10px]">Log</span>
+        </MenuItem>
+
+        <MenuItem to="/wallets">
+          <Wallet className="h-5 w-5" />
+          <span className="text-[10px]">Wallets</span>
         </MenuItem>
 
         <div className="flex flex-col items-center justify-center p-2 gap-0.5">
           <UserDropdownMenu />
-          <span className="text-[10px]">Account</span>
+          <span className="text-[10px]">Me</span>
         </div>
       </div>
 

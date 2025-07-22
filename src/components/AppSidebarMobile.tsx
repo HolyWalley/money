@@ -1,31 +1,34 @@
 import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
-import { DollarSignIcon, Receipt } from "lucide-react"
+import { ChartNoAxesCombined, Logs, Wallet } from "lucide-react"
 import { MenuItem } from './MenuItem'
 
 export function AppSidebarMobile() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
-      <div className="flex items-center justify-between px-4 py-2">
-        <MenuItem to="/dashboard">
-          <DollarSignIcon className="h-6 w-6" />
-          <span className="text-xs">Dashboard</span>
+      <div className="flex items-center justify-between gap-2 px-4 py-2">
+        <MenuItem to="/dashboard" className="flex-1">
+          <ChartNoAxesCombined className="h-6 w-6" />
+          <span className="text-xs">Overview</span>
         </MenuItem>
 
-        <MenuItem to="/transactions">
-          <Receipt className="h-6 w-6" />
-          <span className="text-xs">Transactions</span>
+        <MenuItem to="/transactions" className="flex-1">
+          <Logs className="h-6 w-6" />
+          <span className="text-xs">Log</span>
         </MenuItem>
 
-        <div className="flex items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
           <NewTransactionTrigger />
         </div>
 
-        <div className="w-12"></div>
+        <MenuItem to="/wallets" className="flex-1">
+          <Wallet className="h-6 w-6" />
+          <span className="text-xs">Wallets</span>
+        </MenuItem>
 
-        <div className="flex flex-col items-center justify-center p-2 gap-1">
+        <div className="flex flex-1 flex-col items-center justify-center p-2 gap-1">
           <UserDropdownMenu />
-          <span className="text-xs">Account</span>
+          <span className="text-xs">Me</span>
         </div>
       </div>
     </div>
