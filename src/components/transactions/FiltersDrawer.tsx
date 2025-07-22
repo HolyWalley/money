@@ -7,9 +7,9 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { DatePicker } from './DatePicker'
+import { FilterCheckboxList } from './FilterCheckboxList'
 import type { TransactionFilters, PeriodFilter, PeriodType } from '@/hooks/useLiveTransactions'
 
 interface FiltersDrawerProps {
@@ -177,21 +177,28 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
     }
   }
 
-  const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    const currentIds = formFilters.categoryIds || []
-    const newIds = checked
-      ? [...currentIds, categoryId]
-      : currentIds.filter(id => id !== categoryId)
-    setValue('categoryIds', newIds)
-  }
+  const handleFilterChange = (fieldName: 'categoryIds' | 'walletIds') =>
+    (id: string, checked: boolean) => {
+      const currentIds = formFilters[fieldName] || []
+      const newIds = checked
+        ? [...currentIds, id]
+        : currentIds.filter(existingId => existingId !== id)
+      setValue(fieldName, newIds)
+    }
 
-  const handleWalletChange = (walletId: string, checked: boolean) => {
-    const currentIds = formFilters.walletIds || []
-    const newIds = checked
-      ? [...currentIds, walletId]
-      : currentIds.filter(id => id !== walletId)
-    setValue('walletIds', newIds)
-  }
+  const handleSelectAll = (fieldName: 'categoryIds' | 'walletIds') =>
+    (ids: string[], selected: boolean) => {
+      const currentIds = formFilters[fieldName] || []
+      if (selected) {
+        // Add all new ids that aren't already selected
+        const newIds = [...new Set([...currentIds, ...ids])]
+        setValue(fieldName, newIds)
+      } else {
+        // Remove all ids from selection
+        const newIds = currentIds.filter(id => !ids.includes(id))
+        setValue(fieldName, newIds)
+      }
+    }
 
 
 
@@ -314,47 +321,25 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
 
           <TabsContent value="filters" className="px-4 pb-4 space-y-4 overflow-y-auto max-h-[calc(90dvh-12rem)]">
             <div className="space-y-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Categories</Label>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div key={category._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`category-${category._id}`}
-                        checked={(formFilters.categoryIds || []).includes(category._id)}
-                        onCheckedChange={(checked) => handleCategoryChange(category._id, !!checked)}
-                      />
-                      <Label
-                        htmlFor={`category-${category._id}`}
-                        className="text-sm font-normal cursor-pointer flex-1"
-                      >
-                        {category.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <FilterCheckboxList
+                items={categories}
+                selectedIds={formFilters.categoryIds || []}
+                onChange={handleFilterChange('categoryIds')}
+                onSelectAll={handleSelectAll('categoryIds')}
+                label="Categories"
+                getItemId={(category) => category._id}
+                getItemLabel={(category) => category.name}
+              />
 
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Wallets</Label>
-                <div className="space-y-2">
-                  {wallets.map((wallet) => (
-                    <div key={wallet._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`wallet-${wallet._id}`}
-                        checked={(formFilters.walletIds || []).includes(wallet._id)}
-                        onCheckedChange={(checked) => handleWalletChange(wallet._id, !!checked)}
-                      />
-                      <Label
-                        htmlFor={`wallet-${wallet._id}`}
-                        className="text-sm font-normal cursor-pointer flex-1"
-                      >
-                        {wallet.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <FilterCheckboxList
+                items={wallets}
+                selectedIds={formFilters.walletIds || []}
+                onChange={handleFilterChange('walletIds')}
+                onSelectAll={handleSelectAll('walletIds')}
+                label="Wallets"
+                getItemId={(wallet) => wallet._id}
+                getItemLabel={(wallet) => wallet.name}
+              />
             </div>
           </TabsContent>
         </Tabs>
