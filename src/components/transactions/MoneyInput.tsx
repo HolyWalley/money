@@ -47,7 +47,8 @@ export function MoneyInput({ defaultValue, disabled, className, overrideValue, o
     }
 
     setValue(overrideValue.toString());
-  }, [overrideValue, onChange]);
+    change(overrideValue);
+  }, [overrideValue]);
 
   return <input
     className={cn(
