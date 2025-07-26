@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db-dexie'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, addMonths, addWeeks, addYears, subDays, startOfDay, endOfDay, setDate, setDay, setDayOfYear } from 'date-fns'
+import { useRef } from 'react'
 
 export type PeriodType = 'monthly' | 'weekly' | 'yearly' | 'last7days' | 'last30days' | 'last365days' | 'custom'
 
@@ -24,6 +25,8 @@ export interface TransactionFilters {
 }
 
 export function useLiveTransactions(filters: TransactionFilters) {
+  const isLoading = useRef(true)
+
   const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
     const baseDate = period.startDate || new Date()
     const offset = period.currentPeriod || 0
@@ -110,11 +113,12 @@ export function useLiveTransactions(filters: TransactionFilters) {
       })
     }
 
+    isLoading.current = false
     return query.toArray()
   }, [filters.isLoading, filters.filterVersion])
 
   return {
     transactions: transactions || [],
-    isLoading: (transactions === undefined) || filters.isLoading,
+    isLoading: isLoading.current || filters.isLoading,
   }
 }
