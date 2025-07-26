@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { TransactionTable } from '@/components/transactions/TransactionTable'
 
 export function MainApp() {
   return (
@@ -41,8 +40,6 @@ export function MainApp() {
             </CardContent>
           </Card>
         </div>
-
-        <TransactionTable />
 
         <Card>
           <CardHeader>

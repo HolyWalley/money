@@ -7,13 +7,17 @@ import { TransactionDrawer } from './TransactionDrawer'
 import { transactionService } from '@/services/transactionService'
 import { useAuth } from '@/contexts/AuthContext'
 import { type CreateTransaction } from '../../../shared/schemas/transaction.schema'
+import type { Wallet } from 'shared/schemas/wallet.schema'
+import type { Category } from 'shared/schemas/category.schema'
 
 interface VirtualizedTransactionListProps {
   transactions: Transaction[]
+  wallets: Wallet[]
+  categories: Category[]
   isMobile: boolean
 }
 
-export function VirtualizedTransactionList({ transactions, isMobile }: VirtualizedTransactionListProps) {
+export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -45,6 +49,8 @@ export function VirtualizedTransactionList({ transactions, isMobile }: Virtualiz
       <TransactionMobileCard
         key={key}
         transaction={transaction}
+        wallets={wallets}
+        categories={categories}
         onEdit={() => handleEdit(transaction)}
         style={style}
       />
@@ -52,6 +58,8 @@ export function VirtualizedTransactionList({ transactions, isMobile }: Virtualiz
       <TransactionDesktopRow
         key={key}
         transaction={transaction}
+        wallets={wallets}
+        categories={categories}
         onEdit={() => handleEdit(transaction)}
         style={style}
       />

@@ -16,12 +16,14 @@ export interface PeriodFilter {
 }
 
 export interface TransactionFilters {
+  isLoading: boolean
   categoryIds?: string[]
   walletIds?: string[]
   period?: PeriodFilter
+  filterVersion?: string // Add a version/id that changes when filters actually change
 }
 
-export function useLiveTransactions(filters?: TransactionFilters) {
+export function useLiveTransactions(filters: TransactionFilters) {
   const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
     const baseDate = period.startDate || new Date()
     const offset = period.currentPeriod || 0
@@ -81,21 +83,25 @@ export function useLiveTransactions(filters?: TransactionFilters) {
   }
 
   const transactions = useLiveQuery(() => {
+    if (filters.isLoading) {
+      return []
+    }
+
     let query = db.transactions.orderBy('date').reverse()
-    
+
     if (filters?.categoryIds && filters.categoryIds.length > 0) {
       query = query.filter(t => {
         return t.categoryId ? filters.categoryIds!.includes(t.categoryId) : false
       })
     }
-    
+
     if (filters?.walletIds && filters.walletIds.length > 0) {
       query = query.filter(t => {
-        return filters.walletIds!.includes(t.walletId) || 
-               (t.toWalletId ? filters.walletIds!.includes(t.toWalletId) : false)
+        return filters.walletIds!.includes(t.walletId) ||
+          (t.toWalletId ? filters.walletIds!.includes(t.toWalletId) : false)
       })
     }
-    
+
     if (filters?.period) {
       const { start, end } = getPeriodDates(filters.period)
       query = query.filter(t => {
@@ -103,12 +109,12 @@ export function useLiveTransactions(filters?: TransactionFilters) {
         return transactionDate >= start && transactionDate <= end
       })
     }
-    
+
     return query.toArray()
-  }, [filters?.categoryIds, filters?.walletIds, filters?.period])
+  }, [filters.isLoading, filters.filterVersion])
 
   return {
     transactions: transactions || [],
-    isLoading: transactions === undefined
+    isLoading: (transactions === undefined) || filters.isLoading,
   }
 }

@@ -1,20 +1,20 @@
 import { forwardRef, useMemo } from 'react'
-import { useLiveWallets } from '@/hooks/useLiveWallets'
-import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { ReceiptText } from 'lucide-react'
 import { CategoryIcon } from '../categories/CategoryIcon'
+import type { Category } from 'shared/schemas/category.schema'
+import type { Wallet } from 'shared/schemas/wallet.schema'
 
 interface TransactionMobileCardProps {
   transaction: Transaction
+  wallets: Wallet[]
+  categories: Category[]
   onEdit: () => void
   style?: React.CSSProperties
 }
 
 export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobileCardProps>(
-  ({ transaction, onEdit, style }, ref) => {
-    const { wallets } = useLiveWallets()
-    const { categories } = useLiveCategories()
+  ({ transaction, wallets, categories, onEdit, style }, ref) => {
 
     const category = useMemo(() => {
       return categories.find(c => c._id === transaction.categoryId)
