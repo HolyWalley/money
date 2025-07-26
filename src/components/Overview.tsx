@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
-export function MainApp() {
+export function Overview() {
   return (
     <main className="mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="space-y-6">
