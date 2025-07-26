@@ -1,67 +1,29 @@
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { useLiveTransactions, type TransactionFilters } from '@/hooks/useLiveTransactions'
+// TODO: Separate filter related components from transactions
+import { PeriodFilter } from './transactions/PeriodFilter'
+import { useFilters } from '@/hooks/useFilters'
+import { useLiveCategories } from '@/hooks/useLiveCategories'
+import { useLiveWallets } from '@/hooks/useLiveWallets'
 
 export function Overview() {
+  const wallets = useLiveWallets()
+  const categories = useLiveCategories()
+  const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
+  const { transactions, isLoading } = useLiveTransactions(filters)
+
+  if (isLoading || filters.isLoading) {
+    return null
+  }
+
   return (
-    <main className="mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Track your expenses and manage your finances
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Budget</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Set up your budget</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Savings Goals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Create savings goals</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">View spending insights</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              Welcome to your personal finance tracker! Here's what you can do:
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-              <li>Add and categorize transactions</li>
-              <li>Set monthly budgets for different categories</li>
-              <li>Create and track savings goals</li>
-              <li>View detailed reports and analytics</li>
-              <li>Export your data for backup</li>
-            </ul>
-            <div className="pt-4">
-              <Button>Add Your First Transaction</Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto h-full flex flex-col">
+      <div className="mb-4 flex-shrink-0 px-4 pt-4">
+        <PeriodFilter
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+        />
       </div>
-    </main>
+    </div>
   )
 }
