@@ -25,66 +25,66 @@ export interface TransactionFilters {
   filterVersion?: string // Add a version/id that changes when filters actually change
 }
 
+export const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
+  const baseDate = period.startDate || new Date()
+  const offset = period.currentPeriod || 0
+
+  switch (period.type) {
+    case 'monthly': {
+      const targetDate = addMonths(baseDate, offset)
+      const monthStart = startOfMonth(targetDate)
+      const actualStart = period.monthDay ? setDate(monthStart, period.monthDay) : monthStart
+      return {
+        start: startOfDay(actualStart),
+        end: endOfDay(endOfMonth(targetDate))
+      }
+    }
+    case 'weekly': {
+      const targetDate = addWeeks(baseDate, offset)
+      const weekStart = startOfWeek(targetDate)
+      const actualStart = period.weekDay !== undefined ? setDay(weekStart, period.weekDay) : weekStart
+      return {
+        start: startOfDay(actualStart),
+        end: endOfDay(endOfWeek(targetDate))
+      }
+    }
+    case 'yearly': {
+      const targetDate = addYears(baseDate, offset)
+      const yearStart = startOfYear(targetDate)
+      const actualStart = period.yearDay ? setDayOfYear(yearStart, period.yearDay) : yearStart
+      return {
+        start: startOfDay(actualStart),
+        end: endOfDay(endOfYear(targetDate))
+      }
+    }
+    case 'last7days': {
+      const end = endOfDay(new Date())
+      const start = startOfDay(subDays(new Date(), 6))
+      return { start, end }
+    }
+    case 'last30days': {
+      const end = endOfDay(new Date())
+      const start = startOfDay(subDays(new Date(), 29))
+      return { start, end }
+    }
+    case 'last365days': {
+      const end = endOfDay(new Date())
+      const start = startOfDay(subDays(new Date(), 364))
+      return { start, end }
+    }
+    case 'custom': {
+      return {
+        start: startOfDay(period.customFrom || new Date()),
+        end: endOfDay(period.customTo || new Date())
+      }
+    }
+    default:
+      return { start: new Date(), end: new Date() }
+  }
+}
+
 export function useLiveTransactions(filters: TransactionFilters) {
   const isLoading = useRef(true)
-
-  const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
-    const baseDate = period.startDate || new Date()
-    const offset = period.currentPeriod || 0
-
-    switch (period.type) {
-      case 'monthly': {
-        const targetDate = addMonths(baseDate, offset)
-        const monthStart = startOfMonth(targetDate)
-        const actualStart = period.monthDay ? setDate(monthStart, period.monthDay) : monthStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfMonth(targetDate))
-        }
-      }
-      case 'weekly': {
-        const targetDate = addWeeks(baseDate, offset)
-        const weekStart = startOfWeek(targetDate)
-        const actualStart = period.weekDay !== undefined ? setDay(weekStart, period.weekDay) : weekStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfWeek(targetDate))
-        }
-      }
-      case 'yearly': {
-        const targetDate = addYears(baseDate, offset)
-        const yearStart = startOfYear(targetDate)
-        const actualStart = period.yearDay ? setDayOfYear(yearStart, period.yearDay) : yearStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfYear(targetDate))
-        }
-      }
-      case 'last7days': {
-        const end = endOfDay(new Date())
-        const start = startOfDay(subDays(new Date(), 6))
-        return { start, end }
-      }
-      case 'last30days': {
-        const end = endOfDay(new Date())
-        const start = startOfDay(subDays(new Date(), 29))
-        return { start, end }
-      }
-      case 'last365days': {
-        const end = endOfDay(new Date())
-        const start = startOfDay(subDays(new Date(), 364))
-        return { start, end }
-      }
-      case 'custom': {
-        return {
-          start: startOfDay(period.customFrom || new Date()),
-          end: endOfDay(period.customTo || new Date())
-        }
-      }
-      default:
-        return { start: new Date(), end: new Date() }
-    }
-  }
 
   const transactions = useLiveQuery(async () => {
     if (filters.isLoading) {
