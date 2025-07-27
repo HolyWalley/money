@@ -183,8 +183,8 @@ class ApiClient {
     });
   }
 
-  async updateUser(updates: { default_currency?: string }): Promise<ApiResponse<User>> {
-    return this.request<User>('/me', {
+  async updateUser(updates: { settings?: { defaultCurrency?: string } }): Promise<ApiResponse<{ user: User }>> {
+    return this.request<{ user: User }>('/me', {
       method: 'PUT',
       body: updates,
     });

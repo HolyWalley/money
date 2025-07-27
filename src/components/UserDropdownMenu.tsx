@@ -48,7 +48,7 @@ export function UserDropdownMenu() {
 
     try {
       const response = await apiClient.updateUser({
-        default_currency: newCurrency
+        settings: { defaultCurrency: newCurrency }
       })
 
       if (!response.ok) {
@@ -56,7 +56,7 @@ export function UserDropdownMenu() {
         setUser(previousUser)
       } else if (response.data) {
         // Update with server data
-        setUser(response.data)
+        setUser(response.data.user)
       }
     } catch (error) {
       console.error('Failed to update currency:', error)
