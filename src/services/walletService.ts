@@ -6,7 +6,13 @@ import { walletSchema, createWalletSchema, updateWalletSchema } from '../../shar
 class WalletService {
   async getAllWallets(): Promise<Wallet[]> {
     try {
-      return await db.wallets.orderBy('order').toArray()
+      const dexieWallets = await db.wallets.orderBy('order').toArray()
+      // Convert Date objects back to ISO strings
+      return dexieWallets.map(wallet => ({
+        ...wallet,
+        createdAt: wallet.createdAt.toISOString(),
+        updatedAt: wallet.updatedAt.toISOString()
+      })) as Wallet[]
     } catch (error) {
       console.error('Error fetching wallets:', error)
       throw error
@@ -16,7 +22,13 @@ class WalletService {
   async getWalletById(id: string): Promise<Wallet | null> {
     try {
       const wallet = await db.wallets.get(id)
-      return wallet || null
+      if (!wallet) return null
+      // Convert Date objects back to ISO strings
+      return {
+        ...wallet,
+        createdAt: wallet.createdAt.toISOString(),
+        updatedAt: wallet.updatedAt.toISOString()
+      } as Wallet
     } catch (error) {
       console.error('Error fetching wallet:', error)
       throw error
@@ -65,11 +77,13 @@ class WalletService {
 
       updateWalletCRDT(id, validatedUpdates)
 
+      // Convert Date objects back to ISO strings for return
       return {
         ...existingWallet,
         ...validatedUpdates,
+        createdAt: existingWallet.createdAt.toISOString(),
         updatedAt: new Date().toISOString()
-      }
+      } as Wallet
     } catch (error) {
       console.error('Error updating wallet:', error)
       throw error

@@ -7,7 +7,14 @@ class TransactionService {
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
-      return await db.transactions.orderBy('createdAt').reverse().toArray()
+      const dexieTransactions = await db.transactions.orderBy('createdAt').reverse().toArray()
+      // Convert Date objects back to ISO strings
+      return dexieTransactions.map(tx => ({
+        ...tx,
+        date: tx.date.toISOString(),
+        createdAt: tx.createdAt.toISOString(),
+        updatedAt: tx.updatedAt.toISOString()
+      })) as Transaction[]
     } catch (error) {
       console.error('Error fetching transactions:', error)
       throw error
@@ -17,7 +24,14 @@ class TransactionService {
   async getTransactionById(id: string): Promise<Transaction | null> {
     try {
       const transaction = await db.transactions.get(id)
-      return transaction || null
+      if (!transaction) return null
+      // Convert Date objects back to ISO strings
+      return {
+        ...transaction,
+        date: transaction.date.toISOString(),
+        createdAt: transaction.createdAt.toISOString(),
+        updatedAt: transaction.updatedAt.toISOString()
+      } as Transaction
     } catch (error) {
       console.error('Error fetching transaction:', error)
       throw error
@@ -30,7 +44,13 @@ class TransactionService {
         .filter(transaction => transaction.walletId === walletId || transaction.toWalletId === walletId)
         .reverse()
         .sortBy('createdAt')
-      return transactions
+      // Convert Date objects back to ISO strings
+      return transactions.map(tx => ({
+        ...tx,
+        date: tx.date.toISOString(),
+        createdAt: tx.createdAt.toISOString(),
+        updatedAt: tx.updatedAt.toISOString()
+      })) as Transaction[]
     } catch (error) {
       console.error('Error fetching transactions by wallet:', error)
       throw error
@@ -44,7 +64,13 @@ class TransactionService {
         .equals(categoryId)
         .reverse()
         .sortBy('createdAt')
-      return transactions
+      // Convert Date objects back to ISO strings
+      return transactions.map(tx => ({
+        ...tx,
+        date: tx.date.toISOString(),
+        createdAt: tx.createdAt.toISOString(),
+        updatedAt: tx.updatedAt.toISOString()
+      })) as Transaction[]
     } catch (error) {
       console.error('Error fetching transactions by category:', error)
       throw error
@@ -58,13 +84,18 @@ class TransactionService {
 
       const transactions = await db.transactions
         .filter(transaction => {
-          const transactionDate = new Date(transaction.date)
-          return transactionDate >= start && transactionDate <= end
+          return transaction.date >= start && transaction.date <= end
         })
         .reverse()
         .sortBy('createdAt')
 
-      return transactions
+      // Convert Date objects back to ISO strings
+      return transactions.map(tx => ({
+        ...tx,
+        date: tx.date.toISOString(),
+        createdAt: tx.createdAt.toISOString(),
+        updatedAt: tx.updatedAt.toISOString()
+      })) as Transaction[]
     } catch (error) {
       console.error('Error fetching transactions by date range:', error)
       throw error
@@ -107,11 +138,14 @@ class TransactionService {
 
       updateTransaction(id, validatedUpdates)
 
+      // Convert Date objects back to ISO strings for return
       return {
         ...existingTransaction,
         ...validatedUpdates,
+        date: validatedUpdates.date ? validatedUpdates.date : existingTransaction.date.toISOString(),
+        createdAt: existingTransaction.createdAt.toISOString(),
         updatedAt: new Date().toISOString()
-      }
+      } as Transaction
     } catch (error) {
       console.error('Error updating transaction:', error)
       throw error

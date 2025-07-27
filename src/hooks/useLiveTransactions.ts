@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db-dexie'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, addMonths, addWeeks, addYears, subDays, startOfDay, endOfDay, setDate, setDay, setDayOfYear } from 'date-fns'
 import { useRef } from 'react'
+import type { Transaction } from '../../shared/schemas/transaction.schema'
 
 export type PeriodType = 'monthly' | 'weekly' | 'yearly' | 'last7days' | 'last30days' | 'last365days' | 'custom'
 
@@ -85,7 +86,7 @@ export function useLiveTransactions(filters: TransactionFilters) {
     }
   }
 
-  const transactions = useLiveQuery(() => {
+  const transactions = useLiveQuery(async () => {
     if (filters.isLoading) {
       return []
     }
@@ -108,13 +109,19 @@ export function useLiveTransactions(filters: TransactionFilters) {
     if (filters?.period) {
       const { start, end } = getPeriodDates(filters.period)
       query = query.filter(t => {
-        const transactionDate = new Date(t.date)
-        return transactionDate >= start && transactionDate <= end
+        return t.date >= start && t.date <= end
       })
     }
 
     isLoading.current = false
-    return query.toArray()
+    const dexieTransactions = await query.toArray()
+    // Convert Date objects back to ISO strings for components
+    return dexieTransactions.map(tx => ({
+      ...tx,
+      date: tx.date.toISOString(),
+      createdAt: tx.createdAt.toISOString(),
+      updatedAt: tx.updatedAt.toISOString()
+    })) as Transaction[]
   }, [filters.isLoading, filters.filterVersion])
 
   return {

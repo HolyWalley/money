@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid'
 import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
+import type { DexieCategory, DexieWallet, DexieTransaction } from './db-dexie'
 
 // Helper functions to create properly typed Y.Maps with safe type assertions
 function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<Category> {
@@ -40,8 +41,14 @@ categories.observe(event => {
       } else {
         const category = categories.get(id);
         if (category) {
-          const categoryObj = Object.fromEntries(category.entries()) as unknown as Category;
-          await db.categories.put(categoryObj);
+          const categoryObj = Object.fromEntries(category.entries()) as Record<string, unknown>;
+          // Convert date strings to Date objects for Dexie
+          const dexieCategory: DexieCategory = {
+            ...(categoryObj as Category),
+            createdAt: new Date(categoryObj.createdAt as string),
+            updatedAt: new Date(categoryObj.updatedAt as string)
+          };
+          await db.categories.put(dexieCategory);
         }
       }
     }
@@ -58,8 +65,14 @@ wallets.observe(event => {
       } else {
         const wallet = wallets.get(id);
         if (wallet) {
-          const walletObj = Object.fromEntries(wallet.entries()) as unknown as Wallet;
-          await db.wallets.put(walletObj);
+          const walletObj = Object.fromEntries(wallet.entries()) as Record<string, unknown>;
+          // Convert date strings to Date objects for Dexie
+          const dexieWallet: DexieWallet = {
+            ...(walletObj as Wallet),
+            createdAt: new Date(walletObj.createdAt as string),
+            updatedAt: new Date(walletObj.updatedAt as string)
+          };
+          await db.wallets.put(dexieWallet);
         }
       }
     }
@@ -76,8 +89,15 @@ transactions.observe(event => {
       } else {
         const transaction = transactions.get(id);
         if (transaction) {
-          const transactionObj = Object.fromEntries(transaction.entries()) as unknown as Transaction;
-          await db.transactions.put(transactionObj);
+          const transactionObj = Object.fromEntries(transaction.entries()) as Record<string, unknown>;
+          // Convert date strings to Date objects for Dexie
+          const dexieTransaction: DexieTransaction = {
+            ...(transactionObj as Transaction),
+            date: new Date(transactionObj.date as string),
+            createdAt: new Date(transactionObj.createdAt as string),
+            updatedAt: new Date(transactionObj.updatedAt as string)
+          };
+          await db.transactions.put(dexieTransaction);
         }
       }
     }
