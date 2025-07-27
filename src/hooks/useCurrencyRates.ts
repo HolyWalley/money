@@ -18,7 +18,11 @@ export const useCurrencyRates = (filters: TransactionFilters) => {
       }
 
       const { start, end } = getPeriodDates(filters.period)
-      const newRates = await smartCurrencyRates(start, end)
+      // query for -5/+5 days around the period
+      const newRates = await smartCurrencyRates(
+        new Date(start.getTime() - 5 * 24 * 60 * 60 * 1000),
+        new Date(end.getTime() + 5 * 24 * 60 * 60 * 1000)
+      )
       setRates(newRates)
     }
 
