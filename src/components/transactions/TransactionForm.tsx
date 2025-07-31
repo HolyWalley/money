@@ -28,11 +28,15 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
   const transactionType = form.watch('transactionType')
   const walletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
-  const { wallets } = useLiveWallets()
+  const { wallets, isLoading } = useLiveWallets()
 
   const fromWallet = wallets.find(w => w._id === walletId)
   const toWallet = wallets.find(w => w._id === toWalletId)
   const isSameCurrency = fromWallet?.currency === toWallet?.currency
+
+  if (isLoading) {
+    return null
+  }
 
   return (
     <>
