@@ -181,6 +181,7 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
       </div>
 
       <FiltersDrawer
+        filters={filters}
         isOpen={isDrawerOpen}
         currentFilters={filters}
         onClose={handleDrawerClose}

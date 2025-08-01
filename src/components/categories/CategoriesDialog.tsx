@@ -37,6 +37,10 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     localCategories.filter(cat => cat.type === 'expense').sort((a, b) => a.order - b.order),
     [localCategories]
   )
+  const transferCategories = useMemo(() =>
+    localCategories.filter(cat => cat.type === 'transfer').sort((a, b) => a.order - b.order),
+    [localCategories]
+  )
 
   const handleDeleteCategory = async (categoryId: string) => {
     try {
@@ -46,7 +50,7 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     }
   }
 
-  const handleAddCategory = async (type: 'income' | 'expense') => {
+  const handleAddCategory = async (type: 'income' | 'expense' | 'transfer') => {
     const categoriesOfType = localCategories.filter(cat => cat.type === type)
     const maxOrder = categoriesOfType.length
 
@@ -86,8 +90,8 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     // }
   }
 
-  const handleReorder = async (activeId: string, overId: string, type: 'income' | 'expense') => {
-    const categoriesList = type === 'income' ? incomeCategories : expenseCategories
+  const handleReorder = async (activeId: string, overId: string, type: 'income' | 'expense' | 'transfer') => {
+    const categoriesList = type === 'income' ? incomeCategories : (type === 'expense' ? expenseCategories : transferCategories)
     const oldIndex = categoriesList.findIndex(cat => cat._id === activeId)
     const newIndex = categoriesList.findIndex(cat => cat._id === overId)
 
@@ -143,6 +147,15 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
               title="Income"
               onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
               onAddCategory={() => handleAddCategory('income')}
+              onDeleteCategory={handleDeleteCategory}
+              newCategoryId={newCategoryId}
+              onClearNewCategoryId={() => setNewCategoryId(null)}
+            />
+            <CategoryList
+              categories={transferCategories}
+              title="Transfer"
+              onReorder={(activeId, overId) => handleReorder(activeId, overId, 'transfer')}
+              onAddCategory={() => handleAddCategory('transfer')}
               onDeleteCategory={handleDeleteCategory}
               newCategoryId={newCategoryId}
               onClearNewCategoryId={() => setNewCategoryId(null)}

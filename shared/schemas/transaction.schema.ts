@@ -13,7 +13,7 @@ export const transactionSchema = z.object({
   toAmount: z.number().positive('Amount must be positive').optional(),
   toCurrency: CurrencyEnum.optional(),
   note: z.string().max(200, 'Note is too long').optional(),
-  categoryId: z.string().optional(),
+  categoryId: z.string(),
   walletId: z.string(),
   toWalletId: z.string().optional(),
   date: z.string().datetime(),

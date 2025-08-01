@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const categoryTypeSchema = z.enum(['income', 'expense'])
+export const categoryTypeSchema = z.enum(['income', 'expense', 'transfer'])
 
 export const categoryColorSchema = z.enum([
   'red',

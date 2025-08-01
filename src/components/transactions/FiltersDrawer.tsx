@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState, useMemo } from 'react'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { Button } from '@/components/ui/button'
@@ -14,26 +13,16 @@ import type { TransactionFilters, PeriodFilter, PeriodType } from '@/hooks/useLi
 
 interface FiltersDrawerProps {
   isOpen: boolean
+  filters: TransactionFilters
   currentFilters: TransactionFilters
   onClose: () => void
   onFiltersChange: (filters: TransactionFilters) => void
 }
 
-export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange }: FiltersDrawerProps) {
+export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange }: FiltersDrawerProps) {
   const { categories } = useLiveCategories()
   const { wallets } = useLiveWallets()
-
-  const { watch, setValue } = useForm<TransactionFilters>({
-    defaultValues: {
-      ...currentFilters,
-      period: currentFilters.period || {
-        type: 'monthly' as PeriodType,
-        startDate: new Date(),
-        currentPeriod: 0,
-        monthDay: 1
-      }
-    }
-  })
+  const transactionTypes = useMemo(() => [{ _id: 'income', name: 'Income' }, { _id: 'expense', name: 'Expense' }, { _id: 'transfer', name: 'Transfer' }], [])
 
   // Period state
   const [selectedType, setSelectedType] = useState<PeriodType>(currentFilters.period?.type || 'monthly')
@@ -42,13 +31,6 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
   const [yearDay, setYearDay] = useState<string>(currentFilters.period?.yearDay?.toString() || '1')
   const [customFrom, setCustomFrom] = useState<Date | undefined>(currentFilters.period?.customFrom)
   const [customTo, setCustomTo] = useState<Date | undefined>(currentFilters.period?.customTo)
-
-  const formFilters = watch()
-
-  // Apply filters immediately when form data changes
-  useEffect(() => {
-    onFiltersChange(formFilters)
-  }, [formFilters.categoryIds, formFilters.walletIds, formFilters.period, onFiltersChange])
 
   const periodTypes = [
     { value: 'monthly' as PeriodType, label: 'Monthly' },
@@ -116,17 +98,23 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
       newPeriod = { type }
     }
 
-    setValue('period', newPeriod)
+    onFiltersChange({
+      ...filters,
+      period: newPeriod
+    })
   }
 
   const handleMonthDayChange = (day: string) => {
     setMonthDay(day)
     if (selectedType === 'monthly') {
-      setValue('period', {
-        type: 'monthly',
-        startDate: new Date(),
-        currentPeriod: 0,
-        monthDay: parseInt(day)
+      onFiltersChange({
+        ...filters,
+        period: {
+          type: 'monthly',
+          startDate: new Date(),
+          currentPeriod: 0,
+          monthDay: parseInt(day)
+        }
       })
     }
   }
@@ -134,11 +122,14 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
   const handleWeekDayChange = (day: string) => {
     setWeekDay(day)
     if (selectedType === 'weekly') {
-      setValue('period', {
-        type: 'weekly',
-        startDate: new Date(),
-        currentPeriod: 0,
-        weekDay: parseInt(day)
+      onFiltersChange({
+        ...filters,
+        period: {
+          type: 'weekly',
+          startDate: new Date(),
+          currentPeriod: 0,
+          weekDay: parseInt(day)
+        }
       })
     }
   }
@@ -146,11 +137,14 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
   const handleYearDayChange = (day: string) => {
     setYearDay(day)
     if (selectedType === 'yearly') {
-      setValue('period', {
-        type: 'yearly',
-        startDate: new Date(),
-        currentPeriod: 0,
-        yearDay: parseInt(day)
+      onFiltersChange({
+        ...filters,
+        period: {
+          type: 'yearly',
+          startDate: new Date(),
+          currentPeriod: 0,
+          yearDay: parseInt(day)
+        }
       })
     }
   }
@@ -158,10 +152,13 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
   const handleCustomFromChange = (date: Date | undefined) => {
     setCustomFrom(date)
     if (selectedType === 'custom') {
-      setValue('period', {
-        type: 'custom',
-        customFrom: date,
-        customTo
+      onFiltersChange({
+        ...filters,
+        period: {
+          type: 'custom',
+          customFrom: date,
+          customTo
+        }
       })
     }
   }
@@ -169,38 +166,39 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
   const handleCustomToChange = (date: Date | undefined) => {
     setCustomTo(date)
     if (selectedType === 'custom') {
-      setValue('period', {
-        type: 'custom',
-        customFrom,
-        customTo: date
+      onFiltersChange({
+        ...filters,
+        period: {
+          type: 'custom',
+          customFrom,
+          customTo: date
+        }
       })
     }
   }
 
-  const handleFilterChange = (fieldName: 'categoryIds' | 'walletIds') =>
+  const handleFilterChange = (fieldName: 'categoryIds' | 'walletIds' | 'transactionTypeIds') =>
     (id: string, checked: boolean) => {
-      const currentIds = formFilters[fieldName] || []
+      const currentIds = filters[fieldName] || []
       const newIds = checked
         ? [...currentIds, id]
         : currentIds.filter(existingId => existingId !== id)
-      setValue(fieldName, newIds)
+      onFiltersChange({ ...filters, [fieldName]: newIds })
     }
 
-  const handleSelectAll = (fieldName: 'categoryIds' | 'walletIds') =>
+  const handleSelectAll = (fieldName: 'categoryIds' | 'walletIds' | 'transactionTypeIds') =>
     (ids: string[], selected: boolean) => {
-      const currentIds = formFilters[fieldName] || []
+      const currentIds = filters[fieldName] || []
       if (selected) {
         // Add all new ids that aren't already selected
         const newIds = [...new Set([...currentIds, ...ids])]
-        setValue(fieldName, newIds)
+        onFiltersChange({ ...filters, [fieldName]: newIds })
       } else {
         // Remove all ids from selection
         const newIds = currentIds.filter(id => !ids.includes(id))
-        setValue(fieldName, newIds)
+        onFiltersChange({ ...filters, [fieldName]: newIds })
       }
     }
-
-
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -322,8 +320,18 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
           <TabsContent value="filters" className="px-4 pb-4 space-y-4 overflow-y-auto max-h-[calc(90dvh-12rem)]">
             <div className="space-y-6">
               <FilterCheckboxList
+                items={transactionTypes}
+                selectedIds={filters.transactionTypeIds || []}
+                onChange={handleFilterChange('transactionTypeIds')}
+                onSelectAll={handleSelectAll('transactionTypeIds')}
+                label="Transaction Types"
+                getItemId={(transactionType) => transactionType._id}
+                getItemLabel={(transactionType) => transactionType.name}
+              />
+
+              <FilterCheckboxList
                 items={categories}
-                selectedIds={formFilters.categoryIds || []}
+                selectedIds={filters.categoryIds || []}
                 onChange={handleFilterChange('categoryIds')}
                 onSelectAll={handleSelectAll('categoryIds')}
                 label="Categories"
@@ -333,7 +341,7 @@ export function FiltersDrawer({ isOpen, currentFilters, onClose, onFiltersChange
 
               <FilterCheckboxList
                 items={wallets}
-                selectedIds={formFilters.walletIds || []}
+                selectedIds={filters.walletIds || []}
                 onChange={handleFilterChange('walletIds')}
                 onSelectAll={handleSelectAll('walletIds')}
                 label="Wallets"

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+import { forwardRef, useMemo } from 'react'
 import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { Button } from '@/components/ui/button'
 import { Edit } from 'lucide-react'
@@ -11,17 +11,22 @@ import {
 } from '@/components/ui/tooltip'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
+import type { CurrencyMapEntry } from '@/lib/currencies'
+import { useAuth } from '@/contexts/AuthContext'
+import bsearch from 'binary-search'
 
 interface TransactionDesktopRowProps {
   transaction: Transaction
   wallets: Wallet[]
+  rates: CurrencyMapEntry[]
   categories: Category[]
   onEdit: () => void
   style?: React.CSSProperties
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, style }, ref) => {
+  ({ transaction, wallets, categories, rates, onEdit, style }, ref) => {
+    const { user } = useAuth()
 
     const getWalletName = (walletId: string) => {
       const wallet = wallets.find(w => w._id === walletId)
@@ -49,12 +54,55 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       return 'text-foreground'
     }
 
+    const amountInBaseCurrency = useMemo(() => {
+      if (transaction.transactionType === 'transfer') {
+        return;
+      }
+
+      if (!user?.settings?.defaultCurrency) {
+        return;
+      }
+
+      if (user?.settings?.defaultCurrency === transaction.currency) {
+        return;
+      }
+
+      const txTs = new Date(transaction.date).getTime()
+
+      const extractRate = (from: string, to: string) => {
+        const filteredRates = rates.filter(rate => rate.from === from && rate.to === to)
+        const idx = bsearch(filteredRates, { ts: txTs }, (a, b) => a.ts - b.ts)
+
+        let realIdx;
+        if (idx >= 0) {
+          realIdx = idx
+        } else {
+          const ins = ~idx
+          realIdx = ins - 1
+        }
+
+        return filteredRates[realIdx]?.rate
+      }
+      const idealRate = extractRate(transaction.currency, user.settings.defaultCurrency)
+      const revertedRate = extractRate(user.settings.defaultCurrency, transaction.currency)
+
+      console.log('Rates for transaction:', { idealRate, revertedRate })
+
+      const rate = idealRate || (revertedRate ? 1 / revertedRate : undefined)
+
+      if (!rate) {
+        return `-`
+      } else {
+        return (rate * transaction.amount).toFixed(2)
+      }
+    }, [rates, user?.settings?.defaultCurrency, transaction.date, transaction.transactionType, transaction.amount, transaction.currency])
+
     const category = getCategory(transaction.categoryId)
 
     return (
       <div
         ref={ref}
-        className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
+        className="grid grid-cols-14 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
         style={style}
       >
         <div className="col-span-2 flex items-center gap-2">
@@ -102,6 +150,10 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
 
         <div className={`col-span-2 text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
           {formatAmount(transaction.amount, transaction.transactionType)} {transaction.currency}
+        </div>
+
+        <div className={`col-span-2 text-right font-medium`}>
+          <p>{amountInBaseCurrency}</p>
         </div>
 
         <div className="col-span-1 flex justify-end">

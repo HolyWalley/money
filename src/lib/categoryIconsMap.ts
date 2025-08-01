@@ -74,6 +74,7 @@ import {
   Tag,
   Hash,
   Cat,
+  Shapes,
   type LucideIcon
 } from 'lucide-react';
 
@@ -153,4 +154,5 @@ export const categoryIconsMap: Record<string, LucideIcon> = {
   Tag,
   Hash,
   Cat,
+  Shapes
 };

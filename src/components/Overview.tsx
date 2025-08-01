@@ -13,7 +13,7 @@ export function Overview() {
   const { transactions, isLoading } = useLiveTransactions(filters)
 
   // 30 days ago to now
-  const ratesTable = useCurrencyRates(filters)
+  const { rates: ratesTable } = useCurrencyRates(filters)
 
   if (ratesTable === undefined) {
     return null

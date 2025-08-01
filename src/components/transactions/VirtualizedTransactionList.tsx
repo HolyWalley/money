@@ -9,15 +9,17 @@ import { useAuth } from '@/contexts/AuthContext'
 import { type CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
+import type { CurrencyMapEntry } from '@/lib/currencies'
 
 interface VirtualizedTransactionListProps {
   transactions: Transaction[]
   wallets: Wallet[]
   categories: Category[]
+  rates: CurrencyMapEntry[]
   isMobile: boolean
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile }: VirtualizedTransactionListProps) {
+export function VirtualizedTransactionList({ transactions, wallets, categories, rates, isMobile }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -50,6 +52,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         key={key}
         transaction={transaction}
         wallets={wallets}
+        rates={rates}
         categories={categories}
         onEdit={() => handleEdit(transaction)}
         style={style}
@@ -59,6 +62,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         key={key}
         transaction={transaction}
         wallets={wallets}
+        rates={rates}
         categories={categories}
         onEdit={() => handleEdit(transaction)}
         style={style}
@@ -78,12 +82,13 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
     <>
       <div className="border rounded-md flex flex-col h-full">
         {!isMobile && (
-          <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-14 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
             <div className="col-span-2">Category</div>
             <div className="col-span-2">Date</div>
             <div className="col-span-2">Wallet</div>
             <div className="col-span-3">Note</div>
             <div className="col-span-2 text-right">Amount</div>
+            <div className="col-span-2 text-right">{user?.settings?.defaultCurrency}</div>
             <div className="col-span-1 text-right">Actions</div>
           </div>
         )}

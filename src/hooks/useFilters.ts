@@ -29,6 +29,8 @@ export const useFilters = ({ wallets, categories }: UseFiltersProps) => {
     [wallets.wallets]
   )
 
+  const transactionTypeIds = useMemo(() => ['income', 'expense', 'transfer'], [])
+
   // Wrapper that automatically adds filterVersion to trigger re-queries
   const updateFilters = useCallback((newFilters: TransactionFilters) => {
     setFilters({
@@ -46,6 +48,7 @@ export const useFilters = ({ wallets, categories }: UseFiltersProps) => {
       isLoading: false,
       categoryIds,
       walletIds,
+      transactionTypeIds,
       period: {
         type: 'monthly',
         currentPeriod: 0,
@@ -53,7 +56,7 @@ export const useFilters = ({ wallets, categories }: UseFiltersProps) => {
       }
     })
     setInitialized(true)
-  }, [initialized, wallets.isLoading, categories.isLoading, categoryIds, walletIds, updateFilters])
+  }, [initialized, wallets.isLoading, categories.isLoading, categoryIds, walletIds, transactionTypeIds, updateFilters])
 
   return [filters, updateFilters]
 }

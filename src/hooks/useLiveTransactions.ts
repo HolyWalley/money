@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db-dexie'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, addMonths, addWeeks, addYears, subDays, startOfDay, endOfDay, setDate, setDay, setDayOfYear } from 'date-fns'
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 
 export type PeriodType = 'monthly' | 'weekly' | 'yearly' | 'last7days' | 'last30days' | 'last365days' | 'custom'
@@ -21,6 +21,7 @@ export interface TransactionFilters {
   isLoading: boolean
   categoryIds?: string[]
   walletIds?: string[]
+  transactionTypeIds?: string[]
   period?: PeriodFilter
   filterVersion?: string // Add a version/id that changes when filters actually change
 }
@@ -83,8 +84,33 @@ export const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date }
   }
 }
 
+// TODO: can we somehow merge all filters into a single loop, not many loops? Maybe not needed, check dexie doc
 export function useLiveTransactions(filters: TransactionFilters) {
   const isLoading = useRef(true)
+
+  const categoryIds = useMemo(() => {
+    if (!filters.categoryIds) {
+      return
+    }
+
+    return new Set(filters.categoryIds)
+  }, [filters.categoryIds])
+
+  const transactionTypeIds = useMemo(() => {
+    if (!filters.transactionTypeIds) {
+      return;
+    }
+
+    return new Set(filters.transactionTypeIds)
+  }, [filters.transactionTypeIds])
+
+  const walletIds = useMemo(() => {
+    if (!filters.walletIds) {
+      return;
+    }
+
+    return new Set(filters.walletIds)
+  }, [filters.walletIds])
 
   const transactions = useLiveQuery(async () => {
     if (filters.isLoading) {
@@ -93,16 +119,22 @@ export function useLiveTransactions(filters: TransactionFilters) {
 
     let query = db.transactions.orderBy('date').reverse()
 
-    if (filters?.categoryIds && filters.categoryIds.length > 0) {
+    if (categoryIds && categoryIds.size) {
       query = query.filter(t => {
-        return t.categoryId ? filters.categoryIds!.includes(t.categoryId) : false
+        return t.categoryId ? categoryIds.has(t.categoryId) : false
       })
     }
 
-    if (filters?.walletIds && filters.walletIds.length > 0) {
+    if (transactionTypeIds && transactionTypeIds.size) {
       query = query.filter(t => {
-        return filters.walletIds!.includes(t.walletId) ||
-          (t.toWalletId ? filters.walletIds!.includes(t.toWalletId) : false)
+        return transactionTypeIds.has(t.transactionType)
+      })
+    }
+
+    if (walletIds && walletIds.size) {
+      query = query.filter(t => {
+        return walletIds.has(t.walletId) ||
+          (t.toWalletId ? walletIds.has(t.toWalletId) : false)
       })
     }
 
@@ -113,8 +145,10 @@ export function useLiveTransactions(filters: TransactionFilters) {
       })
     }
 
-    isLoading.current = false
     const dexieTransactions = await query.toArray()
+
+    isLoading.current = false
+
     // Convert Date objects back to ISO strings for components
     return dexieTransactions.map(tx => ({
       ...tx,
@@ -122,7 +156,7 @@ export function useLiveTransactions(filters: TransactionFilters) {
       createdAt: tx.createdAt.toISOString(),
       updatedAt: tx.updatedAt.toISOString()
     })) as Transaction[]
-  }, [filters.isLoading, filters.filterVersion])
+  }, [categoryIds, transactionTypeIds, walletIds, filters.isLoading, filters.filterVersion])
 
   return {
     transactions: transactions || [],

@@ -9,14 +9,14 @@ export const categoryIcons = [
   { name: 'TrendingDown', icon: 'TrendingDown', category: 'Finance', keywords: ['loss', 'decrease', 'decline', 'expense'] },
   { name: 'DollarSign', icon: 'DollarSign', category: 'Finance', keywords: ['money', 'currency', 'cash', 'usd'] },
   { name: 'Receipt', icon: 'Receipt', category: 'Finance', keywords: ['bill', 'invoice', 'payment', 'transaction'] },
-  
+
   // Shopping & Commerce
   { name: 'ShoppingCart', icon: 'ShoppingCart', category: 'Shopping', keywords: ['cart', 'buy', 'purchase', 'shop'] },
   { name: 'ShoppingBag', icon: 'ShoppingBag', category: 'Shopping', keywords: ['bag', 'buy', 'purchase', 'shop', 'retail'] },
   { name: 'Store', icon: 'Store', category: 'Shopping', keywords: ['shop', 'market', 'retail', 'business'] },
   { name: 'Package', icon: 'Package', category: 'Shopping', keywords: ['box', 'delivery', 'shipping', 'parcel', 'order'] },
   { name: 'Gift', icon: 'Gift', category: 'Shopping', keywords: ['present', 'birthday', 'holiday', 'surprise'] },
-  
+
   // Food & Dining
   { name: 'Coffee', icon: 'Coffee', category: 'Food', keywords: ['cafe', 'drink', 'beverage', 'morning', 'espresso'] },
   { name: 'Pizza', icon: 'Pizza', category: 'Food', keywords: ['food', 'meal', 'dinner', 'lunch', 'slice'] },
@@ -26,7 +26,7 @@ export const categoryIcons = [
   { name: 'Beer', icon: 'Beer', category: 'Food', keywords: ['drink', 'alcohol', 'beverage', 'bar', 'pub'] },
   { name: 'Apple', icon: 'Apple', category: 'Food', keywords: ['fruit', 'healthy', 'snack', 'grocery'] },
   { name: 'Sandwich', icon: 'Sandwich', category: 'Food', keywords: ['food', 'lunch', 'meal', 'bread'] },
-  
+
   // Transportation
   { name: 'Car', icon: 'Car', category: 'Transport', keywords: ['vehicle', 'auto', 'automobile', 'drive', 'commute', 'travel'] },
   { name: 'Bus', icon: 'Bus', category: 'Transport', keywords: ['public', 'transit', 'transport', 'commute', 'travel'] },
@@ -35,7 +35,7 @@ export const categoryIcons = [
   { name: 'Bike', icon: 'Bike', category: 'Transport', keywords: ['bicycle', 'cycle', 'ride', 'exercise', 'commute'] },
   { name: 'Fuel', icon: 'Fuel', category: 'Transport', keywords: ['gas', 'petrol', 'gasoline', 'pump', 'station', 'refuel'] },
   { name: 'ParkingMeter', icon: 'ParkingMeter', category: 'Transport', keywords: ['parking', 'park', 'meter', 'fee', 'car'] },
-  
+
   // Home & Utilities
   { name: 'Home', icon: 'Home', category: 'Home', keywords: ['house', 'residence', 'property', 'apartment', 'housing'] },
   { name: 'Building', icon: 'Building', category: 'Home', keywords: ['apartment', 'condo', 'office', 'property', 'real estate'] },
@@ -46,14 +46,14 @@ export const categoryIcons = [
   { name: 'Phone', icon: 'Phone', category: 'Home', keywords: ['telephone', 'landline', 'call', 'communication', 'utility'] },
   { name: 'Smartphone', icon: 'Smartphone', category: 'Home', keywords: ['mobile', 'cell', 'cellular', 'phone', 'device'] },
   { name: 'Wrench', icon: 'Wrench', category: 'Home', keywords: ['repair', 'maintenance', 'fix', 'tool', 'service'] },
-  
+
   // Health & Medical
   { name: 'Heart', icon: 'Heart', category: 'Health', keywords: ['medical', 'health', 'wellness', 'cardio', 'care', 'love'] },
   { name: 'Stethoscope', icon: 'Stethoscope', category: 'Health', keywords: ['doctor', 'medical', 'physician', 'clinic', 'hospital', 'checkup'] },
   { name: 'Pill', icon: 'Pill', category: 'Health', keywords: ['medicine', 'medication', 'drug', 'pharmacy', 'prescription', 'treatment'] },
   { name: 'Activity', icon: 'Activity', category: 'Health', keywords: ['fitness', 'exercise', 'workout', 'health', 'pulse', 'heartbeat'] },
   { name: 'HeartHandshake', icon: 'HeartHandshake', category: 'Health', keywords: ['care', 'health', 'insurance', 'medical', 'wellness', 'support'] },
-  
+
   // Entertainment & Leisure
   { name: 'Music', icon: 'Music', category: 'Entertainment', keywords: ['audio', 'song', 'concert', 'spotify', 'streaming', 'playlist'] },
   { name: 'Film', icon: 'Film', category: 'Entertainment', keywords: ['movie', 'cinema', 'theater', 'video', 'show', 'netflix'] },
@@ -63,7 +63,7 @@ export const categoryIcons = [
   { name: 'Dumbbell', icon: 'Dumbbell', category: 'Entertainment', keywords: ['gym', 'fitness', 'workout', 'exercise', 'weight', 'training'] },
   { name: 'Mountain', icon: 'Mountain', category: 'Entertainment', keywords: ['hiking', 'outdoors', 'nature', 'camping', 'adventure', 'recreation'] },
   { name: 'Palmtree', icon: 'Palmtree', category: 'Entertainment', keywords: ['vacation', 'holiday', 'travel', 'beach', 'resort', 'tropical'] },
-  
+
   // Work & Business
   { name: 'Briefcase', icon: 'Briefcase', category: 'Work', keywords: ['business', 'job', 'office', 'professional', 'career', 'work'] },
   { name: 'Laptop', icon: 'Laptop', category: 'Work', keywords: ['computer', 'work', 'office', 'tech', 'notebook', 'device'] },
@@ -71,13 +71,13 @@ export const categoryIcons = [
   { name: 'Paperclip', icon: 'Paperclip', category: 'Work', keywords: ['attachment', 'document', 'file', 'office', 'supplies', 'stationery'] },
   { name: 'FileText', icon: 'FileText', category: 'Work', keywords: ['document', 'paper', 'report', 'text', 'office', 'work'] },
   { name: 'Calculator', icon: 'Calculator', category: 'Work', keywords: ['math', 'accounting', 'finance', 'calculation', 'numbers', 'office'] },
-  
+
   // Education
   { name: 'GraduationCap', icon: 'GraduationCap', category: 'Education', keywords: ['university', 'college', 'degree', 'student', 'graduation', 'education'] },
   { name: 'School', icon: 'School', category: 'Education', keywords: ['education', 'learning', 'classroom', 'student', 'teacher', 'academy'] },
   { name: 'BookOpen', icon: 'BookOpen', category: 'Education', keywords: ['study', 'learning', 'textbook', 'education', 'reading', 'knowledge'] },
   { name: 'PenTool', icon: 'PenTool', category: 'Education', keywords: ['writing', 'pen', 'pencil', 'draw', 'design', 'create'] },
-  
+
   // Personal
   { name: 'Users', icon: 'Users', category: 'Personal', keywords: ['people', 'group', 'family', 'friends', 'team', 'community'] },
   { name: 'User', icon: 'User', category: 'Personal', keywords: ['person', 'individual', 'profile', 'account', 'self', 'me'] },
@@ -86,7 +86,7 @@ export const categoryIcons = [
   { name: 'Shirt', icon: 'Shirt', category: 'Personal', keywords: ['clothing', 'clothes', 'apparel', 'fashion', 'wardrobe', 'outfit'] },
   { name: 'Sparkles', icon: 'Sparkles', category: 'Personal', keywords: ['beauty', 'cosmetics', 'makeup', 'salon', 'grooming', 'spa'] },
   { name: 'Palette', icon: 'Palette', category: 'Personal', keywords: ['art', 'creative', 'paint', 'hobby', 'craft', 'design'] },
-  
+
   // Other
   { name: 'CircleDollarSign', icon: 'CircleDollarSign', category: 'Other', keywords: ['money', 'fee', 'cost', 'price', 'expense', 'payment'] },
   { name: 'Coins', icon: 'Coins', category: 'Other', keywords: ['money', 'change', 'cash', 'currency', 'finance', 'payment'] },
@@ -96,13 +96,14 @@ export const categoryIcons = [
   { name: 'Star', icon: 'Star', category: 'Other', keywords: ['favorite', 'special', 'important', 'priority', 'bookmark', 'rate'] },
   { name: 'Tag', icon: 'Tag', category: 'Other', keywords: ['label', 'category', 'price', 'sale', 'discount', 'mark'] },
   { name: 'Hash', icon: 'Hash', category: 'Other', keywords: ['number', 'hashtag', 'category', 'tag', 'reference', 'id'] },
+  { name: 'Shapes', icon: 'Shapes', category: 'Miscellaneous', keywords: ['miscellaneous', 'other'] },
 ] as const
 
 export type CategoryIconName = typeof categoryIcons[number]['icon']
 
 export const categoryColors = [
   'red',
-  'orange', 
+  'orange',
   'yellow',
   'green',
   'blue',

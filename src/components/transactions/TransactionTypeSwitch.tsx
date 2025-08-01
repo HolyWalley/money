@@ -14,7 +14,7 @@ interface TransactionTypeSwitchProps {
 
 export function TransactionTypeSwitch({ isSubmitting }: TransactionTypeSwitchProps) {
   const form = useFormContext<CreateTransaction>()
-  
+
   return (
     <FormField
       control={form.control}
@@ -29,9 +29,7 @@ export function TransactionTypeSwitch({ isSubmitting }: TransactionTypeSwitchPro
                 if (value) {
                   field.onChange(value)
                   // Clear category/wallet fields when switching types
-                  if (value === 'transfer') {
-                    form.setValue('categoryId', undefined)
-                  } else {
+                  if (value !== 'transfer') {
                     form.setValue('toWalletId', undefined)
                   }
                 }

@@ -16,7 +16,7 @@ interface CategoriesPickerProps {
 export function CategoriesPicker({ isSubmitting }: CategoriesPickerProps) {
   const form = useFormContext<CreateTransaction>()
   const transactionType = form.watch('transactionType')
-  const { categories } = useLiveCategories()
+  const { categories } = useLiveCategories(transactionType)
 
   return (
     <FormField
@@ -26,10 +26,7 @@ export function CategoriesPicker({ isSubmitting }: CategoriesPickerProps) {
         <FormItem>
           <FormControl>
             <CategorySelector
-              categories={categories
-                .filter((category) => category.type === transactionType)
-                .sort((a, b) => a.order - b.order)
-              }
+              categories={categories}
               selectedCategoryId={field.value}
               onCategorySelect={field.onChange}
               disabled={isSubmitting}

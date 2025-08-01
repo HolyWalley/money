@@ -3,9 +3,8 @@ import { useState, useEffect } from "react"
 import { getPeriodDates, type TransactionFilters } from "./useLiveTransactions"
 
 export const useCurrencyRates = (filters: TransactionFilters) => {
+  const [isLoading, setIsLoading] = useState<boolean>(true)
   const [rates, setRates] = useState<CurrencyMapEntry[]>()
-
-  const filtersString = JSON.stringify(filters)
 
   useEffect(() => {
     if (filters.isLoading) {
@@ -24,10 +23,11 @@ export const useCurrencyRates = (filters: TransactionFilters) => {
         new Date(end.getTime() + 5 * 24 * 60 * 60 * 1000)
       )
       setRates(newRates)
+      setIsLoading(false)
     }
 
     fetchRates()
-  }, [filters.isLoading, filtersString])
+  }, [filters.filterVersion])
 
-  return rates
+  return { rates, isLoading }
 }

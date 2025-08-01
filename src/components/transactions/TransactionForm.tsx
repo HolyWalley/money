@@ -75,9 +75,7 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
         }
       </div>
 
-      {(transactionType === 'income' || transactionType === 'expense') && (
-        <CategoriesPicker isSubmitting={isSubmitting} />
-      )}
+      <CategoriesPicker isSubmitting={isSubmitting} />
 
       {transactionType === 'expense' && <SplitDrawer />}
       {transactionType === 'income' && <ReimbursementDrawer />}

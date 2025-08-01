@@ -4,11 +4,13 @@ import { ReceiptText } from 'lucide-react'
 import { CategoryIcon } from '../categories/CategoryIcon'
 import type { Category } from 'shared/schemas/category.schema'
 import type { Wallet } from 'shared/schemas/wallet.schema'
+import type { CurrencyMapEntry } from '@/lib/currencies'
 
 interface TransactionMobileCardProps {
   transaction: Transaction
   wallets: Wallet[]
   categories: Category[]
+  rates: CurrencyMapEntry[]
   onEdit: () => void
   style?: React.CSSProperties
 }

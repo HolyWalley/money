@@ -16,6 +16,21 @@ export const defaultIncomeCategories: DefaultCategoryTemplate[] = [
   }
 ]
 
+export const defaultTransferCategories: DefaultCategoryTemplate[] = [
+  {
+    _id: 'default-transfer-misc',
+    name: 'Misc',
+    icon: 'Shapes',
+    color: 'gray'
+  },
+  {
+    _id: 'default-transfer-savings',
+    name: 'Savings',
+    icon: 'PiggyBank',
+    color: 'blue'
+  },
+]
+
 export const defaultExpenseCategories: DefaultCategoryTemplate[] = [
   {
     _id: 'default-expense-entertainment',
@@ -112,6 +127,20 @@ export function createDefaultCategories(): Category[] {
       _id: cat._id,
       name: cat.name,
       type: 'income',
+      icon: cat.icon,
+      color: cat.color,
+      isDefault: true,
+      order: index,
+      createdAt: now,
+      updatedAt: now
+    })
+  })
+
+  defaultTransferCategories.forEach((cat, index) => {
+    categories.push({
+      _id: cat._id,
+      name: cat.name,
+      type: 'transfer',
       icon: cat.icon,
       color: cat.color,
       isDefault: true,

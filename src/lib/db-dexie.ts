@@ -3,6 +3,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
+import { addCategoryWithId } from './crdts';
 
 // Define Dexie-specific types with Date objects instead of strings
 type DexieCategory = Omit<Category, 'createdAt' | 'updatedAt'> & {
@@ -85,6 +86,47 @@ db.version(4).stores({
     }
   });
 });
+
+// Version 5: Adds transfer categories and assign default (misc) to all transfer transactions
+db.version(5).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
+}).upgrade(async tx => {
+  const miscCategoryId = 'default-transfer-misc'
+  const existingCategory = await tx.table('categories').get(miscCategoryId)
+
+  if (!existingCategory) {
+    const now = new Date()
+
+    addCategoryWithId({
+      _id: miscCategoryId,
+      name: 'Misc',
+      type: 'transfer',
+      icon: 'Shapes',
+      color: 'gray',
+      isDefault: true,
+      order: 0,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    })
+  }
+
+  // Find transactions that need updating
+  const transfersWithoutCategory = await tx.table('transactions')
+    .filter(t => t.transactionType === 'transfer' && !t.categoryId)
+    .toArray()
+
+  // Update via CRDTs after migration completes
+  if (transfersWithoutCategory.length > 0) {
+    import('./crdts').then(({ updateTransaction }) => {
+      transfersWithoutCategory.forEach(transaction => {
+        console.log(`Updating transaction ${transaction._id} via CRDT`)
+        updateTransaction(transaction._id, { categoryId: miscCategoryId })
+      })
+    })
+  }
+})
 
 export { db };
 export type { DexieCategory, DexieWallet, DexieTransaction };
