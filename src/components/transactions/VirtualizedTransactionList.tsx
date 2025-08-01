@@ -40,6 +40,14 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
     // Don't close here - let the drawer handle it through onOpenChange
   }
 
+  const handleDelete = async (id: string) => {
+    try {
+      await transactionService.deleteTransaction(id)
+    } catch (error) {
+      console.error('Failed to delete transaction:', error)
+    }
+  }
+
   const rowHeight = useMemo(() => {
     return isMobile ? 65 : 60
   }, [isMobile])
@@ -65,6 +73,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         rates={rates}
         categories={categories}
         onEdit={() => handleEdit(transaction)}
+        onDelete={handleDelete}
         style={style}
       />
     )
@@ -117,6 +126,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
           }
         }}
         onSubmit={handleEditSubmit}
+        onDelete={handleDelete}
       />
     </>
   )

@@ -1,7 +1,7 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useMemo, useState } from 'react'
 import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { Button } from '@/components/ui/button'
-import { Edit } from 'lucide-react'
+import { Edit, Trash2 } from 'lucide-react'
 import { CategoryIcon } from '@/components/categories/CategoryIcon'
 import {
   Tooltip,
@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
 import type { CurrencyMapEntry } from '@/lib/currencies'
@@ -21,12 +22,14 @@ interface TransactionDesktopRowProps {
   rates: CurrencyMapEntry[]
   categories: Category[]
   onEdit: () => void
+  onDelete: (id: string) => void
   style?: React.CSSProperties
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, rates, onEdit, style }, ref) => {
+  ({ transaction, wallets, categories, rates, onEdit, onDelete, style }, ref) => {
     const { user } = useAuth()
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
       const wallet = wallets.find(w => w._id === walletId)
@@ -100,6 +103,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
     const category = getCategory(transaction.categoryId)
 
     return (
+      <>
       <div
         ref={ref}
         className="grid grid-cols-14 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
@@ -156,7 +160,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           <p>{amountInBaseCurrency}</p>
         </div>
 
-        <div className="col-span-1 flex justify-end">
+        <div className="col-span-1 flex justify-end gap-1">
           <Button
             size="sm"
             variant="ghost"
@@ -165,8 +169,27 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           >
             <Edit className="h-4 w-4" />
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="h-8 w-8 p-0 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this transaction? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={() => onDelete(transaction._id)}
+      />
+    </>
     )
   }
 )

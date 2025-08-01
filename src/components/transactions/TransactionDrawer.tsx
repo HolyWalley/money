@@ -7,6 +7,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { Form } from '@/components/ui/form'
 import { TransactionForm } from './TransactionForm'
 import { useTransactionForm } from '@/hooks/useTransactionForm'
@@ -17,10 +18,12 @@ interface TransactionDrawerProps {
   onOpenChange: (open: boolean) => void
   transaction?: Transaction | null
   onSubmit: (data: CreateTransaction) => Promise<void>
+  onDelete?: (id: string) => void
 }
 
-export function TransactionDrawer({ open, onOpenChange, transaction, onSubmit }: TransactionDrawerProps) {
+export function TransactionDrawer({ open, onOpenChange, transaction, onSubmit, onDelete }: TransactionDrawerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const { form, resetToDefaults } = useTransactionForm(transaction)
 
   const handleSubmit = async (data: CreateTransaction) => {
@@ -59,9 +62,36 @@ export function TransactionDrawer({ open, onOpenChange, transaction, onSubmit }:
             >
               {isSubmitting ? 'Saving...' : transaction ? 'Update' : 'Save'}
             </Button>
+            {transaction && onDelete && (
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isSubmitting}
+                >
+                  Delete Transaction
+                </Button>
+              </>
+            )}
           </DrawerFooter>
         </div>
       </DrawerContent>
+
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this transaction? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (transaction && onDelete) {
+            onDelete(transaction._id)
+            onOpenChange(false)
+          }
+        }}
+      />
     </Drawer>
   )
 }
