@@ -16,7 +16,7 @@ export function AppSidebar() {
   }
 
   return (
-    <div className="fixed left-0 top-0 h-full w-24 bg-background border-r border-border flex flex-col items-center py-4 gap-4">
+    <div className="fixed left-0 top-0 h-full pl-[max(theme('spacing.4'),env(safe-area-inset-left))] pr-4 bg-background border-r border-border flex flex-col items-center py-4 gap-4">
       {/* Content - Navigation Items */}
       <div className="flex-1 flex flex-col items-center gap-2">
         <Link to="/dashboard">
