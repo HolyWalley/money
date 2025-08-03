@@ -66,8 +66,8 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       const extractRate = (from: string, to: string) => {
         // NOTE: not the most effective way, but for now it works
         const filteredRates = rates.filter(rate => rate.from === from && rate.to === to)
-        const sortedRates = filteredRates.sort((a) => Math.abs(a.ts - txTs))
-        return sortedRates.at(-1)?.rate
+        const sortedRates = filteredRates.sort((a, b) => Math.abs(a.ts - txTs) - Math.abs(b.ts - txTs))
+        return sortedRates.at(0)?.rate
       }
 
       // For transfers, show the rate that was used for this specific transfer
@@ -92,8 +92,6 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
 
       const idealRate = extractRate(transaction.currency, user.settings.defaultCurrency)
       const revertedRate = extractRate(user.settings.defaultCurrency, transaction.currency)
-
-      console.log('Rates for transaction:', { idealRate, revertedRate })
 
       const rate = idealRate || (revertedRate ? 1 / revertedRate : undefined)
 
@@ -132,7 +130,18 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           </div>
 
           <div className="col-span-2 text-muted-foreground text-sm">
-            {new Date(transaction.date).toLocaleDateString()}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="truncate cursor-help">
+                    {new Date(transaction.date).toLocaleDateString()}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="start">
+                  <p>{new Date(transaction.date).getTime()}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <div className="col-span-2 text-sm truncate">
