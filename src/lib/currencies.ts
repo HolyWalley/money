@@ -14,8 +14,6 @@ export const smartCurrencyRates = async (from: Date, to: Date) => {
     transaction => transaction.transactionType === 'transfer' && transaction.currency !== transaction.toCurrency
   ).sortBy('date')
 
-  console.log(transactions)
-
   const tMap = transactions.map(tx => ({
     ts: tx.date.getTime() as number,
     from: tx.currency,

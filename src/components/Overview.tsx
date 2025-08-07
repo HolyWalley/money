@@ -5,15 +5,61 @@ import { useFilters } from '@/hooks/useFilters'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useCurrencyRates } from '@/hooks/useCurrencyRates'
+import { useMemo } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function Overview() {
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
   const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
   const { transactions, isLoading } = useLiveTransactions(filters)
+  const { user } = useAuth()
 
-  // 30 days ago to now
   const { rates: ratesTable } = useCurrencyRates(filters)
+
+  const transactionsRates = useMemo(() => {
+    console.log('Calculating transaction rates', ratesTable, transactions)
+    const r = new Map<string, number>()
+    if (!ratesTable) {
+      return r
+    }
+
+    transactions.forEach(transaction => {
+      const txTs = new Date(transaction.date).getTime()
+      const filteredRates = ratesTable.filter(rate => rate.from === transaction.currency && rate.to === transaction.toCurrency)
+      const sortedRates = filteredRates.sort((a, b) => Math.abs(a.ts - txTs) - Math.abs(b.ts - txTs))
+
+      r.set(transaction._id, sortedRates.at(0)?.rate || 1)
+    })
+
+    return r
+  }, [ratesTable, transactions])
+
+  const baseCurrency = user?.settings?.defaultCurrency
+
+  // TODO: Calculate split transactions correctly
+  // TODO: Calculate excluded income transactions properly
+  const totalSpent = useMemo(() => {
+    if (!baseCurrency) {
+      return 0
+    }
+
+    return transactions.filter(tx => tx.transactionType === 'expense').reduce((acc, transaction) => {
+      if (transaction.currency === baseCurrency) {
+        return acc + transaction.amount
+      }
+
+      // TODO: Crash if not found, or allow user to provide a default rate
+      const rate = transactionsRates.get(transaction._id) || 1
+      return acc + (transaction.amount * rate)
+    }, 0)
+  }, [baseCurrency, transactions, transactionsRates])
+
+  console.log('Total spent:', totalSpent)
+
+  if (!baseCurrency) {
+    return null
+  }
 
   if (ratesTable === undefined) {
     return null
@@ -34,6 +80,9 @@ export function Overview() {
       </div>
 
       <div>
+        <p className="text-lg font-semibold px-4">
+          Total Spent: {totalSpent.toFixed(2)} {baseCurrency}
+        </p>
         {
           ratesTable.map((rate, index) => (
             <div key={index} className="p-2 border-b last:border-b-0">
