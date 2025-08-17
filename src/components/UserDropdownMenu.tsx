@@ -17,16 +17,20 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette } from 'lucide-react'
+import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette, Bug } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 import { useTheme } from '@/contexts/ThemeContext'
+import { DebugModal } from '@/components/DebugModal'
 
 export function UserDropdownMenu() {
   const { user, signout, setUser } = useAuth()
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [debugOpen, setDebugOpen] = useState(false)
+  
+  const showDebug = new URLSearchParams(window.location.search).has('debug')
 
   const handleSignOut = async () => {
     await signout()
@@ -139,6 +143,15 @@ export function UserDropdownMenu() {
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
+          {showDebug && (
+            <>
+              <DropdownMenuItem onClick={() => setDebugOpen(true)}>
+                <Bug className="mr-2 h-4 w-4" />
+                <span>Debug</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Sign Out</span>
@@ -147,6 +160,7 @@ export function UserDropdownMenu() {
       </DropdownMenu>
 
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+      <DebugModal open={debugOpen} onOpenChange={setDebugOpen} />
     </>
   )
 }

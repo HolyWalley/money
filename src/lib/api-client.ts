@@ -202,6 +202,20 @@ class ApiClient {
     const endpoint = since ? `/sync?since=${encodeURIComponent(since)}` : '/sync';
     return this.request<SyncResponse>(endpoint);
   }
+
+  // Debug endpoint
+  async getDebugInfo(): Promise<ApiResponse<{
+    durableObject: {
+      userId: string;
+      storageSizes: {
+        updatesTableBytes: number;
+        compiledStateBytes: number;
+        totalBytes: number;
+      };
+    };
+  }>> {
+    return this.request('/debug');
+  }
 }
 
 // Export singleton instance

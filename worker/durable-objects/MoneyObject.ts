@@ -256,4 +256,30 @@ export class MoneyObject extends DurableObject {
     const resultsArray = Array.from(results);
     return resultsArray.length > 0 && (resultsArray[0].count as number) > 0;
   }
+
+  // Method to get storage sizes for debug information
+  async getStorageSizes(): Promise<{ updatesTableBytes: number; compiledStateBytes: number }> {
+    // Get total size of updates table
+    const updatesResult = this.storage.sql.exec(
+      'SELECT IFNULL(SUM(length("update")), 0) AS total_update_bytes FROM updates'
+    );
+    const updatesArray = Array.from(updatesResult);
+    const updatesTableBytes = updatesArray.length > 0 
+      ? (updatesArray[0].total_update_bytes as number) 
+      : 0;
+
+    // Get size of compiled state
+    const stateResult = this.storage.sql.exec(
+      'SELECT IFNULL(length(state), 0) AS compiled_state_bytes FROM compiled_state WHERE id = 1'
+    );
+    const stateArray = Array.from(stateResult);
+    const compiledStateBytes = stateArray.length > 0 
+      ? (stateArray[0].compiled_state_bytes as number) 
+      : 0;
+
+    return {
+      updatesTableBytes,
+      compiledStateBytes
+    };
+  }
 }

@@ -10,6 +10,7 @@ import * as refresh from '../handlers/refresh'
 import * as me from '../handlers/me'
 import * as sync from '../handlers/sync'
 import * as admin from '../handlers/admin'
+import * as debug from '../handlers/debug'
 import { ResponseUtils } from '../utils/response'
 import { withPremium } from '../middleware/premium'
 
@@ -64,6 +65,11 @@ export function createAPIRouter() {
 
   router.put('/api/v1/sync', withPremium, async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await sync.onRequestPut(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.get('/api/v1/debug', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await debug.onRequestGet(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 
