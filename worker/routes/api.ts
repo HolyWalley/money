@@ -11,6 +11,7 @@ import * as me from '../handlers/me'
 import * as sync from '../handlers/sync'
 import * as admin from '../handlers/admin'
 import * as debug from '../handlers/debug'
+import * as dump from '../handlers/dump'
 import { ResponseUtils } from '../utils/response'
 import { withPremium } from '../middleware/premium'
 
@@ -70,6 +71,16 @@ export function createAPIRouter() {
 
   router.get('/api/v1/debug', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await debug.onRequestGet(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.get('/api/v1/dump', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await dump.onRequestGet(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.post('/api/v1/dump', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await dump.onRequestPost(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 

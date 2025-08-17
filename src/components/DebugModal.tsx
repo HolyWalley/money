@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -6,8 +6,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/api-client'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Download, Upload } from 'lucide-react'
+import Dexie from 'dexie'
+import { db as moneyDb } from '@/lib/db-dexie'
 
 interface DebugModalProps {
   open: boolean
@@ -27,6 +30,8 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     };
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [uploadResult, setUploadResult] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -58,6 +63,86 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
+
+  const handleDumpDatabase = async () => {
+    try {
+      // Create a download link with authentication cookies
+      const link = document.createElement('a')
+      link.href = apiClient.getDatabaseDumpUrl()
+      link.download = `money-db-dump-${Date.now()}.ndjson`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      console.error('Failed to download database dump:', err)
+      setError('Failed to download database dump')
+    }
+  }
+
+  const handleImportDatabase = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setLoading(true)
+    setError(null)
+    setUploadResult(null)
+
+    try {
+      const response = await apiClient.importDatabaseDump(file)
+      if (response.ok && response.data) {
+        setUploadResult(
+          `Successfully imported ${response.data.updatesImported} updates` +
+          (response.data.hasCompiledState ? ' and compiled state' : '')
+        )
+        
+        // Clear local sync metadata to force a fresh pull
+        const syncDb = new Dexie('UpdatesDB')
+        syncDb.version(1).stores({
+          updates: '++id, timestamp, synced, deviceId',
+          syncMetadata: 'key'
+        })
+        
+        try {
+          // Clear all local updates and metadata
+          await syncDb.table('updates').clear()
+          await syncDb.table('syncMetadata').clear()
+          
+          // Clear all MoneyDB tables
+          await moneyDb.categories.clear()
+          await moneyDb.wallets.clear()
+          await moneyDb.transactions.clear()
+          
+          // Force a page reload to trigger fresh sync
+          setUploadResult(prev => prev + '\nCleared local data. Reloading page to sync imported data...')
+          setTimeout(() => {
+            window.location.reload()
+          }, 2000)
+        } catch (err) {
+          console.error('Failed to clear local data:', err)
+        } finally {
+          syncDb.close()
+        }
+        
+        // Refresh debug info
+        const debugResponse = await apiClient.getDebugInfo()
+        if (debugResponse.ok && debugResponse.data) {
+          setDebugInfo(debugResponse.data)
+        }
+      } else {
+        setError(response.error || 'Failed to import database')
+      }
+    } catch (err) {
+      console.error('Failed to import database:', err)
+      setError('Failed to import database')
+    } finally {
+      setLoading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -77,6 +162,12 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           {error && (
             <div className="text-sm text-destructive">
               Error: {error}
+            </div>
+          )}
+          
+          {uploadResult && (
+            <div className="text-sm text-green-600">
+              {uploadResult}
             </div>
           )}
           
@@ -101,6 +192,39 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                     <span className="text-muted-foreground font-medium">Total:</span>
                     <span className="font-mono font-medium">{formatBytes(debugInfo.durableObject.storageSizes.totalBytes)}</span>
                   </div>
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <h3 className="text-sm font-medium mb-2">Database Operations</h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDumpDatabase}
+                    disabled={loading}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Dump Database
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import Database
+                  </Button>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".ndjson,.json"
+                    onChange={handleImportDatabase}
+                    className="hidden"
+                  />
                 </div>
               </div>
             </div>

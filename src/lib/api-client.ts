@@ -216,6 +216,41 @@ class ApiClient {
   }>> {
     return this.request('/debug');
   }
+
+  // Download database dump (returns a URL for streaming download)
+  getDatabaseDumpUrl(): string {
+    return `${this.baseUrl}/dump`;
+  }
+
+  // Import database from dump
+  async importDatabaseDump(dumpFile: File): Promise<ApiResponse<{
+    message: string;
+    updatesImported: number;
+    hasCompiledState: boolean;
+  }>> {
+    const text = await dumpFile.text();
+    const url = `${this.baseUrl}/dump`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/x-ndjson'
+        },
+        body: text
+      });
+      
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error('Request error:', error);
+      return {
+        ok: false,
+        error: 'Network error occurred',
+        status: 0,
+      };
+    }
+  }
 }
 
 // Export singleton instance

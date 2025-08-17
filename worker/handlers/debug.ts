@@ -29,3 +29,4 @@ export async function onRequestGet(
     return ResponseUtils.internalError('Failed to get debug information')
   }
 }
+

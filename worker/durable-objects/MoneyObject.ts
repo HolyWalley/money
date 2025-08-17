@@ -282,4 +282,148 @@ export class MoneyObject extends DurableObject {
       compiledStateBytes
     };
   }
+
+  // Get database dump chunk by chunk
+  async getDatabaseDumpChunk(chunkIndex: number): Promise<{ chunk: string; hasMore: boolean }> {
+    const batchSize = 20;
+    const lines: string[] = [];
+    
+    // First chunk includes metadata
+    if (chunkIndex === 0) {
+      lines.push(JSON.stringify({
+        type: 'metadata',
+        version: 1,
+        timestamp: Date.now()
+      }));
+    }
+    
+    // Calculate offset for updates
+    const offset = chunkIndex * batchSize;
+    
+    // Get updates for this chunk
+    const results = this.storage.sql.exec(
+      'SELECT id, "update", timestamp, deviceId, created_at FROM updates ORDER BY id LIMIT ? OFFSET ?',
+      batchSize,
+      offset
+    );
+    
+    const rows = Array.from(results);
+    
+    for (const row of rows) {
+      const rawUpdate = row.update;
+      const update = rawUpdate instanceof ArrayBuffer ? new Uint8Array(rawUpdate) : rawUpdate as Uint8Array;
+      
+      lines.push(JSON.stringify({
+        type: 'update',
+        id: row.id,
+        update: Array.from(update), // Convert Uint8Array to regular array for JSON
+        timestamp: row.timestamp,
+        deviceId: row.deviceId,
+        created_at: row.created_at
+      }));
+    }
+    
+    // Check if we need to add compiled state and end marker
+    const hasMoreUpdates = rows.length === batchSize;
+    
+    if (!hasMoreUpdates) {
+      // This is the last chunk, add compiled state if exists
+      const compiledState = await this.getCompiledState();
+      if (compiledState) {
+        lines.push(JSON.stringify({
+          type: 'compiled_state',
+          state: Array.from(compiledState.state),
+          last_update_timestamp: compiledState.last_update_timestamp,
+          last_update_id: compiledState.last_update_id,
+          created_at: compiledState.created_at
+        }));
+      }
+      
+      // Add end marker
+      lines.push(JSON.stringify({
+        type: 'end',
+        timestamp: Date.now()
+      }));
+    }
+    
+    return {
+      chunk: lines.join('\n') + (lines.length > 0 ? '\n' : ''),
+      hasMore: hasMoreUpdates
+    };
+  }
+
+  // Start a new import session
+  async startImport(): Promise<void> {
+    // Clear existing data
+    this.storage.sql.exec('DELETE FROM updates');
+    this.storage.sql.exec('DELETE FROM compiled_state');
+    
+    // Reset import counters
+    await this.storage.put('import:updatesCount', 0);
+    await this.storage.put('import:hasCompiledState', false);
+  }
+
+  // Import a chunk of dump data
+  async importDatabaseChunk(dumpLines: string[]): Promise<void> {
+    let updatesImported = 0;
+    
+    for (const line of dumpLines) {
+      if (!line.trim()) continue;
+      
+      try {
+        const data = JSON.parse(line);
+        
+        switch (data.type) {
+          case 'update': {
+            // Convert array back to Uint8Array
+            const updateBytes = new Uint8Array(data.update);
+            this.storage.sql.exec(
+              'INSERT INTO updates (id, "update", timestamp, deviceId, created_at) VALUES (?, ?, ?, ?, ?)',
+              data.id,
+              updateBytes,
+              data.timestamp,
+              data.deviceId,
+              data.created_at
+            );
+            updatesImported++;
+            break;
+          }
+            
+          case 'compiled_state': {
+            const stateBytes = new Uint8Array(data.state);
+            this.storage.sql.exec(
+              'INSERT INTO compiled_state (id, state, last_update_timestamp, last_update_id, created_at) VALUES (1, ?, ?, ?, ?)',
+              stateBytes,
+              data.last_update_timestamp,
+              data.last_update_id,
+              data.created_at
+            );
+            await this.storage.put('import:hasCompiledState', true);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing dump line:', error);
+        // Continue with next line
+      }
+    }
+    
+    // Update counters
+    if (updatesImported > 0) {
+      const currentCount = (await this.storage.get<number>('import:updatesCount')) || 0;
+      await this.storage.put('import:updatesCount', currentCount + updatesImported);
+    }
+  }
+
+  // Finish import and get results
+  async finishImport(): Promise<{ updatesImported: number; hasCompiledState: boolean }> {
+    const updatesImported = (await this.storage.get<number>('import:updatesCount')) || 0;
+    const hasCompiledState = (await this.storage.get<boolean>('import:hasCompiledState')) || false;
+    
+    // Clean up temporary storage
+    await this.storage.delete('import:updatesCount');
+    await this.storage.delete('import:hasCompiledState');
+    
+    return { updatesImported, hasCompiledState };
+  }
 }
