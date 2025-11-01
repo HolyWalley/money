@@ -5,17 +5,15 @@ import { PeriodFilter } from './PeriodFilter'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useFilters } from '@/hooks/useFilters'
-import { useCurrencyRates } from '@/hooks/useCurrencyRates'
 
 export function TransactionsPage() {
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
   const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
   const { transactions, isLoading } = useLiveTransactions(filters)
-  const { rates, isLoading: ratesLoading } = useCurrencyRates(filters)
   const isMobile = useIsMobile()
 
-  if (isLoading || filters.isLoading || ratesLoading) {
+  if (isLoading || filters.isLoading) {
     return null
   }
 
@@ -31,7 +29,6 @@ export function TransactionsPage() {
 
       <div className="flex-1 min-h-0 px-4 pb-4">
         <VirtualizedTransactionList
-          rates={rates || []}
           wallets={wallets.wallets}
           categories={categories.categories}
           transactions={transactions}

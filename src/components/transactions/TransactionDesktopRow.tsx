@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, useState } from 'react'
+import { forwardRef, useState } from 'react'
 import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { Button } from '@/components/ui/button'
 import { Edit, Trash2 } from 'lucide-react'
@@ -12,13 +12,10 @@ import {
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
-import type { CurrencyMapEntry } from '@/lib/currencies'
-import { useAuth } from '@/contexts/AuthContext'
 
 interface TransactionDesktopRowProps {
   transaction: Transaction
   wallets: Wallet[]
-  rates: CurrencyMapEntry[]
   categories: Category[]
   onEdit: () => void
   onDelete: (id: string) => void
@@ -26,8 +23,7 @@ interface TransactionDesktopRowProps {
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, rates, onEdit, onDelete, style }, ref) => {
-    const { user } = useAuth()
+  ({ transaction, wallets, categories, onEdit, onDelete, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -56,62 +52,13 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       return 'text-foreground'
     }
 
-    const { amountInBaseCurrency, exchangeRate } = useMemo(() => {
-      if (!user?.settings?.defaultCurrency) {
-        return { amountInBaseCurrency: undefined, exchangeRate: undefined };
-      }
-
-      const txTs = new Date(transaction.date).getTime()
-
-      const extractRate = (from: string, to: string) => {
-        // NOTE: not the most effective way, but for now it works
-        const filteredRates = rates.filter(rate => rate.from === from && rate.to === to)
-        const sortedRates = filteredRates.sort((a, b) => Math.abs(a.ts - txTs) - Math.abs(b.ts - txTs))
-        return sortedRates.at(0)?.rate
-      }
-
-      // For transfers, show the rate that was used for this specific transfer
-      if (transaction.transactionType === 'transfer' && transaction.toAmount && transaction.toCurrency) {
-        if (transaction.currency === user.settings.defaultCurrency) {
-          // Source is already in base currency, show destination conversion
-          const rate = transaction.amount / transaction.toAmount
-          return {
-            amountInBaseCurrency: transaction.amount.toFixed(2),
-            exchangeRate: `${rate.toFixed(3)}`
-          }
-        } else if (transaction.toCurrency === user.settings.defaultCurrency) {
-          // Destination is in base currency
-          const rate = transaction.toAmount / transaction.amount
-          console.log(transaction.toCurrency, rate)
-          return {
-            amountInBaseCurrency: transaction.toAmount.toFixed(2),
-            exchangeRate: `${rate.toFixed(3)}`
-          }
-        }
-      }
-
-      const idealRate = extractRate(transaction.currency, user.settings.defaultCurrency)
-      const revertedRate = extractRate(user.settings.defaultCurrency, transaction.currency)
-
-      const rate = idealRate || (revertedRate ? 1 / revertedRate : undefined)
-
-      if (!rate) {
-        return { amountInBaseCurrency: `-`, exchangeRate: undefined }
-      } else {
-        return {
-          amountInBaseCurrency: (rate * transaction.amount).toFixed(2),
-          exchangeRate: rate.toFixed(3)
-        }
-      }
-    }, [rates, user?.settings?.defaultCurrency, transaction.date, transaction.transactionType, transaction.amount, transaction.currency, transaction.toAmount, transaction.toCurrency])
-
     const category = getCategory(transaction.categoryId)
 
     return (
       <>
         <div
           ref={ref}
-          className="grid grid-cols-14 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
+          className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
           style={style}
         >
           <div className="col-span-2 flex items-center gap-2">
@@ -177,17 +124,6 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
                 </p>
               )}
             </div>
-          </div>
-
-          <div className={`col-span-2 text-right font-medium`}>
-            {amountInBaseCurrency && (
-              <div className="flex flex-col items-end">
-                <p>{amountInBaseCurrency}</p>
-                {exchangeRate && (
-                  <p className="text-xs text-muted-foreground">@ {exchangeRate}</p>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="col-span-1 flex justify-end gap-1">
