@@ -9,27 +9,27 @@ import type { Transaction } from '../../shared/schemas/transaction.schema'
 import type { DexieCategory, DexieWallet, DexieTransaction } from './db-dexie'
 
 // Helper functions to create properly typed Y.Maps with safe type assertions
-function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<Category> {
+function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
-  return new Y.Map(entries) as unknown as Y.Map<Category>
+  return new Y.Map(entries)
 }
 
-function createWalletMap(data: Omit<Wallet, '_id'> & { _id: string }): Y.Map<Wallet> {
+function createWalletMap(data: Omit<Wallet, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
-  return new Y.Map(entries) as unknown as Y.Map<Wallet>
+  return new Y.Map(entries)
 }
 
-function createTransactionMap(data: Omit<Transaction, '_id'> & { _id: string }): Y.Map<Transaction> {
+function createTransactionMap(data: Omit<Transaction, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
-  return new Y.Map(entries) as unknown as Y.Map<Transaction>
+  return new Y.Map(entries)
 }
 
 const ydoc = new Y.Doc()
 new IndexeddbPersistence('money', ydoc)
 
-const categories = ydoc.getMap<Y.Map<Category>>('categories')
-const wallets = ydoc.getMap<Y.Map<Wallet>>('wallets')
-const transactions = ydoc.getMap<Y.Map<Transaction>>('transactions')
+const categories = ydoc.getMap<Y.Map<unknown>>('categories')
+const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
+const transactions = ydoc.getMap<Y.Map<unknown>>('transactions')
 
 categories.observe(event => {
   const keys = event.keys // Force evaluation for Yjs observer
@@ -133,17 +133,14 @@ export function updateCategory(id: string, updates: Partial<Category>) {
   ydoc.transact(() => {
     const category = categories.get(id)
     if (!category) return
-    categories.set(id, createCategoryMap({
-      _id: id,
-      name: updates.name ?? (category.get('name') as unknown as string),
-      type: updates.type ?? (category.get('type') as unknown as Category['type']),
-      icon: updates.icon ?? (category.get('icon') as unknown as string),
-      color: updates.color ?? (category.get('color') as unknown as Category['color']),
-      isDefault: updates.isDefault ?? (category.get('isDefault') as unknown as boolean),
-      order: updates.order ?? (category.get('order') as unknown as number),
-      createdAt: category.get('createdAt') as unknown as string,
-      updatedAt: new Date().toISOString()
-    }))
+
+    if (updates.name !== undefined) category.set('name', updates.name)
+    if (updates.type !== undefined) category.set('type', updates.type)
+    if (updates.icon !== undefined) category.set('icon', updates.icon)
+    if (updates.color !== undefined) category.set('color', updates.color)
+    if (updates.isDefault !== undefined) category.set('isDefault', updates.isDefault)
+    if (updates.order !== undefined) category.set('order', updates.order)
+    category.set('updatedAt', new Date().toISOString())
   })
 }
 
@@ -168,16 +165,13 @@ export function updateWallet(id: string, updates: Partial<Wallet>) {
   ydoc.transact(() => {
     const wallet = wallets.get(id)
     if (!wallet) return
-    wallets.set(id, createWalletMap({
-      _id: id,
-      name: updates.name ?? (wallet.get('name') as unknown as string),
-      type: updates.type ?? (wallet.get('type') as unknown as Wallet['type']),
-      createdAt: wallet.get('createdAt') as unknown as string,
-      updatedAt: new Date().toISOString(),
-      currency: updates.currency ?? (wallet.get('currency') as unknown as Wallet['currency']),
-      initialBalance: updates.initialBalance ?? (wallet.get('initialBalance') as unknown as number),
-      order: updates.order ?? (wallet.get('order') as unknown as number)
-    }))
+
+    if (updates.name !== undefined) wallet.set('name', updates.name)
+    if (updates.type !== undefined) wallet.set('type', updates.type)
+    if (updates.currency !== undefined) wallet.set('currency', updates.currency)
+    if (updates.initialBalance !== undefined) wallet.set('initialBalance', updates.initialBalance)
+    if (updates.order !== undefined) wallet.set('order', updates.order)
+    wallet.set('updatedAt', new Date().toISOString())
   })
 }
 
@@ -217,25 +211,22 @@ export function updateTransaction(id: string, updates: Partial<Transaction>) {
   ydoc.transact(() => {
     const transaction = transactions.get(id)
     if (!transaction) return
-    transactions.set(id, createTransactionMap({
-      _id: id,
-      type: transaction.get('type') as unknown as Transaction['type'],
-      transactionType: updates.transactionType ?? (transaction.get('transactionType') as unknown as Transaction['transactionType']),
-      amount: updates.amount ?? (transaction.get('amount') as unknown as number),
-      currency: updates.currency ?? (transaction.get('currency') as unknown as Transaction['currency']),
-      toAmount: updates.toAmount ?? (transaction.get('toAmount') as unknown as unknown as number | undefined),
-      toCurrency: updates.toCurrency ?? (transaction.get('toCurrency') as unknown as Transaction['toCurrency']),
-      note: updates.note ?? (transaction.get('note') as unknown as string),
-      categoryId: updates.categoryId ?? (transaction.get('categoryId') as unknown as string),
-      walletId: updates.walletId ?? (transaction.get('walletId') as unknown as string),
-      toWalletId: updates.toWalletId ?? (transaction.get('toWalletId') as unknown as unknown as string | undefined),
-      date: updates.date ?? (transaction.get('date') as unknown as string),
-      split: updates.split ?? (transaction.get('split') as unknown as boolean),
-      parts: updates.parts ?? (transaction.get('parts') as unknown as Transaction['parts']),
-      reimbursement: updates.reimbursement ?? (transaction.get('reimbursement') as unknown as boolean),
-      createdAt: transaction.get('createdAt') as unknown as string,
-      updatedAt: new Date().toISOString()
-    }))
+
+    if (updates.type !== undefined) transaction.set('type', updates.type)
+    if (updates.transactionType !== undefined) transaction.set('transactionType', updates.transactionType)
+    if (updates.amount !== undefined) transaction.set('amount', updates.amount)
+    if (updates.currency !== undefined) transaction.set('currency', updates.currency)
+    if (updates.toAmount !== undefined) transaction.set('toAmount', updates.toAmount)
+    if (updates.toCurrency !== undefined) transaction.set('toCurrency', updates.toCurrency)
+    if (updates.note !== undefined) transaction.set('note', updates.note)
+    if (updates.categoryId !== undefined) transaction.set('categoryId', updates.categoryId)
+    if (updates.walletId !== undefined) transaction.set('walletId', updates.walletId)
+    if (updates.toWalletId !== undefined) transaction.set('toWalletId', updates.toWalletId)
+    if (updates.date !== undefined) transaction.set('date', updates.date)
+    if (updates.split !== undefined) transaction.set('split', updates.split)
+    if (updates.parts !== undefined) transaction.set('parts', updates.parts)
+    if (updates.reimbursement !== undefined) transaction.set('reimbursement', updates.reimbursement)
+    transaction.set('updatedAt', new Date().toISOString())
   })
 }
 

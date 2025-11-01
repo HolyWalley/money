@@ -1,14 +1,13 @@
 import type { Category } from '../../shared/schemas/category.schema'
 import * as Y from 'yjs'
 import { ydoc, categories } from '../lib/crdts'
+import { v4 as uuid } from 'uuid'
 
 // Helper function to create properly typed Y.Map for categories with safe type assertion
-function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<Category> {
+function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
-  return new Y.Map(entries) as unknown as Y.Map<Category>
+  return new Y.Map(entries)
 }
-
-import { v4 as uuid } from 'uuid'
 
 class CategoryService {
   createCategory(categoryData: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>): string {
@@ -40,17 +39,14 @@ class CategoryService {
       ydoc.transact(() => {
         const category = categories.get(id)
         if (!category) return
-        categories.set(id, createCategoryMap({
-          _id: id,
-          name: updates.name ?? (category.get('name') as unknown as string),
-          type: updates.type ?? (category.get('type') as unknown as Category['type']),
-          icon: updates.icon ?? (category.get('icon') as unknown as string),
-          color: updates.color ?? (category.get('color') as unknown as Category['color']),
-          isDefault: updates.isDefault ?? (category.get('isDefault') as unknown as boolean),
-          order: updates.order ?? (category.get('order') as unknown as number),
-          createdAt: category.get('createdAt') as unknown as string,
-          updatedAt: new Date().toISOString()
-        }))
+
+        if (updates.name !== undefined) category.set('name', updates.name)
+        if (updates.type !== undefined) category.set('type', updates.type)
+        if (updates.icon !== undefined) category.set('icon', updates.icon)
+        if (updates.color !== undefined) category.set('color', updates.color)
+        if (updates.isDefault !== undefined) category.set('isDefault', updates.isDefault)
+        if (updates.order !== undefined) category.set('order', updates.order)
+        category.set('updatedAt', new Date().toISOString())
       })
     } catch (error) {
       console.error('Error updating category:', error)
