@@ -81,10 +81,10 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       <>
         <div
           ref={ref}
-          className="grid grid-cols-[1.5fr_1.5fr_1.5fr_2.5fr_1.5fr_1.5fr_0.5fr] gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
+          className="grid grid-cols-14 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
           style={style}
         >
-          <div className="flex items-center gap-2">
+          <div className="col-span-2 flex items-center gap-2">
             {category ? (
               <>
                 <CategoryIcon
@@ -99,7 +99,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="text-muted-foreground text-sm">
+          <div className="col-span-2 text-muted-foreground text-sm">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -114,7 +114,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </TooltipProvider>
           </div>
 
-          <div className="text-sm truncate">
+          <div className="col-span-2 text-sm truncate">
             {getWalletName(transaction.walletId)}
             {transaction.toWalletId && (
               <span className="text-muted-foreground">
@@ -123,7 +123,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="font-medium">
+          <div className="col-span-3 font-medium">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -138,7 +138,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </TooltipProvider>
           </div>
 
-          <div className={`text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
+          <div className={`col-span-2 text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
             <div className="flex flex-col items-end">
               <p>{formatAmount(transaction.amount, transaction.transactionType)} {transaction.currency}</p>
               {transaction.transactionType === 'transfer' && transaction.toAmount && transaction.toCurrency && transaction.currency !== transaction.toCurrency && (
@@ -149,7 +149,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </div>
           </div>
 
-          <div className={`text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
+          <div className={`col-span-2 text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
             {convertedAmount !== null ? (
               <p>{formatAmount(convertedAmount, transaction.transactionType)}</p>
             ) : (
@@ -157,7 +157,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="flex justify-end gap-1">
+          <div className="col-span-1 flex justify-end gap-1">
             <Button
               size="sm"
               variant="ghost"
