@@ -1,10 +1,12 @@
-import { useLiveTransactions, type TransactionFilters } from '@/hooks/useLiveTransactions'
+import { useLiveTransactions, type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransactions'
 // TODO: Separate filter related components from transactions
 import { PeriodFilter } from './transactions/PeriodFilter'
 import { useFilters } from '@/hooks/useFilters'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useAuth } from '@/contexts/AuthContext'
+import { useMemo } from 'react'
+import { useExchangeRates } from '@/hooks/useExchangeRates'
 
 export function Overview() {
   const wallets = useLiveWallets()
@@ -15,11 +17,33 @@ export function Overview() {
 
   const baseCurrency = user?.settings?.defaultCurrency
 
+  const targetCurrencies = useMemo(() => {
+    const currencies = new Set<string>()
+    wallets.wallets.forEach(wallet => {
+      if (wallet.currency && wallet.currency !== baseCurrency) {
+        currencies.add(wallet.currency)
+      }
+    })
+    return Array.from(currencies)
+  }, [wallets.wallets, baseCurrency])
+
+  const dateRange = useMemo(() => {
+    if (!filters.period) return null
+    return getPeriodDates(filters.period)
+  }, [filters.period])
+
+  const { isLoading: isLoadingRates } = useExchangeRates({
+    baseCurrency,
+    targetCurrencies,
+    startDate: dateRange?.start,
+    endDate: dateRange?.end,
+  })
+
   if (!baseCurrency) {
     return null
   }
 
-  if (isLoading || filters.isLoading) {
+  if (isLoading || filters.isLoading || isLoadingRates) {
     return null
   }
 

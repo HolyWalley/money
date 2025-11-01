@@ -22,10 +22,20 @@ type DexieTransaction = Omit<Transaction, 'date' | 'createdAt' | 'updatedAt'> & 
   updatedAt: Date;
 }
 
+export interface ExchangeRateRecord {
+  key: string;
+  from: string;
+  to: string;
+  date: string;
+  rate: number;
+  expiresAt: number | null;
+}
+
 const db = new Dexie('MoneyDB') as Dexie & {
   categories: EntityTable<DexieCategory, '_id'>;
   wallets: EntityTable<DexieWallet, '_id'>;
   transactions: EntityTable<DexieTransaction, '_id'>;
+  exchangeRates: EntityTable<ExchangeRateRecord, 'key'>;
 }
 
 db.version(1).stores({
@@ -126,6 +136,28 @@ db.version(5).stores({
       })
     })
   }
+})
+
+// Version 6: Add exchangeRates table for exchange rate caching
+db.version(6).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
+  exchangeRates: 'key,from,to,date',
+})
+
+// Version 7: Add expiresAt field to exchangeRates for cache expiration
+db.version(7).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
+  exchangeRates: 'key,from,to,date,expiresAt',
+}).upgrade(async tx => {
+  await tx.table('exchangeRates').toCollection().modify(record => {
+    if (record.expiresAt === undefined) {
+      record.expiresAt = null;
+    }
+  });
 })
 
 export { db };

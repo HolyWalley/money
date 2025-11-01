@@ -76,10 +76,10 @@ export class Sync {
       // Skip updates from y-indexeddb loading (these are already persisted locally)
       // Check for properties unique to IndexeddbPersistence instead of class name (which gets minified)
       if (origin && typeof origin === 'object' &&
-          'synced' in origin &&
-          'whenSynced' in origin &&
-          'name' in origin &&
-          origin.name === 'money') {
+        'synced' in origin &&
+        'whenSynced' in origin &&
+        'name' in origin &&
+        origin.name === 'money') {
         return;
       }
 
@@ -238,24 +238,10 @@ export class Sync {
       const premiumActivatedTimestamp = new Date(premiumActivatedAt).getTime();
       const lastPremiumSync = await this.getLastPremiumSyncTimestamp();
 
-      console.log('[DEBUG] Initial sync check:', {
-        premiumActivatedAt,
-        premiumActivatedTimestamp,
-        lastPremiumSync,
-        needsInitialSync: lastPremiumSync < premiumActivatedTimestamp
-      });
-
       // Check if we need to push complete state (haven't synced since premium activated)
       if (lastPremiumSync < premiumActivatedTimestamp) {
-        console.log('[DEBUG] 🚨 Performing initial sync push - will send FULL STATE');
-
         // Get the complete state of the document
         const stateUpdate = Y.encodeStateAsUpdate(doc);
-
-        console.log('[DEBUG] Full state encoded:', {
-          sizeBytes: stateUpdate.length,
-          sizeKB: (stateUpdate.length / 1024).toFixed(2)
-        });
 
         // Only push if we have actual state to share
         if (stateUpdate.length > 0) {
@@ -269,15 +255,10 @@ export class Sync {
           if (!response.ok) {
             throw new Error(`Initial sync push failed: ${response.error || 'Unknown error'}`);
           }
-
-          console.log('[DEBUG] ✓ Initial sync push completed');
         }
 
         // Mark that we've synced as premium user
         await this.setLastPremiumSyncTimestamp(Date.now());
-        console.log('[DEBUG] Saved lastPremiumSyncTimestamp:', Date.now());
-      } else {
-        console.log('[DEBUG] ✓ No initial sync needed (already synced)');
       }
 
     } catch (error) {
