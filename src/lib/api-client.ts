@@ -212,6 +212,15 @@ class ApiClient {
         compiledStateBytes: number;
         totalBytes: number;
       };
+      updateStatistics: {
+        count: number;
+        totalBytes: number;
+        minSize: number;
+        maxSize: number;
+        avgSize: number;
+        medianSize: number;
+        distribution: { range: string; count: number }[];
+      };
     };
   }>> {
     return this.request('/debug');
@@ -230,7 +239,7 @@ class ApiClient {
   }>> {
     const text = await dumpFile.text();
     const url = `${this.baseUrl}/dump`;
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -240,7 +249,7 @@ class ApiClient {
         },
         body: text
       });
-      
+
       return this.handleResponse(response);
     } catch (error) {
       console.error('Request error:', error);
@@ -250,6 +259,19 @@ class ApiClient {
         status: 0,
       };
     }
+  }
+
+  // Cleanup old updates
+  async cleanupOldUpdates(): Promise<ApiResponse<{
+    message: string;
+    deletedCount: number;
+    remainingBytes: number;
+    remainingKB: string;
+    remainingMB: string;
+  }>> {
+    return this.request('/cleanup', {
+      method: 'POST'
+    });
   }
 }
 

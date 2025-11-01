@@ -69,9 +69,19 @@ export class Sync {
   }
 
   private setupLocalListener(): void {
-    this.updateListener = async (update: Uint8Array, origin: string | null) => {
+    this.updateListener = async (update: Uint8Array, origin: string | object | null) => {
       // Skip updates that came from sync
       if (origin === 'sync') return;
+
+      // Skip updates from y-indexeddb loading (these are already persisted locally)
+      // Check for properties unique to IndexeddbPersistence instead of class name (which gets minified)
+      if (origin && typeof origin === 'object' &&
+          'synced' in origin &&
+          'whenSynced' in origin &&
+          'name' in origin &&
+          origin.name === 'money') {
+        return;
+      }
 
       await db.updates.add({
         update: update,
@@ -118,11 +128,21 @@ export class Sync {
         deviceId: u.deviceId
       }));
 
+      const totalBytes = updates.reduce((sum, u) => sum + u.update.length, 0);
+      console.log('[DEBUG] Pushing updates:', {
+        count: updates.length,
+        totalBytes,
+        totalKB: (totalBytes / 1024).toFixed(2),
+        sizes: updates.map(u => u.update.length)
+      });
+
       const response = await apiClient.pushSync(updates);
 
       if (!response.ok) {
         throw new Error(`Sync failed: ${response.error || 'Unknown error'}`);
       }
+
+      console.log('[DEBUG] ✓ Push completed successfully');
 
       // Mark updates as synced
       const updateIds = unsyncedUpdates.map(u => u.id!).filter(id => id !== undefined);
@@ -227,14 +247,26 @@ export class Sync {
     try {
       const premiumActivatedTimestamp = new Date(premiumActivatedAt).getTime();
       const lastPremiumSync = await this.getLastPremiumSyncTimestamp();
-      
+
+      console.log('[DEBUG] Initial sync check:', {
+        premiumActivatedAt,
+        premiumActivatedTimestamp,
+        lastPremiumSync,
+        needsInitialSync: lastPremiumSync < premiumActivatedTimestamp
+      });
+
       // Check if we need to push complete state (haven't synced since premium activated)
       if (lastPremiumSync < premiumActivatedTimestamp) {
-        console.log('Performing initial sync push - haven\'t synced since premium activation');
-        
+        console.log('[DEBUG] 🚨 Performing initial sync push - will send FULL STATE');
+
         // Get the complete state of the document
         const stateUpdate = Y.encodeStateAsUpdate(doc);
-        
+
+        console.log('[DEBUG] Full state encoded:', {
+          sizeBytes: stateUpdate.length,
+          sizeKB: (stateUpdate.length / 1024).toFixed(2)
+        });
+
         // Only push if we have actual state to share
         if (stateUpdate.length > 0) {
           // Push complete state as a regular update
@@ -248,15 +280,18 @@ export class Sync {
             throw new Error(`Initial sync push failed: ${response.error || 'Unknown error'}`);
           }
 
-          console.log('Initial sync push completed');
+          console.log('[DEBUG] ✓ Initial sync push completed');
         }
 
         // Mark that we've synced as premium user
         await this.setLastPremiumSyncTimestamp(Date.now());
+        console.log('[DEBUG] Saved lastPremiumSyncTimestamp:', Date.now());
+      } else {
+        console.log('[DEBUG] ✓ No initial sync needed (already synced)');
       }
-      
+
     } catch (error) {
-      console.error('Initial sync error:', error);
+      console.error('[DEBUG] Initial sync error:', error);
       // Don't throw - allow normal sync to continue
     }
   }

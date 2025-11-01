@@ -27,10 +27,20 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
         compiledStateBytes: number;
         totalBytes: number;
       };
+      updateStatistics: {
+        count: number;
+        totalBytes: number;
+        minSize: number;
+        maxSize: number;
+        avgSize: number;
+        medianSize: number;
+        distribution: { range: string; count: number }[];
+      };
     };
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [uploadResult, setUploadResult] = useState<string | null>(null)
+  const [debugMessage, setDebugMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -80,6 +90,68 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     }
   }
 
+  const handleDeletePremiumSyncTimestamp = async () => {
+    try {
+      setDebugMessage(null)
+      setError(null)
+
+      const syncDb = new Dexie('UpdatesDB')
+      syncDb.version(1).stores({
+        updates: '++id, timestamp, synced, deviceId',
+        syncMetadata: 'key'
+      })
+
+      await syncDb.open()
+      const deleted = await syncDb.table('syncMetadata').where('key').equals('lastPremiumSyncTimestamp').delete()
+      syncDb.close()
+
+      if (deleted > 0) {
+        setDebugMessage('✓ Deleted lastPremiumSyncTimestamp. Next sync will trigger initial sync (100KB upload). Make any change to trigger sync.')
+      } else {
+        setDebugMessage('No lastPremiumSyncTimestamp found (already deleted or never set)')
+      }
+    } catch (err) {
+      console.error('Failed to delete premium sync timestamp:', err)
+      setError('Failed to delete premium sync timestamp')
+    }
+  }
+
+  const handleCleanupOldUpdates = async () => {
+    if (!confirm('This will delete all old updates from the server and keep only the compiled state. This action cannot be undone. Continue?')) {
+      return
+    }
+
+    setLoading(true)
+    setDebugMessage(null)
+    setError(null)
+
+    try {
+      const response = await apiClient.cleanupOldUpdates()
+
+      if (response.ok && response.data) {
+        setDebugMessage(
+          `✓ Cleanup completed!\n` +
+          `Deleted: ${response.data.deletedCount} updates\n` +
+          `Remaining: ${response.data.remainingKB} KB (${response.data.remainingMB} MB)\n\n` +
+          `Refreshing debug info...`
+        )
+
+        // Refresh debug info
+        const debugResponse = await apiClient.getDebugInfo()
+        if (debugResponse.ok && debugResponse.data) {
+          setDebugInfo(debugResponse.data)
+        }
+      } else {
+        setError(response.error || 'Failed to cleanup old updates')
+      }
+    } catch (err) {
+      console.error('Failed to cleanup old updates:', err)
+      setError('Failed to cleanup old updates')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleImportDatabase = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -87,6 +159,7 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     setLoading(true)
     setError(null)
     setUploadResult(null)
+    setDebugMessage(null)
 
     try {
       const response = await apiClient.importDatabaseDump(file)
@@ -166,11 +239,17 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           )}
           
           {uploadResult && (
-            <div className="text-sm text-green-600">
+            <div className="text-sm text-green-600 whitespace-pre-line">
               {uploadResult}
             </div>
           )}
-          
+
+          {debugMessage && (
+            <div className="text-sm text-blue-600 whitespace-pre-line">
+              {debugMessage}
+            </div>
+          )}
+
           {debugInfo && !loading && (
             <div className="space-y-4">
               <div>
@@ -194,10 +273,49 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                   </div>
                 </div>
               </div>
-              
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Update Statistics</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Total Updates:</span>
+                    <span className="font-mono">{debugInfo.durableObject.updateStatistics.count}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Min Size:</span>
+                    <span className="font-mono">{formatBytes(debugInfo.durableObject.updateStatistics.minSize)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Max Size:</span>
+                    <span className="font-mono">{formatBytes(debugInfo.durableObject.updateStatistics.maxSize)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Average Size:</span>
+                    <span className="font-mono">{formatBytes(debugInfo.durableObject.updateStatistics.avgSize)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Median Size:</span>
+                    <span className="font-mono">{formatBytes(debugInfo.durableObject.updateStatistics.medianSize)}</span>
+                  </div>
+                  {debugInfo.durableObject.updateStatistics.distribution.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground font-medium">Distribution:</span>
+                      <div className="mt-1 space-y-1 pl-2">
+                        {debugInfo.durableObject.updateStatistics.distribution.map(bucket => (
+                          <div key={bucket.range} className="flex justify-between items-center py-0.5">
+                            <span className="text-muted-foreground text-xs">{bucket.range}:</span>
+                            <span className="font-mono text-xs">{bucket.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="mt-4">
                 <h3 className="text-sm font-medium mb-2">Database Operations</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -207,7 +325,7 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                     <Download className="h-4 w-4 mr-2" />
                     Dump Database
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -217,7 +335,7 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                     <Upload className="h-4 w-4 mr-2" />
                     Import Database
                   </Button>
-                  
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -226,6 +344,34 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                     className="hidden"
                   />
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <h3 className="text-sm font-medium mb-2">Debug Tools</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeletePremiumSyncTimestamp}
+                    disabled={loading}
+                  >
+                    Delete Premium Sync Timestamp
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleCleanupOldUpdates}
+                    disabled={loading}
+                  >
+                    Cleanup Old Updates
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Delete Premium Sync Timestamp: Triggers full state sync on next change (testing only)
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cleanup Old Updates: Deletes all historical updates from server, keeps only compiled state (saves storage)
+                </p>
               </div>
             </div>
           )}

@@ -11,8 +11,9 @@ export async function onRequestGet(
     const durableObjectId = env.MONEY_OBJECT.idFromName(userInfo.userId)
     const durableObject = env.MONEY_OBJECT.get(durableObjectId)
 
-    // Get storage sizes from the durable object
+    // Get storage sizes and statistics from the durable object
     const storageSizes = await durableObject.getStorageSizes()
+    const updateStatistics = await durableObject.getUpdateStatistics()
 
     return ResponseUtils.success({
       durableObject: {
@@ -21,6 +22,15 @@ export async function onRequestGet(
           updatesTableBytes: storageSizes.updatesTableBytes,
           compiledStateBytes: storageSizes.compiledStateBytes,
           totalBytes: storageSizes.updatesTableBytes + storageSizes.compiledStateBytes
+        },
+        updateStatistics: {
+          count: updateStatistics.count,
+          totalBytes: updateStatistics.totalBytes,
+          minSize: updateStatistics.minSize,
+          maxSize: updateStatistics.maxSize,
+          avgSize: updateStatistics.avgSize,
+          medianSize: updateStatistics.medianSize,
+          distribution: updateStatistics.distribution
         }
       }
     })

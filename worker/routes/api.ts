@@ -12,6 +12,7 @@ import * as sync from '../handlers/sync'
 import * as admin from '../handlers/admin'
 import * as debug from '../handlers/debug'
 import * as dump from '../handlers/dump'
+import * as cleanup from '../handlers/cleanup'
 import { ResponseUtils } from '../utils/response'
 import { withPremium } from '../middleware/premium'
 
@@ -81,6 +82,11 @@ export function createAPIRouter() {
 
   router.post('/api/v1/dump', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await dump.onRequestPost(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.post('/api/v1/cleanup', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await cleanup.onRequestPost(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 

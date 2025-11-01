@@ -264,8 +264,8 @@ export class MoneyObject extends DurableObject {
       'SELECT IFNULL(SUM(length("update")), 0) AS total_update_bytes FROM updates'
     );
     const updatesArray = Array.from(updatesResult);
-    const updatesTableBytes = updatesArray.length > 0 
-      ? (updatesArray[0].total_update_bytes as number) 
+    const updatesTableBytes = updatesArray.length > 0
+      ? (updatesArray[0].total_update_bytes as number)
       : 0;
 
     // Get size of compiled state
@@ -273,13 +273,84 @@ export class MoneyObject extends DurableObject {
       'SELECT IFNULL(length(state), 0) AS compiled_state_bytes FROM compiled_state WHERE id = 1'
     );
     const stateArray = Array.from(stateResult);
-    const compiledStateBytes = stateArray.length > 0 
-      ? (stateArray[0].compiled_state_bytes as number) 
+    const compiledStateBytes = stateArray.length > 0
+      ? (stateArray[0].compiled_state_bytes as number)
       : 0;
 
     return {
       updatesTableBytes,
       compiledStateBytes
+    };
+  }
+
+  // Method to get update statistics for debugging
+  async getUpdateStatistics(): Promise<{
+    count: number;
+    totalBytes: number;
+    minSize: number;
+    maxSize: number;
+    avgSize: number;
+    medianSize: number;
+    distribution: { range: string; count: number }[];
+  }> {
+    // Get all update sizes
+    const result = this.storage.sql.exec(
+      'SELECT length("update") as size FROM updates ORDER BY size'
+    );
+    const rows = Array.from(result);
+
+    if (rows.length === 0) {
+      return {
+        count: 0,
+        totalBytes: 0,
+        minSize: 0,
+        maxSize: 0,
+        avgSize: 0,
+        medianSize: 0,
+        distribution: []
+      };
+    }
+
+    const sizes = rows.map(row => row.size as number);
+    const count = sizes.length;
+    const totalBytes = sizes.reduce((sum, size) => sum + size, 0);
+    const minSize = sizes[0];
+    const maxSize = sizes[count - 1];
+    const avgSize = Math.round(totalBytes / count);
+
+    // Calculate median
+    let medianSize: number;
+    if (count % 2 === 0) {
+      medianSize = Math.round((sizes[count / 2 - 1] + sizes[count / 2]) / 2);
+    } else {
+      medianSize = sizes[Math.floor(count / 2)];
+    }
+
+    // Create distribution buckets
+    const distribution: { range: string; count: number }[] = [];
+    const buckets = [
+      { range: '0-1KB', min: 0, max: 1024 },
+      { range: '1-10KB', min: 1024, max: 10240 },
+      { range: '10-100KB', min: 10240, max: 102400 },
+      { range: '100KB-1MB', min: 102400, max: 1048576 },
+      { range: '>1MB', min: 1048576, max: Infinity }
+    ];
+
+    for (const bucket of buckets) {
+      const count = sizes.filter(size => size >= bucket.min && size < bucket.max).length;
+      if (count > 0) {
+        distribution.push({ range: bucket.range, count });
+      }
+    }
+
+    return {
+      count,
+      totalBytes,
+      minSize,
+      maxSize,
+      avgSize,
+      medianSize,
+      distribution
     };
   }
 
@@ -419,11 +490,39 @@ export class MoneyObject extends DurableObject {
   async finishImport(): Promise<{ updatesImported: number; hasCompiledState: boolean }> {
     const updatesImported = (await this.storage.get<number>('import:updatesCount')) || 0;
     const hasCompiledState = (await this.storage.get<boolean>('import:hasCompiledState')) || false;
-    
+
     // Clean up temporary storage
     await this.storage.delete('import:updatesCount');
     await this.storage.delete('import:hasCompiledState');
-    
+
     return { updatesImported, hasCompiledState };
+  }
+
+  // Clean up old updates - keep only compiled state
+  async cleanupOldUpdates(): Promise<{ deletedCount: number; remainingBytes: number }> {
+    console.log('[MoneyObject] Starting cleanup of old updates');
+
+    // Get count before deletion
+    const countResult = this.storage.sql.exec('SELECT COUNT(*) as count FROM updates');
+    const countArray = Array.from(countResult);
+    const deletedCount = countArray.length > 0 ? (countArray[0].count as number) : 0;
+
+    // Delete all updates (compiled state contains everything)
+    this.storage.sql.exec('DELETE FROM updates');
+
+    console.log(`[MoneyObject] Deleted ${deletedCount} old updates`);
+
+    // Get remaining storage size
+    const stateResult = this.storage.sql.exec(
+      'SELECT IFNULL(length(state), 0) AS compiled_state_bytes FROM compiled_state WHERE id = 1'
+    );
+    const stateArray = Array.from(stateResult);
+    const remainingBytes = stateArray.length > 0
+      ? (stateArray[0].compiled_state_bytes as number)
+      : 0;
+
+    console.log(`[MoneyObject] Remaining storage: ${remainingBytes} bytes (${(remainingBytes / 1024).toFixed(2)} KB)`);
+
+    return { deletedCount, remainingBytes };
   }
 }
