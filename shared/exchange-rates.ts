@@ -46,17 +46,15 @@ export class ExchangeRateService {
   ): Promise<Map<string, number>> {
     // Generate all cache keys for the requested range
     const keys: string[] = [];
-    const current = new Date(startDate);
-    const end = new Date(endDate);
-    current.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
+    const current = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
+    const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()));
 
     while (current <= end) {
       const dateStr = this.formatDate(current);
       for (const currency of targetCurrencies) {
         keys.push(ExchangeRateService.createCacheKey(baseCurrency, currency, dateStr));
       }
-      current.setDate(current.getDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1);
     }
 
     // Try to get all from cache in one go

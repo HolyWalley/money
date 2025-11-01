@@ -12,6 +12,7 @@ import {
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
+import { ExchangeRateService } from '../../../shared/exchange-rates'
 
 interface TransactionDesktopRowProps {
   transaction: Transaction
@@ -20,10 +21,12 @@ interface TransactionDesktopRowProps {
   onEdit: () => void
   onDelete: (id: string) => void
   style?: React.CSSProperties
+  baseCurrency?: string
+  exchangeRates: Map<string, number>
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, onDelete, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onDelete, style, baseCurrency, exchangeRates }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -52,16 +55,36 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       return 'text-foreground'
     }
 
+    const getConvertedAmount = () => {
+      if (!baseCurrency || transaction.currency === baseCurrency) {
+        return null
+      }
+
+      const dateStr = new Date(transaction.date).toISOString().split('T')[0]
+      // We store rates FROM baseCurrency TO transaction.currency
+      // So to convert FROM transaction.currency TO baseCurrency, we need the inverse
+      const cacheKey = ExchangeRateService.createCacheKey(baseCurrency, transaction.currency, dateStr)
+      const rate = exchangeRates.get(cacheKey)
+
+      if (!rate) {
+        return null
+      }
+
+      // Inverse the rate: if 1 PLN = 0.23 EUR, then 1 EUR = 1/0.23 PLN
+      return transaction.amount / rate
+    }
+
     const category = getCategory(transaction.categoryId)
+    const convertedAmount = getConvertedAmount()
 
     return (
       <>
         <div
           ref={ref}
-          className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
+          className="grid grid-cols-[1.5fr_1.5fr_1.5fr_2.5fr_1.5fr_1.5fr_0.5fr] gap-4 px-4 py-3 items-center hover:bg-muted/50 border-b"
           style={style}
         >
-          <div className="col-span-2 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {category ? (
               <>
                 <CategoryIcon
@@ -76,7 +99,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="col-span-2 text-muted-foreground text-sm">
+          <div className="text-muted-foreground text-sm">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -91,7 +114,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </TooltipProvider>
           </div>
 
-          <div className="col-span-2 text-sm truncate">
+          <div className="text-sm truncate">
             {getWalletName(transaction.walletId)}
             {transaction.toWalletId && (
               <span className="text-muted-foreground">
@@ -100,7 +123,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="col-span-3 font-medium">
+          <div className="font-medium">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -115,7 +138,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </TooltipProvider>
           </div>
 
-          <div className={`col-span-2 text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
+          <div className={`text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
             <div className="flex flex-col items-end">
               <p>{formatAmount(transaction.amount, transaction.transactionType)} {transaction.currency}</p>
               {transaction.transactionType === 'transfer' && transaction.toAmount && transaction.toCurrency && transaction.currency !== transaction.toCurrency && (
@@ -126,7 +149,15 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             </div>
           </div>
 
-          <div className="col-span-1 flex justify-end gap-1">
+          <div className={`text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
+            {convertedAmount !== null ? (
+              <p>{formatAmount(convertedAmount, transaction.transactionType)}</p>
+            ) : (
+              <p className="text-muted-foreground">-</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-1">
             <Button
               size="sm"
               variant="ghost"
