@@ -46,12 +46,9 @@ export class MoneyObject extends DurableObject {
   }
 
   async pushUpdates(updates: Update[]): Promise<void> {
-    console.debug(`[MoneyObject] pushUpdates called with ${updates.length} updates`);
     const insertedIds: number[] = [];
 
     for (const update of updates) {
-      console.debug(`[MoneyObject] Processing update: deviceId=${update.deviceId}, updateLength=${update.update.length}, updateType=${update.update.constructor.name}`);
-
       // Store Uint8Array directly as BLOB in Durable Object SQL
       const result = this.storage.sql.exec(
         'INSERT INTO updates ("update", timestamp, deviceId) VALUES (?, ?, ?) RETURNING id',
@@ -62,13 +59,11 @@ export class MoneyObject extends DurableObject {
       const resultsArray = Array.from(result);
       if (resultsArray.length > 0) {
         insertedIds.push(resultsArray[0].id as number);
-        console.debug(`[MoneyObject] Inserted update with ID: ${resultsArray[0].id}`);
       }
     }
 
     // Update compiled state with only the new updates
     if (insertedIds.length > 0) {
-      console.debug(`[MoneyObject] Updating compiled state with ${insertedIds.length} new updates`);
       await this.updateCompiledState(insertedIds);
     }
   }
@@ -136,71 +131,46 @@ export class MoneyObject extends DurableObject {
 
   private async updateCompiledState(newUpdateIds: number[]): Promise<void> {
     try {
-      console.debug(`[MoneyObject] updateCompiledState: Processing ${newUpdateIds.length} new update IDs: ${newUpdateIds.join(', ')}`);
-
       // Get current compiled state
       const currentState = await this.getCompiledState();
-      console.debug(`[MoneyObject] Current compiled state: ${currentState ? `exists, length=${currentState.state.length}` : 'null'}`);
 
       // Get the new updates that need to be applied
       const newUpdates = await this.getUpdatesByIds(newUpdateIds);
-      console.debug(`[MoneyObject] Retrieved ${newUpdates.length} new updates from DB`);
 
       if (newUpdates.length === 0) {
-        console.debug(`[MoneyObject] No new updates to apply, returning`);
         return;
       }
 
       let doc: Y.Doc;
 
       if (currentState) {
-        console.debug(`[MoneyObject] Applying existing compiled state to new doc`);
         // Apply existing state to a new doc
         doc = new Y.Doc();
-        try {
-          Y.applyUpdate(doc, currentState.state);
-          console.debug(`[MoneyObject] Successfully applied existing compiled state`);
-        } catch (error) {
-          console.error(`[MoneyObject] Error applying existing compiled state:`, error);
-          throw error;
-        }
+        Y.applyUpdate(doc, currentState.state);
       } else {
-        console.debug(`[MoneyObject] No existing state, starting fresh`);
         // No existing state, start fresh
         doc = new Y.Doc();
       }
 
       // Apply only the new updates
-      for (let i = 0; i < newUpdates.length; i++) {
-        const update = newUpdates[i];
-        console.debug(`[MoneyObject] Applying update ${i + 1}/${newUpdates.length}: deviceId=${update.deviceId}, length=${update.update.length}, type=${update.update.constructor.name}`);
-        try {
-          Y.applyUpdate(doc, update.update);
-          console.debug(`[MoneyObject] Successfully applied update ${i + 1}`);
-        } catch (error) {
-          console.error(`[MoneyObject] Error applying update ${i + 1}:`, error);
-          throw error;
-        }
+      for (const update of newUpdates) {
+        Y.applyUpdate(doc, update.update);
       }
 
       // Encode the updated state and store directly as BLOB
-      console.debug(`[MoneyObject] Encoding updated state`);
       const newCompiledState = Y.encodeStateAsUpdate(doc);
-      console.debug(`[MoneyObject] New compiled state length: ${newCompiledState.length}`);
 
       const latestTimestamp = Math.max(...newUpdates.map(u => u.timestamp));
       const maxUpdateId = Math.max(...newUpdateIds);
 
       // Save or update the compiled state
-      console.debug(`[MoneyObject] Saving compiled state to DB`);
       this.storage.sql.exec(
-        `INSERT OR REPLACE INTO compiled_state (id, state, last_update_timestamp, last_update_id) 
+        `INSERT OR REPLACE INTO compiled_state (id, state, last_update_timestamp, last_update_id)
          VALUES (1, ?, ?, ?)`,
         newCompiledState,
         latestTimestamp,
         maxUpdateId
       );
-      console.debug(`[MoneyObject] Successfully saved compiled state`);
 
     } catch (error) {
       console.error('[MoneyObject] Failed to update compiled state:', error);
@@ -213,7 +183,6 @@ export class MoneyObject extends DurableObject {
       return [];
     }
 
-    console.debug(`[MoneyObject] getUpdatesByIds: Fetching updates for IDs: ${updateIds.join(', ')}`);
     const placeholders = updateIds.map(() => '?').join(',');
     const results = this.storage.sql.exec(
       `SELECT "update", timestamp, deviceId FROM updates WHERE id IN (${placeholders}) ORDER BY id`,
@@ -221,33 +190,17 @@ export class MoneyObject extends DurableObject {
     );
 
     const resultsArray = Array.from(results);
-    console.debug(`[MoneyObject] getUpdatesByIds: Found ${resultsArray.length} rows in database`);
 
-    const updates = resultsArray.map((row, index) => {
+    return resultsArray.map(row => {
       const rawUpdate = row.update;
-      console.debug(`[MoneyObject] getUpdatesByIds: Row ${index}: rawUpdateType=${rawUpdate.constructor.name}, deviceId=${row.deviceId}`);
-
-      // Convert ArrayBuffer back to Uint8Array
-      let update: Uint8Array;
-      if (rawUpdate instanceof ArrayBuffer) {
-        update = new Uint8Array(rawUpdate);
-        console.debug(`[MoneyObject] Converted ArrayBuffer to Uint8Array, length=${update.length}`);
-      } else if (rawUpdate instanceof Uint8Array) {
-        update = rawUpdate;
-        console.debug(`[MoneyObject] Already Uint8Array, length=${update.length}`);
-      } else {
-        console.error(`[MoneyObject] Unexpected update type: ${rawUpdate.constructor.name}`);
-        throw new Error(`Unexpected update type: ${rawUpdate.constructor.name}`);
-      }
+      const update = rawUpdate instanceof ArrayBuffer ? new Uint8Array(rawUpdate) : rawUpdate as Uint8Array;
 
       return {
-        update: update,
+        update,
         timestamp: row.timestamp as number,
         deviceId: row.deviceId as string
       };
     });
-
-    return updates;
   }
 
   // Method to check if there's any data (for sync check)

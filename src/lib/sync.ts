@@ -12,7 +12,7 @@ interface YjsUpdate {
 }
 
 interface SyncUpdate {
-  update: Uint8Array | number[];  // Allow both for serialization
+  update: Uint8Array | string;  // Uint8Array locally, base64 string for network
   timestamp: number;
   deviceId: string;
   created_at?: number;
@@ -121,28 +121,18 @@ export class Sync {
         return;
       }
 
-      // Prepare updates for server - convert Uint8Array to array for JSON serialization
+      // Prepare updates for server - convert Uint8Array to base64 for JSON serialization
       const updates: SyncUpdate[] = unsyncedUpdates.map(u => ({
-        update: Array.from(u.update),
+        update: this.toBase64(u.update),
         timestamp: u.timestamp,
         deviceId: u.deviceId
       }));
-
-      const totalBytes = updates.reduce((sum, u) => sum + u.update.length, 0);
-      console.log('[DEBUG] Pushing updates:', {
-        count: updates.length,
-        totalBytes,
-        totalKB: (totalBytes / 1024).toFixed(2),
-        sizes: updates.map(u => u.update.length)
-      });
 
       const response = await apiClient.pushSync(updates);
 
       if (!response.ok) {
         throw new Error(`Sync failed: ${response.error || 'Unknown error'}`);
       }
-
-      console.log('[DEBUG] ✓ Push completed successfully');
 
       // Mark updates as synced
       const updateIds = unsyncedUpdates.map(u => u.id!).filter(id => id !== undefined);
@@ -181,9 +171,9 @@ export class Sync {
 
       // Apply updates to local Y.Doc
       updates.forEach(update => {
-        // Convert array back to Uint8Array if needed
-        const updateData = Array.isArray(update.update)
-          ? new Uint8Array(update.update)
+        // Convert base64 string to Uint8Array if needed
+        const updateData = typeof update.update === 'string'
+          ? this.fromBase64(update.update)
           : update.update;
 
         // Apply update with 'sync' origin to prevent re-syncing
@@ -271,7 +261,7 @@ export class Sync {
         if (stateUpdate.length > 0) {
           // Push complete state as a regular update
           const response = await apiClient.pushSync([{
-            update: Array.from(stateUpdate),
+            update: this.toBase64(stateUpdate),
             timestamp: Date.now(),
             deviceId: this.deviceId
           }]);
@@ -309,5 +299,27 @@ export class Sync {
       clearTimeout(this.pushTimeout);
       this.pushTimeout = null;
     }
+  }
+
+  // Helper method to convert Uint8Array to base64
+  private toBase64(data: Uint8Array): string {
+    let binaryString = '';
+    const chunkSize = 8192; // Process in chunks to avoid stack overflow
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.subarray(i, i + chunkSize);
+      binaryString += String.fromCharCode(...chunk);
+    }
+    return btoa(binaryString);
+  }
+
+  // Helper method to convert base64 to Uint8Array
+  private fromBase64(base64: string): Uint8Array {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
   }
 }

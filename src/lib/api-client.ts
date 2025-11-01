@@ -1,7 +1,7 @@
 import type { User } from '../contexts/AuthContext';
 
 type SyncUpdate = {
-  update: Uint8Array | number[];
+  update: Uint8Array | string;
   timestamp: number;
   deviceId: string;
   created_at?: number;
