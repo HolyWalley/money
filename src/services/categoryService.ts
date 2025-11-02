@@ -56,9 +56,18 @@ class CategoryService {
 
   async deleteCategory(id: string): Promise<void> {
     try {
-      ydoc.transact(() => {
-        categories.delete(id)
-      })
+      const existsInYjs = categories.has(id)
+
+      if (existsInYjs) {
+        // Delete from Yjs - observer will handle Dexie deletion
+        ydoc.transact(() => {
+          categories.delete(id)
+        })
+      } else {
+        // Orphaned category only in Dexie - delete directly
+        const { db } = await import('../lib/db-dexie')
+        await db.categories.delete(id)
+      }
     } catch (error) {
       console.error('Error deleting category:', error)
       throw error

@@ -22,8 +22,8 @@ export function ReimbursementDrawer() {
         <FormItem className="flex flex-row items-center gap-2">
           <FormControl>
             <Checkbox
-              checked={field.value}
-              onCheckedChange={(checked) => field.onChange(checked)}
+              checked={field.value ?? false}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
             />
           </FormControl>
           <FormLabel className="text-sm font-normal">

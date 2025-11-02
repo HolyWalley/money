@@ -69,25 +69,30 @@ export function Overview() {
       </div>
 
       <div className="px-4 pb-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="border rounded-lg p-4">
-            <div className="text-sm text-muted-foreground mb-1">Total Income</div>
-            <div className="text-2xl font-bold text-green-600">
-              +{formatAmount(totalIncome)} {baseCurrency}
+        <div className="border rounded-lg p-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Total Income</div>
+              <div className="text-lg font-bold text-green-600">
+                +{formatAmount(totalIncome)}
+              </div>
+              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
             </div>
-          </div>
 
-          <div className="border rounded-lg p-4">
-            <div className="text-sm text-muted-foreground mb-1">Total Expense</div>
-            <div className="text-2xl font-bold text-red-600">
-              -{formatAmount(totalExpense)} {baseCurrency}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Total Expense</div>
+              <div className="text-lg font-bold text-red-600">
+                -{formatAmount(totalExpense)}
+              </div>
+              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
             </div>
-          </div>
 
-          <div className="border rounded-lg p-4">
-            <div className="text-sm text-muted-foreground mb-1">Cash Flow</div>
-            <div className={`text-2xl font-bold ${getAmountColor(cashFlow)}`}>
-              {cashFlow >= 0 ? '+' : ''}{formatAmount(cashFlow)} {baseCurrency}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Cash Flow</div>
+              <div className={`text-lg font-bold ${getAmountColor(cashFlow)}`}>
+                {cashFlow >= 0 ? '+' : ''}{formatAmount(cashFlow)}
+              </div>
+              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
             </div>
           </div>
         </div>

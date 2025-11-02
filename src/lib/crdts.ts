@@ -8,6 +8,12 @@ import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 import type { DexieCategory, DexieWallet, DexieTransaction } from './db-dexie'
 
+// Yjs event types
+interface YMapEvent {
+  keys: Map<string, { action: 'add' | 'update' | 'delete'; oldValue: unknown }>;
+  target: Y.Map<unknown>;
+}
+
 // Helper functions to create properly typed Y.Maps with safe type assertions
 function createCategoryMap(data: Omit<Category, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
@@ -31,77 +37,96 @@ const categories = ydoc.getMap<Y.Map<unknown>>('categories')
 const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
 const transactions = ydoc.getMap<Y.Map<unknown>>('transactions')
 
-categories.observe(event => {
-  const keys = event.keys // Force evaluation for Yjs observer
+// Generic observer setup for Yjs maps syncing to Dexie
+function setupDeepObserver<TDexie>(
+  yjsMap: Y.Map<Y.Map<unknown>>,
+  dexieTable: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  transformToDexie: (obj: Record<string, unknown>) => TDexie
+) {
+  yjsMap.observeDeep(events => {
+    const changedIds = new Set<string>();
+    const deletedIds = new Set<string>();
 
-  db.transaction('rw', db.categories, async () => {
-    for (const [id, change] of keys) {
-      if (change.action === 'delete') {
-        await db.categories.delete(id);
-      } else {
-        const category = categories.get(id);
-        if (category) {
-          const categoryObj = Object.fromEntries(category.entries()) as Record<string, unknown>;
-          // Convert date strings to Date objects for Dexie
-          const dexieCategory: DexieCategory = {
-            ...(categoryObj as Category),
-            createdAt: new Date(categoryObj.createdAt as string),
-            updatedAt: new Date(categoryObj.updatedAt as string)
-          };
-          await db.categories.put(dexieCategory);
+    // Collect all affected entity IDs from the events
+    events.forEach(event => {
+      if (event.path.length === 0) {
+        // Top-level map change (add/delete)
+        // Check the event target to get the changed keys
+        if (event.target === yjsMap) {
+          // This is a YMapEvent on the top-level map
+          const mapEvent = event as unknown as YMapEvent;
+          if (mapEvent.keys) {
+            mapEvent.keys.forEach((change, key) => {
+              if (change.action === 'delete') {
+                deletedIds.add(key);
+              } else {
+                changedIds.add(key);
+              }
+            });
+          }
+        }
+      } else if (event.path.length > 0) {
+        // Nested change (property update within an entity)
+        // path[0] is the entity ID
+        const id = event.path[0] as string;
+        changedIds.add(id);
+      }
+    });
+
+    db.transaction('rw', dexieTable, async () => {
+      // Handle updates/additions
+      for (const id of changedIds) {
+        const entity = yjsMap.get(id);
+        if (entity) {
+          const entityObj = Object.fromEntries(entity.entries()) as Record<string, unknown>;
+          const dexieEntity = transformToDexie(entityObj);
+          await dexieTable.put(dexieEntity);
         }
       }
-    }
-  })
-})
 
-wallets.observe(event => {
-  const keys = event.keys // Force evaluation for Yjs observer
-
-  db.transaction('rw', db.wallets, async () => {
-    for (const [id, change] of keys) {
-      if (change.action === 'delete') {
-        await db.wallets.delete(id);
-      } else {
-        const wallet = wallets.get(id);
-        if (wallet) {
-          const walletObj = Object.fromEntries(wallet.entries()) as Record<string, unknown>;
-          // Convert date strings to Date objects for Dexie
-          const dexieWallet: DexieWallet = {
-            ...(walletObj as Wallet),
-            createdAt: new Date(walletObj.createdAt as string),
-            updatedAt: new Date(walletObj.updatedAt as string)
-          };
-          await db.wallets.put(dexieWallet);
-        }
+      // Handle deletions
+      for (const id of deletedIds) {
+        await dexieTable.delete(id);
       }
-    }
+    });
   });
-});
+}
 
-transactions.observe(event => {
-  const keys = event.keys // Force evaluation for Yjs observer
+// Setup observers after a microtask to ensure db is initialized
+Promise.resolve().then(() => {
+  // Setup observers for categories
+  setupDeepObserver<DexieCategory>(
+    categories,
+    db.categories,
+    (obj) => ({
+      ...(obj as Category),
+      createdAt: new Date(obj.createdAt as string),
+      updatedAt: new Date(obj.updatedAt as string)
+    })
+  );
 
-  db.transaction('rw', db.transactions, async () => {
-    for (const [id, change] of keys) {
-      if (change.action === 'delete') {
-        await db.transactions.delete(id);
-      } else {
-        const transaction = transactions.get(id);
-        if (transaction) {
-          const transactionObj = Object.fromEntries(transaction.entries()) as Record<string, unknown>;
-          // Convert date strings to Date objects for Dexie
-          const dexieTransaction: DexieTransaction = {
-            ...(transactionObj as Transaction),
-            date: new Date(transactionObj.date as string),
-            createdAt: new Date(transactionObj.createdAt as string),
-            updatedAt: new Date(transactionObj.updatedAt as string)
-          };
-          await db.transactions.put(dexieTransaction);
-        }
-      }
-    }
-  });
+  // Setup observers for wallets
+  setupDeepObserver<DexieWallet>(
+    wallets,
+    db.wallets,
+    (obj) => ({
+      ...(obj as Wallet),
+      createdAt: new Date(obj.createdAt as string),
+      updatedAt: new Date(obj.updatedAt as string)
+    })
+  );
+
+  // Setup observers for transactions
+  setupDeepObserver<DexieTransaction>(
+    transactions,
+    db.transactions,
+    (obj) => ({
+      ...(obj as Transaction),
+      date: new Date(obj.date as string),
+      createdAt: new Date(obj.createdAt as string),
+      updatedAt: new Date(obj.updatedAt as string)
+    })
+  );
 });
 
 export function addCategory({ name, type, icon, color, isDefault, order }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {

@@ -160,20 +160,36 @@ db.version(7).stores({
   });
 })
 
-// Version 8: Migrate split field to reimbursement field for transactions
+// Version 8: Migrate split field to reimbursement field
 db.version(8).stores({
   categories: '_id,name,type,order,createdAt,updatedAt',
   wallets: '_id,name,type,createdAt,updatedAt,currency,order',
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
   exchangeRates: 'key,from,to,date,expiresAt',
 }).upgrade(async tx => {
-  // Migrate split: true to reimbursement: true
-  await tx.table('transactions').toCollection().modify(record => {
-    if (record.split === true) {
-      record.reimbursement = true;
-      delete record.split;
-    }
-  });
+  console.log('[Migration v8] Starting split to reimbursement migration')
+
+  const transactionsWithSplit = await tx.table('transactions')
+    .filter(t => t.split === true)
+    .toArray()
+
+  console.log(`[Migration v8] Found ${transactionsWithSplit.length} transactions with split=true`)
+
+  if (transactionsWithSplit.length > 0) {
+    import('./crdts').then(({ updateTransaction }) => {
+      console.log(`[Migration v8] Updating ${transactionsWithSplit.length} transactions via CRDT`)
+      transactionsWithSplit.forEach(transaction => {
+        console.log(`[Migration v8] Migrating transaction ${transaction._id} from split to reimbursement`)
+        updateTransaction(transaction._id, {
+          reimbursement: true,
+          split: undefined
+        })
+      })
+      console.log('[Migration v8] Migration complete')
+    })
+  } else {
+    console.log('[Migration v8] No transactions to migrate')
+  }
 })
 
 export { db };

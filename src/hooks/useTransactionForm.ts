@@ -56,6 +56,7 @@ export function useTransactionForm(transaction?: Transaction | null) {
         date: transaction.date,
         split: transaction.split,
         parts: transaction.parts,
+        reimbursement: transaction.reimbursement,
       })
     } else if (!transaction && wallets.length > 0) {
       // Creating mode - set defaults with first wallet
