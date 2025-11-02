@@ -1,12 +1,12 @@
-import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
 import { ChartNoAxesCombined, Logs, Wallet } from "lucide-react"
 import { MenuItem } from './MenuItem'
+import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 
 export function AppSidebarMobile() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
-      <div className="flex items-center justify-between gap-2 px-4 py-2">
+      <div className='flex items-center justify-between gap-2 px-4 pt-2 pb-[calc(max(theme(spacing.2),env(safe-area-inset-bottom)))]'>
         <MenuItem to="/dashboard" className="flex-1">
           <ChartNoAxesCombined className="h-6 w-6" />
           <span className="text-xs">Overview</span>

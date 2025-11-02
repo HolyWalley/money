@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
 import type { Category } from '../../shared/schemas/category.schema'
@@ -52,6 +52,8 @@ describe('ExpensesByCategoryChart', () => {
         expensesByCategory={expensesByCategory}
         categories={mockCategories}
         baseCurrency="USD"
+        selectedCategoryId={null}
+        onCategoryClick={vi.fn()}
       />
     )
 
@@ -66,6 +68,8 @@ describe('ExpensesByCategoryChart', () => {
         expensesByCategory={expensesByCategory}
         categories={mockCategories}
         baseCurrency="USD"
+        selectedCategoryId={null}
+        onCategoryClick={vi.fn()}
       />
     )
 
@@ -83,6 +87,8 @@ describe('ExpensesByCategoryChart', () => {
         expensesByCategory={expensesByCategory}
         categories={mockCategories}
         baseCurrency="USD"
+        selectedCategoryId={null}
+        onCategoryClick={vi.fn()}
       />
     )
 
@@ -101,6 +107,8 @@ describe('ExpensesByCategoryChart', () => {
         expensesByCategory={expensesByCategory}
         categories={mockCategories}
         baseCurrency="USD"
+        selectedCategoryId={null}
+        onCategoryClick={vi.fn()}
       />
     )
 

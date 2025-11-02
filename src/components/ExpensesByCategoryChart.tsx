@@ -8,6 +8,8 @@ interface ExpensesByCategoryChartProps {
   expensesByCategory: Map<string, number>
   categories: Category[]
   baseCurrency: string
+  selectedCategoryId: string | null
+  onCategoryClick: (categoryId: string | null) => void
 }
 
 interface ChartDataItem {
@@ -29,7 +31,7 @@ const colorThemes: Record<Category['color'], { light: string; dark: string }> = 
   gray: { light: 'var(--color-gray-700)', dark: 'var(--color-gray-200)' },
 }
 
-export function ExpensesByCategoryChart({ expensesByCategory, categories, baseCurrency }: ExpensesByCategoryChartProps) {
+export function ExpensesByCategoryChart({ expensesByCategory, categories, baseCurrency, selectedCategoryId, onCategoryClick }: ExpensesByCategoryChartProps) {
   const chartData = useMemo<ChartDataItem[]>(() => {
     const data: ChartDataItem[] = []
 
@@ -105,7 +107,14 @@ export function ExpensesByCategoryChart({ expensesByCategory, categories, baseCu
             strokeWidth={2}
           >
             {chartData.map((entry) => (
-              <Cell key={entry.categoryId} fill={`var(--color-${entry.categoryId})`} />
+              <Cell
+                key={entry.categoryId}
+                fill={`var(--color-${entry.categoryId})`}
+                onClick={() => {
+                  onCategoryClick(selectedCategoryId === entry.categoryId ? null : entry.categoryId)
+                }}
+                style={{ cursor: 'pointer' }}
+              />
             ))}
             <Label
               content={({ viewBox }) => {

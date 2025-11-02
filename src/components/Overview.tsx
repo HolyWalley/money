@@ -4,10 +4,12 @@ import { useFilters } from '@/hooks/useFilters'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
 import { getEffectiveAmount } from '@/lib/transaction-utils'
+import { VirtualizedTransactionList } from './transactions/VirtualizedTransactionList'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export function Overview() {
   const wallets = useLiveWallets()
@@ -15,6 +17,8 @@ export function Overview() {
   const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
   const { transactions, isLoading } = useDecoratedTransactions(filters)
   const { user } = useAuth()
+  const isMobile = useIsMobile()
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
   const baseCurrency = user?.settings?.defaultCurrency
 
@@ -52,6 +56,30 @@ export function Overview() {
       expensesByCategory: categoryExpenses,
     }
   }, [transactions])
+
+  const filteredTransactions = useMemo(() => {
+    if (!selectedCategoryId) return []
+    return transactions.filter(t => t.categoryId === selectedCategoryId)
+  }, [transactions, selectedCategoryId])
+
+  useEffect(() => {
+    if (expensesByCategory.size === 0) {
+      setSelectedCategoryId(null)
+      return
+    }
+
+    let maxCategoryId: string | null = null
+    let maxAmount = 0
+
+    expensesByCategory.forEach((amount, categoryId) => {
+      if (amount > maxAmount) {
+        maxAmount = amount
+        maxCategoryId = categoryId
+      }
+    })
+
+    setSelectedCategoryId(maxCategoryId)
+  }, [expensesByCategory])
 
   if (!baseCurrency) {
     return null
@@ -115,7 +143,21 @@ export function Overview() {
             expensesByCategory={expensesByCategory}
             categories={categories.categories}
             baseCurrency={baseCurrency}
+            selectedCategoryId={selectedCategoryId}
+            onCategoryClick={setSelectedCategoryId}
           />
+        )}
+
+        {selectedCategoryId && filteredTransactions.length > 0 && (
+          <div className="h-[400px]">
+            <VirtualizedTransactionList
+              transactions={filteredTransactions}
+              wallets={wallets.wallets}
+              categories={categories.categories}
+              isMobile={isMobile}
+              baseCurrency={baseCurrency}
+            />
+          </div>
         )}
       </div>
     </div>

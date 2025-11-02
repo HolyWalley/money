@@ -127,4 +127,14 @@
   input[type="number"]::-webkit-outer-spin-button {
     @apply appearance-none;
   }
+
+  /* only the safe-area padding if you ever need it */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* pb-20 + safe area, using the Tailwind spacing token */
+  .pb-safe-20 {
+    padding-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0));
+  }
 }

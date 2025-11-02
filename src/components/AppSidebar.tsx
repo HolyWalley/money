@@ -1,12 +1,12 @@
-import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
+import Logo from '@/assets/logo.svg?react'
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
-import { AppSidebarMobile } from './AppSidebarMobile'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { ChartNoAxesCombined, Logs, Wallet } from "lucide-react"
-import { MenuItem } from './MenuItem'
-import { Separator } from "./ui/separator"
-import Logo from '@/assets/logo.svg?react'
 import { Link } from "react-router-dom"
+import { AppSidebarMobile } from './AppSidebarMobile'
+import { MenuItem } from './MenuItem'
+import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
+import { Separator } from "./ui/separator"
 
 export function AppSidebar() {
   const isMobile = useIsMobile()
