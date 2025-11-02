@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { List as VirtualizedList, AutoSizer, type ListRowProps } from 'react-virtualized'
-import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { TransactionDesktopRow } from './TransactionDesktopRow'
 import { TransactionMobileCard } from './TransactionMobileCard'
 import { TransactionDrawer } from './TransactionDrawer'
@@ -9,22 +8,22 @@ import { useAuth } from '@/contexts/AuthContext'
 import { type CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
+import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
 
 interface VirtualizedTransactionListProps {
-  transactions: Transaction[]
+  transactions: DecoratedTransaction[]
   wallets: Wallet[]
   categories: Category[]
   isMobile: boolean
   baseCurrency?: string
-  exchangeRates: Map<string, number>
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, exchangeRates }: VirtualizedTransactionListProps) {
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency }: VirtualizedTransactionListProps) {
+  const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
 
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = (transaction: DecoratedTransaction) => {
     setEditingTransaction(transaction)
     setIsDrawerOpen(true)
   }
@@ -73,8 +72,6 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         onEdit={() => handleEdit(transaction)}
         onDelete={handleDelete}
         style={style}
-        baseCurrency={baseCurrency}
-        exchangeRates={exchangeRates}
       />
     )
   }

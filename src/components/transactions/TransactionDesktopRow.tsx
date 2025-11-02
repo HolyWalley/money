@@ -1,5 +1,4 @@
 import { forwardRef, useState } from 'react'
-import { type Transaction } from '../../../shared/schemas/transaction.schema'
 import { Button } from '@/components/ui/button'
 import { Edit, Trash2 } from 'lucide-react'
 import { CategoryIcon } from '@/components/categories/CategoryIcon'
@@ -12,21 +11,19 @@ import {
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
-import { ExchangeRateService } from '../../../shared/exchange-rates'
+import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
 
 interface TransactionDesktopRowProps {
-  transaction: Transaction
+  transaction: DecoratedTransaction
   wallets: Wallet[]
   categories: Category[]
   onEdit: () => void
   onDelete: (id: string) => void
   style?: React.CSSProperties
-  baseCurrency?: string
-  exchangeRates: Map<string, number>
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, onDelete, style, baseCurrency, exchangeRates }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onDelete, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -55,27 +52,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
       return 'text-foreground'
     }
 
-    const getConvertedAmount = () => {
-      if (!baseCurrency || transaction.currency === baseCurrency) {
-        return null
-      }
-
-      const dateStr = new Date(transaction.date).toISOString().split('T')[0]
-      // We store rates FROM baseCurrency TO transaction.currency
-      // So to convert FROM transaction.currency TO baseCurrency, we need the inverse
-      const cacheKey = ExchangeRateService.createCacheKey(baseCurrency, transaction.currency, dateStr)
-      const rate = exchangeRates.get(cacheKey)
-
-      if (!rate) {
-        return null
-      }
-
-      // Inverse the rate: if 1 PLN = 0.23 EUR, then 1 EUR = 1/0.23 PLN
-      return transaction.amount / rate
-    }
-
     const category = getCategory(transaction.categoryId)
-    const convertedAmount = getConvertedAmount()
 
     return (
       <>
@@ -150,8 +127,8 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           </div>
 
           <div className={`col-span-2 text-right font-medium ${getAmountColor(transaction.transactionType)}`}>
-            {convertedAmount !== null ? (
-              <p>{formatAmount(convertedAmount, transaction.transactionType)}</p>
+            {transaction.amountInBaseCurrency !== null ? (
+              <p>{formatAmount(transaction.amountInBaseCurrency, transaction.transactionType)}</p>
             ) : (
               <p className="text-muted-foreground">-</p>
             )}
