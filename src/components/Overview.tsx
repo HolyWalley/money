@@ -6,6 +6,7 @@ import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMemo } from 'react'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
+import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
 
 export function Overview() {
   const wallets = useLiveWallets()
@@ -16,9 +17,10 @@ export function Overview() {
 
   const baseCurrency = user?.settings?.defaultCurrency
 
-  const { totalIncome, totalExpense, cashFlow } = useMemo(() => {
+  const { totalIncome, totalExpense, cashFlow, expensesByCategory } = useMemo(() => {
     let income = 0
     let expense = 0
+    const categoryExpenses = new Map<string, number>()
 
     transactions.forEach(t => {
       if (t.amountInBaseCurrency === null) return
@@ -29,6 +31,12 @@ export function Overview() {
         income += t.amountInBaseCurrency
       } else if (t.transactionType === 'expense') {
         expense += t.amountInBaseCurrency
+
+        // Track expenses by category
+        if (t.categoryId) {
+          const current = categoryExpenses.get(t.categoryId) || 0
+          categoryExpenses.set(t.categoryId, current + t.amountInBaseCurrency)
+        }
       }
       // Skip transfers - they don't affect total income/expense
     })
@@ -37,6 +45,7 @@ export function Overview() {
       totalIncome: income,
       totalExpense: expense,
       cashFlow: income - expense,
+      expensesByCategory: categoryExpenses,
     }
   }, [transactions])
 
@@ -68,7 +77,7 @@ export function Overview() {
         />
       </div>
 
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 space-y-4">
         <div className="border rounded-lg p-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -96,6 +105,14 @@ export function Overview() {
             </div>
           </div>
         </div>
+
+        {expensesByCategory.size > 0 && (
+          <ExpensesByCategoryChart
+            expensesByCategory={expensesByCategory}
+            categories={categories.categories}
+            baseCurrency={baseCurrency}
+          />
+        )}
       </div>
     </div>
   )
