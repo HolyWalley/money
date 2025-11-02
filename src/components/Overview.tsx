@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useMemo } from 'react'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
+import { getEffectiveAmount } from '@/lib/transaction-utils'
 
 export function Overview() {
   const wallets = useLiveWallets()
@@ -30,12 +31,15 @@ export function Overview() {
         if (t.reimbursement) return
         income += t.amountInBaseCurrency
       } else if (t.transactionType === 'expense') {
-        expense += t.amountInBaseCurrency
+        const effectiveAmount = getEffectiveAmount(t)
+        if (effectiveAmount === null) return
+
+        expense += effectiveAmount
 
         // Track expenses by category
         if (t.categoryId) {
           const current = categoryExpenses.get(t.categoryId) || 0
-          categoryExpenses.set(t.categoryId, current + t.amountInBaseCurrency)
+          categoryExpenses.set(t.categoryId, current + effectiveAmount)
         }
       }
       // Skip transfers - they don't affect total income/expense
