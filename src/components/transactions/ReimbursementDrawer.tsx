@@ -17,7 +17,7 @@ export function ReimbursementDrawer() {
   return <div className="flex items-center justify-between min-h-8">
     <FormField
       control={form.control}
-      name="split"
+      name="reimbursement"
       render={({ field }) => (
         <FormItem className="flex flex-row items-center gap-2">
           <FormControl>
