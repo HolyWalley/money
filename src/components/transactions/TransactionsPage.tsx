@@ -8,9 +8,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
+import { QuickFilterChips } from './QuickFilterChips'
 
 function TransactionsPageContent() {
-  const { effectiveFilters, updateBaseFilters, isLoading: filtersLoading } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter, isLoading: filtersLoading } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
@@ -27,6 +28,22 @@ function TransactionsPageContent() {
     updateBaseFilters(newFilters)
   }
 
+  const handleWalletClick = (walletId: string, walletName: string) => {
+    toggleQuickFilter({
+      type: 'wallet',
+      value: walletId,
+      label: walletName,
+    })
+  }
+
+  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+    toggleQuickFilter({
+      type: 'category',
+      value: categoryId,
+      label: categoryName,
+    })
+  }
+
   return (
     <div className="container mx-auto h-full flex flex-col">
       <div className="mb-4 flex-shrink-0 px-4 pt-4">
@@ -37,6 +54,12 @@ function TransactionsPageContent() {
         />
       </div>
 
+      <QuickFilterChips
+        quickFilters={quickFilters}
+        onRemove={removeQuickFilter}
+        onClearAll={clearQuickFilters}
+      />
+
       <div className="flex-1 min-h-0 px-4 pb-4">
         <VirtualizedTransactionList
           wallets={wallets.wallets}
@@ -44,6 +67,8 @@ function TransactionsPageContent() {
           transactions={transactions}
           isMobile={isMobile}
           baseCurrency={baseCurrency}
+          onWalletClick={handleWalletClick}
+          onCategoryClick={handleCategoryClick}
         />
       </div>
     </div>

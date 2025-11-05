@@ -10,11 +10,13 @@ interface TransactionMobileCardProps {
   wallets: Wallet[]
   categories: Category[]
   onEdit: () => void
+  onWalletClick?: (walletId: string, walletName: string) => void
+  onCategoryClick?: (categoryId: string, categoryName: string) => void
   style?: React.CSSProperties
 }
 
 export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobileCardProps>(
-  ({ transaction, wallets, categories, onEdit, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onWalletClick, onCategoryClick, style }, ref) => {
 
     const category = useMemo(() => {
       return categories.find(c => c._id === transaction.categoryId)
@@ -52,28 +54,59 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
     }
 
     return (
-      <div ref={ref} style={style} className="px-4" onClick={onEdit}>
+      <div ref={ref} style={style} className="px-4">
         <div className="flex items-center gap-3 py-3 border-b border-border/50">
           {/* Left: Icon + Category */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (category) {
+                onCategoryClick?.(category._id, category.name)
+              }
+            }}
+            className="flex items-center gap-2 flex-shrink-0 cursor-pointer"
+          >
             <div className="w-10 h-10 flex items-center justify-center">
               {getCategoryIcon()}
             </div>
-          </div>
+          </button>
 
           {/* Middle: Transaction details */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" onClick={onEdit}>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             </div>
 
             <div className="text-sm text-muted-foreground truncate">
-              <span className="truncate">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const wallet = wallets.find(w => w._id === transaction.walletId)
+                  if (wallet) {
+                    onWalletClick?.(wallet._id, wallet.name)
+                  }
+                }}
+                className="cursor-pointer"
+              >
                 {getWalletName(transaction.walletId)}
-                {transaction.toWalletId && (
-                  <span> → {getWalletName(transaction.toWalletId)}</span>
-                )}
-              </span>
+              </button>
+              {transaction.toWalletId && (
+                <>
+                  <span> → </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const wallet = wallets.find(w => w._id === transaction.toWalletId)
+                      if (wallet) {
+                        onWalletClick?.(wallet._id, wallet.name)
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {getWalletName(transaction.toWalletId)}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

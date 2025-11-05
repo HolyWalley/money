@@ -16,9 +16,11 @@ interface VirtualizedTransactionListProps {
   categories: Category[]
   isMobile: boolean
   baseCurrency?: string
+  onWalletClick?: (walletId: string, walletName: string) => void
+  onCategoryClick?: (categoryId: string, categoryName: string) => void
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency }: VirtualizedTransactionListProps) {
+export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -61,6 +63,8 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         wallets={wallets}
         categories={categories}
         onEdit={() => handleEdit(transaction)}
+        onWalletClick={onWalletClick}
+        onCategoryClick={onCategoryClick}
         style={style}
       />
     ) : (
@@ -71,6 +75,8 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         categories={categories}
         onEdit={() => handleEdit(transaction)}
         onDelete={handleDelete}
+        onWalletClick={onWalletClick}
+        onCategoryClick={onCategoryClick}
         style={style}
       />
     )

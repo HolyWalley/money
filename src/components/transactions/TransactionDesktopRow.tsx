@@ -19,11 +19,13 @@ interface TransactionDesktopRowProps {
   categories: Category[]
   onEdit: () => void
   onDelete: (id: string) => void
+  onWalletClick?: (walletId: string, walletName: string) => void
+  onCategoryClick?: (categoryId: string, categoryName: string) => void
   style?: React.CSSProperties
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, onDelete, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -63,14 +65,20 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
         >
           <div className="col-span-2 flex items-center gap-2">
             {category ? (
-              <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCategoryClick?.(category._id, category.name)
+                }}
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <CategoryIcon
                   icon={category.icon}
                   color={category.color}
                   size="sm"
                 />
                 <span className="text-sm truncate">{category.name}</span>
-              </>
+              </button>
             ) : (
               <span className="text-sm text-muted-foreground">-</span>
             )}
@@ -92,11 +100,28 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           </div>
 
           <div className="col-span-2 text-sm truncate">
-            {getWalletName(transaction.walletId)}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onWalletClick?.(transaction.walletId, getWalletName(transaction.walletId))
+              }}
+              className="cursor-pointer"
+            >
+              {getWalletName(transaction.walletId)}
+            </button>
             {transaction.toWalletId && (
-              <span className="text-muted-foreground">
-                {' → '}{getWalletName(transaction.toWalletId)}
-              </span>
+              <>
+                <span className="text-muted-foreground">{' → '}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onWalletClick?.(transaction.toWalletId!, getWalletName(transaction.toWalletId!))
+                  }}
+                  className="text-muted-foreground cursor-pointer"
+                >
+                  {getWalletName(transaction.toWalletId)}
+                </button>
+              </>
             )}
           </div>
 

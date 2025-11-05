@@ -11,9 +11,10 @@ import { VirtualizedTransactionList } from './transactions/VirtualizedTransactio
 import { useIsMobile } from '@/hooks/use-mobile'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
+import { QuickFilterChips } from './transactions/QuickFilterChips'
 
 function OverviewContent() {
-  const { effectiveFilters, updateBaseFilters, isLoading: filtersLoading } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter, isLoading: filtersLoading } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
@@ -104,6 +105,22 @@ function OverviewContent() {
     updateBaseFilters(newFilters)
   }
 
+  const handleWalletClick = (walletId: string, walletName: string) => {
+    toggleQuickFilter({
+      type: 'wallet',
+      value: walletId,
+      label: walletName,
+    })
+  }
+
+  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+    toggleQuickFilter({
+      type: 'category',
+      value: categoryId,
+      label: categoryName,
+    })
+  }
+
   return (
     <div className="container mx-auto h-full flex flex-col">
       <div className="mb-4 flex-shrink-0 px-4 pt-4">
@@ -113,6 +130,12 @@ function OverviewContent() {
           subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
         />
       </div>
+
+      <QuickFilterChips
+        quickFilters={quickFilters}
+        onRemove={removeQuickFilter}
+        onClearAll={clearQuickFilters}
+      />
 
       <div className="px-4 pb-4 space-y-4">
         <div className="border rounded-lg p-4">
@@ -161,6 +184,8 @@ function OverviewContent() {
               categories={categories.categories}
               isMobile={isMobile}
               baseCurrency={baseCurrency}
+              onWalletClick={handleWalletClick}
+              onCategoryClick={handleCategoryClick}
             />
           </div>
         )}

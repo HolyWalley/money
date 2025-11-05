@@ -6,9 +6,12 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DatePicker } from './DatePicker'
 import { FilterCheckboxList } from './FilterCheckboxList'
+import { useFilterContext } from '@/contexts/FilterContext'
 import type { TransactionFilters, PeriodFilter, PeriodType } from '@/hooks/useLiveTransactions'
 
 interface FiltersDrawerProps {
@@ -22,6 +25,7 @@ interface FiltersDrawerProps {
 export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange }: FiltersDrawerProps) {
   const { categories } = useLiveCategories()
   const { wallets } = useLiveWallets()
+  const { quickFilters, clearQuickFilters, hasQuickFilters } = useFilterContext()
   const transactionTypes = useMemo(() => [{ _id: 'income', name: 'Income' }, { _id: 'expense', name: 'Expense' }, { _id: 'transfer', name: 'Transfer' }], [])
 
   // Period state
@@ -209,6 +213,35 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
             Filter transactions by period, categories, and wallets
           </DrawerDescription>
         </DrawerHeader>
+
+        {hasQuickFilters && (
+          <div className="px-4 pb-4 pt-2">
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+              <Info className="w-4 h-4 mt-0.5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Quick filters active</p>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-0.5">
+                  You have temporary quick filters applied. These override your base filters and won't be saved.
+                </p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {quickFilters.map(f => (
+                    <Badge key={f.id} variant="outline" className="text-xs">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearQuickFilters}
+                className="h-7 text-xs flex-shrink-0"
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue="period" className="w-full">
           <div className="px-4 pb-2">
