@@ -4,29 +4,34 @@ import { VirtualizedTransactionList } from './VirtualizedTransactionList'
 import { PeriodFilter } from './PeriodFilter'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
-import { useFilters } from '@/hooks/useFilters'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
+import { FilterProvider } from '@/contexts/FilterProvider'
+import { useFilterContext } from '@/contexts/FilterContext'
 
-export function TransactionsPage() {
-  const wallets = useLiveWallets()
-  const categories = useLiveCategories()
-  const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
-  const { transactions, isLoading } = useDecoratedTransactions(filters)
+function TransactionsPageContent() {
+  const { effectiveFilters, updateBaseFilters, isLoading: filtersLoading } = useFilterContext()
+  const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
+  const wallets = useLiveWallets()
+  const categories = useLiveCategories()
 
   const baseCurrency = user?.settings?.defaultCurrency
 
-  if (isLoading || filters.isLoading) {
+  if (isLoading || filtersLoading) {
     return null
+  }
+
+  const handleFiltersChange = (newFilters: TransactionFilters) => {
+    updateBaseFilters(newFilters)
   }
 
   return (
     <div className="container mx-auto h-full flex flex-col">
       <div className="mb-4 flex-shrink-0 px-4 pt-4">
         <PeriodFilter
-          filters={filters}
+          filters={effectiveFilters}
           onFiltersChange={handleFiltersChange}
           subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
         />
@@ -42,5 +47,16 @@ export function TransactionsPage() {
         />
       </div>
     </div>
+  )
+}
+
+export function TransactionsPage() {
+  const wallets = useLiveWallets()
+  const categories = useLiveCategories()
+
+  return (
+    <FilterProvider page="transactions" wallets={wallets} categories={categories}>
+      <TransactionsPageContent />
+    </FilterProvider>
   )
 }

@@ -1,6 +1,5 @@
 import { type TransactionFilters } from '@/hooks/useLiveTransactions'
 import { PeriodFilter } from './transactions/PeriodFilter'
-import { useFilters } from '@/hooks/useFilters'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useAuth } from '@/contexts/AuthContext'
@@ -10,14 +9,16 @@ import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
 import { getEffectiveAmount } from '@/lib/transaction-utils'
 import { VirtualizedTransactionList } from './transactions/VirtualizedTransactionList'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { FilterProvider } from '@/contexts/FilterProvider'
+import { useFilterContext } from '@/contexts/FilterContext'
 
-export function Overview() {
-  const wallets = useLiveWallets()
-  const categories = useLiveCategories()
-  const [filters, handleFiltersChange] = useFilters({ wallets, categories }) as [TransactionFilters, (filters: TransactionFilters) => void]
-  const { transactions, isLoading } = useDecoratedTransactions(filters)
+function OverviewContent() {
+  const { effectiveFilters, updateBaseFilters, isLoading: filtersLoading } = useFilterContext()
+  const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
+  const wallets = useLiveWallets()
+  const categories = useLiveCategories()
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
   const baseCurrency = user?.settings?.defaultCurrency
@@ -85,7 +86,7 @@ export function Overview() {
     return null
   }
 
-  if (isLoading || filters.isLoading) {
+  if (isLoading || filtersLoading) {
     return null
   }
 
@@ -99,11 +100,15 @@ export function Overview() {
     return 'text-foreground'
   }
 
+  const handleFiltersChange = (newFilters: TransactionFilters) => {
+    updateBaseFilters(newFilters)
+  }
+
   return (
     <div className="container mx-auto h-full flex flex-col">
       <div className="mb-4 flex-shrink-0 px-4 pt-4">
         <PeriodFilter
-          filters={filters}
+          filters={effectiveFilters}
           onFiltersChange={handleFiltersChange}
           subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
         />
@@ -161,5 +166,16 @@ export function Overview() {
         )}
       </div>
     </div>
+  )
+}
+
+export function Overview() {
+  const wallets = useLiveWallets()
+  const categories = useLiveCategories()
+
+  return (
+    <FilterProvider page="overview" wallets={wallets} categories={categories}>
+      <OverviewContent />
+    </FilterProvider>
   )
 }
