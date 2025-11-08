@@ -12,9 +12,10 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { QuickFilterChips } from './transactions/QuickFilterChips'
+import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 
 function OverviewContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter, isLoading: filtersLoading } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
@@ -83,11 +84,13 @@ function OverviewContent() {
     setSelectedCategoryId(maxCategoryId)
   }, [expensesByCategory])
 
-  if (!baseCurrency) {
+  const initiallyLoaded = useInitiallyLoaded(isLoading)
+
+  if (!initiallyLoaded) {
     return null
   }
 
-  if (isLoading || filtersLoading) {
+  if (!baseCurrency) {
     return null
   }
 

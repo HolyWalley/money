@@ -1,26 +1,28 @@
-import { type TransactionFilters } from '@/hooks/useLiveTransactions'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { VirtualizedTransactionList } from './VirtualizedTransactionList'
-import { PeriodFilter } from './PeriodFilter'
-import { useLiveWallets } from '@/hooks/useLiveWallets'
-import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useAuth } from '@/contexts/AuthContext'
-import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
-import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
+import { FilterProvider } from '@/contexts/FilterProvider'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
+import { useLiveCategories } from '@/hooks/useLiveCategories'
+import { type TransactionFilters } from '@/hooks/useLiveTransactions'
+import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
+import { VirtualizedTransactionList } from './VirtualizedTransactionList'
+import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 
 function TransactionsPageContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter, isLoading: filtersLoading } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
+  const initiallyLoaded = useInitiallyLoaded(isLoading)
 
   const baseCurrency = user?.settings?.defaultCurrency
 
-  if (isLoading || filtersLoading) {
+  if (!initiallyLoaded) {
     return null
   }
 

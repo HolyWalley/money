@@ -21,7 +21,7 @@ export function useExchangeRates({
   endDate,
 }: UseExchangeRatesParams): UseExchangeRatesResult {
   const [rates, setRates] = useState<Map<string, number>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const targetCurrenciesKey = useMemo(
@@ -40,9 +40,6 @@ export function useExchangeRates({
 
   useEffect(() => {
     if (!baseCurrency || !startDateStr || !endDateStr || !targetCurrenciesKey) {
-      setRates(new Map());
-      setIsLoading(false);
-      setError(null);
       return;
     }
 
@@ -60,16 +57,6 @@ export function useExchangeRates({
           endDate!
         );
         setRates(fetchedRates);
-        console.log('Fetched exchange rates:', {
-          baseCurrency,
-          targetCurrencies: targetCurrenciesSorted,
-          dateRange: {
-            start: startDateStr,
-            end: endDateStr,
-          },
-          ratesCount: fetchedRates.size,
-          rates: Object.fromEntries(fetchedRates),
-        });
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to fetch exchange rates');
         setError(error);
