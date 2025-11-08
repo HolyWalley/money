@@ -90,8 +90,29 @@ class WalletService {
     }
   }
 
+  async getWalletTransactionCount(id: string): Promise<number> {
+    try {
+      return await db.transactions
+        .filter(tx => tx.walletId === id || tx.toWalletId === id)
+        .count()
+    } catch (error) {
+      console.error('Error getting wallet transaction count:', error)
+      throw error
+    }
+  }
+
   async deleteWallet(id: string): Promise<void> {
     try {
+      const { deleteTransaction } = await import('../lib/crdts')
+
+      const transactions = await db.transactions
+        .filter(tx => tx.walletId === id || tx.toWalletId === id)
+        .toArray()
+
+      for (const transaction of transactions) {
+        deleteTransaction(transaction._id)
+      }
+
       deleteWallet(id)
     } catch (error) {
       console.error('Error deleting wallet:', error)

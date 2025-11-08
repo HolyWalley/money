@@ -38,7 +38,9 @@ export function WalletList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null)
+  const [transactionCount, setTransactionCount] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCheckingTransactions, setIsCheckingTransactions] = useState(false)
   const [localWallets, setLocalWallets] = useState<WalletType[]>([])
 
   const sensors = useSensors(
@@ -61,6 +63,17 @@ export function WalletList() {
   useEffect(() => {
     setLocalWallets(wallets)
   }, [wallets])
+
+  // Fetch transaction count when wallet is selected for deletion
+  useEffect(() => {
+    if (walletToDelete) {
+      setIsCheckingTransactions(true)
+      walletService.getWalletTransactionCount(walletToDelete._id)
+        .then(count => setTransactionCount(count))
+        .catch(err => console.error('Failed to get transaction count:', err))
+        .finally(() => setIsCheckingTransactions(false))
+    }
+  }, [walletToDelete])
 
   const handleEdit = (wallet: WalletType) => {
     setSelectedWallet(wallet)
@@ -194,18 +207,30 @@ export function WalletList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Wallet</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{walletToDelete?.name}"? This action cannot be undone.
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <span className="font-semibold">"{walletToDelete?.name}"</span>?
+              </p>
+              {isCheckingTransactions ? (
+                <p className="text-muted-foreground">Checking transactions...</p>
+              ) : transactionCount > 0 ? (
+                <p className="text-destructive font-semibold">
+                  ⚠ Warning: This will also delete {transactionCount} transaction{transactionCount === 1 ? '' : 's'} associated with this wallet.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">This wallet has no transactions.</p>
+              )}
+              <p className="text-sm">This action cannot be undone.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={isDeleting || isCheckingTransactions}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'Deleting...' : 'Delete Wallet & Transactions'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

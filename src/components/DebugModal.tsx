@@ -257,14 +257,14 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Debug Information</DialogTitle>
           <DialogDescription>
             Useful information for debugging and development
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 overflow-y-auto pr-2">
           {loading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
