@@ -62,39 +62,6 @@ db.version(4).stores({
   categories: '_id,name,type,order,createdAt,updatedAt',
   wallets: '_id,name,type,createdAt,updatedAt,currency,order',
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
-}).upgrade(async tx => {
-  // Convert category dates
-  await tx.table('categories').toCollection().modify(category => {
-    if (typeof category.createdAt === 'string') {
-      category.createdAt = new Date(category.createdAt);
-    }
-    if (typeof category.updatedAt === 'string') {
-      category.updatedAt = new Date(category.updatedAt);
-    }
-  });
-
-  // Convert wallet dates
-  await tx.table('wallets').toCollection().modify(wallet => {
-    if (typeof wallet.createdAt === 'string') {
-      wallet.createdAt = new Date(wallet.createdAt);
-    }
-    if (typeof wallet.updatedAt === 'string') {
-      wallet.updatedAt = new Date(wallet.updatedAt);
-    }
-  });
-
-  // Convert transaction dates
-  await tx.table('transactions').toCollection().modify(transaction => {
-    if (typeof transaction.date === 'string') {
-      transaction.date = new Date(transaction.date);
-    }
-    if (typeof transaction.createdAt === 'string') {
-      transaction.createdAt = new Date(transaction.createdAt);
-    }
-    if (typeof transaction.updatedAt === 'string') {
-      transaction.updatedAt = new Date(transaction.updatedAt);
-    }
-  });
 });
 
 // Version 5: Adds transfer categories and assign default (misc) to all transfer transactions
@@ -102,41 +69,7 @@ db.version(5).stores({
   categories: '_id,name,type,order,createdAt,updatedAt',
   wallets: '_id,name,type,createdAt,updatedAt,currency,order',
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
-}).upgrade(async tx => {
-  const miscCategoryId = 'default-transfer-misc'
-  const existingCategory = await tx.table('categories').get(miscCategoryId)
-
-  if (!existingCategory) {
-    const now = new Date()
-
-    addCategoryWithId({
-      _id: miscCategoryId,
-      name: 'Misc',
-      type: 'transfer',
-      icon: 'Shapes',
-      color: 'gray',
-      isDefault: true,
-      order: 0,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
-    })
-  }
-
-  // Find transactions that need updating
-  const transfersWithoutCategory = await tx.table('transactions')
-    .filter(t => t.transactionType === 'transfer' && !t.categoryId)
-    .toArray()
-
-  // Update via CRDTs after migration completes
-  if (transfersWithoutCategory.length > 0) {
-    import('./crdts').then(({ updateTransaction }) => {
-      transfersWithoutCategory.forEach(transaction => {
-        console.log(`Updating transaction ${transaction._id} via CRDT`)
-        updateTransaction(transaction._id, { categoryId: miscCategoryId })
-      })
-    })
-  }
-})
+});
 
 // Version 6: Add exchangeRates table for exchange rate caching
 db.version(6).stores({
@@ -152,12 +85,6 @@ db.version(7).stores({
   wallets: '_id,name,type,createdAt,updatedAt,currency,order',
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
   exchangeRates: 'key,from,to,date,expiresAt',
-}).upgrade(async tx => {
-  await tx.table('exchangeRates').toCollection().modify(record => {
-    if (record.expiresAt === undefined) {
-      record.expiresAt = null;
-    }
-  });
 })
 
 // Version 8: Migrate split field to reimbursement field
@@ -166,31 +93,7 @@ db.version(8).stores({
   wallets: '_id,name,type,createdAt,updatedAt,currency,order',
   transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt',
   exchangeRates: 'key,from,to,date,expiresAt',
-}).upgrade(async tx => {
-  console.log('[Migration v8] Starting split to reimbursement migration')
-
-  const transactionsWithSplit = await tx.table('transactions')
-    .filter(t => t.split === true)
-    .toArray()
-
-  console.log(`[Migration v8] Found ${transactionsWithSplit.length} transactions with split=true`)
-
-  if (transactionsWithSplit.length > 0) {
-    import('./crdts').then(({ updateTransaction }) => {
-      console.log(`[Migration v8] Updating ${transactionsWithSplit.length} transactions via CRDT`)
-      transactionsWithSplit.forEach(transaction => {
-        console.log(`[Migration v8] Migrating transaction ${transaction._id} from split to reimbursement`)
-        updateTransaction(transaction._id, {
-          reimbursement: true,
-          split: undefined
-        })
-      })
-      console.log('[Migration v8] Migration complete')
-    })
-  } else {
-    console.log('[Migration v8] No transactions to migrate')
-  }
-})
+});
 
 export { db };
 export type { DexieCategory, DexieWallet, DexieTransaction };
