@@ -54,8 +54,43 @@ class CategoryService {
     }
   }
 
+  async getCategoryTransactionCount(id: string): Promise<number> {
+    try {
+      const { db } = await import('../lib/db-dexie')
+      return await db.transactions.where('categoryId').equals(id).count()
+    } catch (error) {
+      console.error('Error getting category transaction count:', error)
+      throw error
+    }
+  }
+
+  async reassignCategoryTransactions(fromCategoryId: string, toCategoryId: string): Promise<void> {
+    try {
+      const { updateTransaction: updateTransactionCrdt } = await import('../lib/crdts')
+      const { db } = await import('../lib/db-dexie')
+
+      const transactions = await db.transactions
+        .where('categoryId')
+        .equals(fromCategoryId)
+        .toArray()
+
+      for (const transaction of transactions) {
+        updateTransactionCrdt(transaction._id, { categoryId: toCategoryId })
+      }
+    } catch (error) {
+      console.error('Error reassigning category transactions:', error)
+      throw error
+    }
+  }
+
   async deleteCategory(id: string): Promise<void> {
     try {
+      const transactionCount = await this.getCategoryTransactionCount(id)
+
+      if (transactionCount > 0) {
+        throw new Error(`Cannot delete category: ${transactionCount} transaction${transactionCount === 1 ? '' : 's'} still use this category`)
+      }
+
       const existsInYjs = categories.has(id)
 
       if (existsInYjs) {

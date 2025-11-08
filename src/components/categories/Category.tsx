@@ -17,6 +17,7 @@ import {
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { IconColorSelector } from './IconColorSelector'
 import { CategoryIcon } from './CategoryIcon'
+import { CategoryReassignmentDialog } from './CategoryReassignmentDialog'
 import type { CategoryColor } from '@/lib/categoryIcons'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -24,17 +25,21 @@ import { categoryService } from '@/services/categoryService'
 
 interface CategoryProps {
   category: CategoryType
+  allCategories: CategoryType[]
   startInEditMode?: boolean
   onEditComplete?: () => void
-  onDelete?: (categoryId: string) => void
+  onDelete?: (categoryId: string, newCategoryId?: string) => Promise<void>
 }
 
-export function Category({ category, startInEditMode = false, onEditComplete, onDelete }: CategoryProps) {
+export function Category({ category, allCategories, startInEditMode = false, onEditComplete, onDelete }: CategoryProps) {
   const [isEditingName, setIsEditingName] = useState(startInEditMode)
   const [editedName, setEditedName] = useState(category.name)
   const [isIconPopoverOpen, setIsIconPopoverOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showReassignDialog, setShowReassignDialog] = useState(false)
+  const [transactionCount, setTransactionCount] = useState(0)
+  const [isCheckingTransactions, setIsCheckingTransactions] = useState(false)
 
   const {
     attributes,
@@ -105,6 +110,49 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
       console.error('Failed to update category color:', error)
     }
   }
+
+  const handleDeleteClick = async () => {
+    if (!onDelete) return
+
+    setIsCheckingTransactions(true)
+    try {
+      const count = await categoryService.getCategoryTransactionCount(category._id)
+      setTransactionCount(count)
+
+      if (count > 0) {
+        setShowReassignDialog(true)
+      } else {
+        setShowDeleteConfirm(true)
+      }
+    } catch (error) {
+      console.error('Failed to check transaction count:', error)
+    } finally {
+      setIsCheckingTransactions(false)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return
+    try {
+      await onDelete(category._id)
+    } catch (error) {
+      console.error('Failed to delete category:', error)
+    }
+  }
+
+  const handleReassignAndDelete = async (newCategoryId: string) => {
+    if (!onDelete) return
+    try {
+      await onDelete(category._id, newCategoryId)
+      setShowReassignDialog(false)
+    } catch (error) {
+      console.error('Failed to reassign and delete category:', error)
+    }
+  }
+
+  const availableCategories = allCategories.filter(
+    cat => cat._id !== category._id && cat.type === category.type
+  )
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -203,7 +251,8 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleDeleteClick}
+              disabled={isCheckingTransactions}
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
@@ -219,7 +268,16 @@ export function Category({ category, startInEditMode = false, onEditComplete, on
         description={`Are you sure you want to delete "${category.name}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
-        onConfirm={() => onDelete?.(category._id)}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <CategoryReassignmentDialog
+        open={showReassignDialog}
+        onOpenChange={setShowReassignDialog}
+        category={category}
+        availableCategories={availableCategories}
+        transactionCount={transactionCount}
+        onConfirm={handleReassignAndDelete}
       />
     </div>
   )

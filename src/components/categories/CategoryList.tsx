@@ -19,15 +19,16 @@ import { Plus } from 'lucide-react'
 
 interface CategoryListProps {
   categories: CategoryType[]
+  allCategories: CategoryType[]
   title: string
   onReorder?: (activeId: string, overId: string) => void
   onAddCategory?: () => void
-  onDeleteCategory?: (categoryId: string) => void
+  onDeleteCategory?: (categoryId: string, newCategoryId?: string) => Promise<void>
   newCategoryId?: string | null
   onClearNewCategoryId?: () => void
 }
 
-export function CategoryList({ categories, title, onReorder, onAddCategory, onDeleteCategory, newCategoryId, onClearNewCategoryId }: CategoryListProps) {
+export function CategoryList({ categories, allCategories, title, onReorder, onAddCategory, onDeleteCategory, newCategoryId, onClearNewCategoryId }: CategoryListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -67,6 +68,7 @@ export function CategoryList({ categories, title, onReorder, onAddCategory, onDe
               <Category
                 key={category._id}
                 category={category}
+                allCategories={allCategories}
                 startInEditMode={category._id === newCategoryId}
                 onEditComplete={category._id === newCategoryId ? onClearNewCategoryId : undefined}
                 onDelete={onDeleteCategory}

@@ -38,6 +38,11 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
       };
     };
   } | null>(null)
+  const [localDbInfo, setLocalDbInfo] = useState<{
+    orphanedTransactions: Array<{ _id: string; categoryId: string; amount: number; date: Date }>;
+    totalTransactions: number;
+    totalCategories: number;
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [uploadResult, setUploadResult] = useState<string | null>(null)
   const [debugMessage, setDebugMessage] = useState<string | null>(null)
@@ -47,14 +52,18 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     if (open) {
       setLoading(true)
       setError(null)
-      
-      apiClient.getDebugInfo()
-        .then(response => {
-          if (response.ok && response.data) {
-            setDebugInfo(response.data)
+
+      Promise.all([
+        apiClient.getDebugInfo(),
+        checkLocalDatabase()
+      ])
+        .then(([remoteResponse, localInfo]) => {
+          if (remoteResponse.ok && remoteResponse.data) {
+            setDebugInfo(remoteResponse.data)
           } else {
-            setError(response.error || 'Failed to fetch debug information')
+            setError(remoteResponse.error || 'Failed to fetch debug information')
           }
+          setLocalDbInfo(localInfo)
         })
         .catch(err => {
           console.error('Failed to fetch debug info:', err)
@@ -65,6 +74,36 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
         })
     }
   }, [open])
+
+  const checkLocalDatabase = async () => {
+    try {
+      const [transactions, categories] = await Promise.all([
+        moneyDb.transactions.toArray(),
+        moneyDb.categories.toArray()
+      ])
+
+      const categoryIds = new Set(categories.map(cat => cat._id))
+      const orphaned = transactions.filter(tx => tx.categoryId && !categoryIds.has(tx.categoryId))
+
+      return {
+        orphanedTransactions: orphaned.map(tx => ({
+          _id: tx._id,
+          categoryId: tx.categoryId,
+          amount: tx.amount,
+          date: tx.date
+        })),
+        totalTransactions: transactions.length,
+        totalCategories: categories.length
+      }
+    } catch (err) {
+      console.error('Failed to check local database:', err)
+      return {
+        orphanedTransactions: [],
+        totalTransactions: 0,
+        totalCategories: 0
+      }
+    }
+  }
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B'
@@ -247,6 +286,49 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           {debugMessage && (
             <div className="text-sm text-blue-600 whitespace-pre-line">
               {debugMessage}
+            </div>
+          )}
+
+          {localDbInfo && !loading && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Local Database</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Total Transactions:</span>
+                    <span className="font-mono">{localDbInfo.totalTransactions}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Total Categories:</span>
+                    <span className="font-mono">{localDbInfo.totalCategories}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">Orphaned Transactions:</span>
+                    <span className={`font-mono ${localDbInfo.orphanedTransactions.length > 0 ? 'text-destructive font-semibold' : 'text-green-600'}`}>
+                      {localDbInfo.orphanedTransactions.length}
+                    </span>
+                  </div>
+                  {localDbInfo.orphanedTransactions.length > 0 && (
+                    <div className="mt-2 p-2 bg-destructive/10 rounded border border-destructive/20">
+                      <p className="text-xs text-destructive font-medium mb-1">
+                        ⚠ Found {localDbInfo.orphanedTransactions.length} transaction{localDbInfo.orphanedTransactions.length === 1 ? '' : 's'} referencing deleted categories
+                      </p>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {localDbInfo.orphanedTransactions.slice(0, 5).map(tx => (
+                          <div key={tx._id} className="text-xs text-muted-foreground font-mono">
+                            {tx.date.toLocaleDateString()}: ${tx.amount.toFixed(2)} → categoryId: {tx.categoryId.substring(0, 8)}...
+                          </div>
+                        ))}
+                        {localDbInfo.orphanedTransactions.length > 5 && (
+                          <div className="text-xs text-muted-foreground italic">
+                            ...and {localDbInfo.orphanedTransactions.length - 5} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
