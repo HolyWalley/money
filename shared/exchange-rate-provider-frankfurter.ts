@@ -43,12 +43,12 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     const dateStr = this.formatDate(date);
     const todayStr = this.formatDate(new Date());
 
-    // Past dates with real data never expire
-    if (dateStr < todayStr && hasRealData) {
+    // Past dates never expire, regardless of whether they're forward-filled
+    if (dateStr < todayStr) {
       return null;
     }
 
-    // For today or forward-filled past dates
+    // For today
     if (dateStr === todayStr) {
       const now = new Date();
       const nowCET = this.convertToCET(now);
