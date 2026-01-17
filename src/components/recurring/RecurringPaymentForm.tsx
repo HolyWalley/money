@@ -37,10 +37,16 @@ const DAY_OF_WEEK_OPTIONS = [
   { value: '6', label: 'Saturday' },
 ]
 
+function getOrdinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return s[(v - 20) % 10] || s[v] || s[0]
+}
+
 const DAY_OF_MONTH_OPTIONS = [
   ...Array.from({ length: 31 }, (_, i) => ({
     value: String(i + 1),
-    label: String(i + 1),
+    label: `${i + 1}${getOrdinalSuffix(i + 1)}`,
   })),
   { value: '-1', label: 'Last day' },
 ]
@@ -50,54 +56,15 @@ export function RecurringPaymentForm() {
   const frequency = form.watch('frequency')
   const hasEndDate = form.watch('hasEndDate')
 
-  const getIntervalLabel = () => {
-    switch (frequency) {
-      case 'daily':
-        return 'days'
-      case 'weekly':
-        return 'weeks'
-      case 'monthly':
-        return 'months'
-      case 'yearly':
-        return 'years'
-      default:
-        return 'periods'
-    }
-  }
-
   return (
     <div className="space-y-4">
-      <FormField
-        control={form.control}
-        name="frequency"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Frequency</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="interval"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Every</FormLabel>
-            <div className="flex items-center gap-2">
+      <div className="flex items-end gap-2">
+        <FormField
+          control={form.control}
+          name="interval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Every</FormLabel>
               <FormControl>
                 <Input
                   type="number"
@@ -105,75 +72,92 @@ export function RecurringPaymentForm() {
                   max={365}
                   {...field}
                   onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                  className="w-20"
+                  className="w-14 h-9 text-center"
                 />
               </FormControl>
-              <span className="text-sm text-muted-foreground">{getIntervalLabel()}</span>
-            </div>
-            <FormMessage />
-          </FormItem>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="frequency"
+          render={({ field }) => (
+            <FormItem>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="w-auto h-9">
+                    <SelectValue placeholder="Frequency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="daily">day(s)</SelectItem>
+                  <SelectItem value="weekly">week(s)</SelectItem>
+                  <SelectItem value="monthly">month(s)</SelectItem>
+                  <SelectItem value="yearly">year(s)</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
+
+        {frequency === 'weekly' && (
+          <FormField
+            control={form.control}
+            name="dayOfWeek"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>on</FormLabel>
+                <Select
+                  onValueChange={(val) => field.onChange(parseInt(val))}
+                  value={field.value?.toString()}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-auto h-9">
+                      <SelectValue placeholder="Day" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {DAY_OF_WEEK_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
         )}
-      />
 
-      {frequency === 'weekly' && (
-        <FormField
-          control={form.control}
-          name="dayOfWeek"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Day of week</FormLabel>
-              <Select
-                onValueChange={(val) => field.onChange(parseInt(val))}
-                value={field.value?.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select day" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {DAY_OF_WEEK_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      )}
-
-      {frequency === 'monthly' && (
-        <FormField
-          control={form.control}
-          name="dayOfMonth"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Day of month</FormLabel>
-              <Select
-                onValueChange={(val) => field.onChange(parseInt(val))}
-                value={field.value?.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select day" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {DAY_OF_MONTH_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      )}
+        {frequency === 'monthly' && (
+          <FormField
+            control={form.control}
+            name="dayOfMonth"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>on</FormLabel>
+                <Select
+                  onValueChange={(val) => field.onChange(parseInt(val))}
+                  value={field.value?.toString()}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-auto h-9">
+                      <SelectValue placeholder="Day" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {DAY_OF_MONTH_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+        )}
+      </div>
 
       <FormField
         control={form.control}
