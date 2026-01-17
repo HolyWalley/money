@@ -11,7 +11,7 @@ import { useSync } from '@/hooks/useSync'
 import { useAppInitialization } from '@/hooks/useAppInitialization'
 import { useIsMobile } from '@/hooks/use-mobile'
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
   let deviceId = localStorage.getItem('deviceId');
   if (!deviceId) {
     deviceId = crypto.randomUUID();

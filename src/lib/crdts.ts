@@ -98,34 +98,53 @@ Promise.resolve().then(() => {
   setupDeepObserver<DexieCategory>(
     categories,
     db.categories,
-    (obj) => ({
-      ...(obj as Category),
-      createdAt: new Date(obj.createdAt as string),
-      updatedAt: new Date(obj.updatedAt as string)
-    })
+    (obj) => {
+      const now = new Date();
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as Category),
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
   );
 
   // Setup observers for wallets
   setupDeepObserver<DexieWallet>(
     wallets,
     db.wallets,
-    (obj) => ({
-      ...(obj as Wallet),
-      createdAt: new Date(obj.createdAt as string),
-      updatedAt: new Date(obj.updatedAt as string)
-    })
+    (obj) => {
+      const now = new Date();
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as Wallet),
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
   );
 
   // Setup observers for transactions
   setupDeepObserver<DexieTransaction>(
     transactions,
     db.transactions,
-    (obj) => ({
-      ...(obj as Transaction),
-      date: new Date(obj.date as string),
-      createdAt: new Date(obj.createdAt as string),
-      updatedAt: new Date(obj.updatedAt as string)
-    })
+    (obj) => {
+      const now = new Date();
+      const date = obj.date ? new Date(obj.date as string) : now;
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as Transaction),
+        date: isNaN(date.getTime()) ? now : date,
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
   );
 });
 

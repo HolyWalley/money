@@ -11,6 +11,9 @@ import { apiClient } from '@/lib/api-client'
 import { Loader2, Download, Upload } from 'lucide-react'
 import Dexie from 'dexie'
 import { db as moneyDb } from '@/lib/db-dexie'
+import { categories, transactions as yjsTransactions, ydoc } from '@/lib/crdts'
+import { getDeviceId } from '@/components/AppRoutes'
+import * as Y from 'yjs'
 
 interface DebugModalProps {
   open: boolean
@@ -207,24 +210,24 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           `Successfully imported ${response.data.updatesImported} updates` +
           (response.data.hasCompiledState ? ' and compiled state' : '')
         )
-        
+
         // Clear local sync metadata to force a fresh pull
         const syncDb = new Dexie('UpdatesDB')
         syncDb.version(1).stores({
           updates: '++id, timestamp, synced, deviceId',
           syncMetadata: 'key'
         })
-        
+
         try {
           // Clear all local updates and metadata
           await syncDb.table('updates').clear()
           await syncDb.table('syncMetadata').clear()
-          
+
           // Clear all MoneyDB tables
           await moneyDb.categories.clear()
           await moneyDb.wallets.clear()
           await moneyDb.transactions.clear()
-          
+
           // Force a page reload to trigger fresh sync
           setUploadResult(prev => prev + '\nCleared local data. Reloading page to sync imported data...')
           setTimeout(() => {
@@ -235,7 +238,7 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
         } finally {
           syncDb.close()
         }
-        
+
         // Refresh debug info
         const debugResponse = await apiClient.getDebugInfo()
         if (debugResponse.ok && debugResponse.data) {
@@ -253,6 +256,135 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+    }
+  }
+
+  const handleLogYjsCategories = () => {
+    const yjsCategories: Array<Record<string, unknown>> = []
+
+    categories.forEach((categoryMap, id) => {
+      const categoryObj: Record<string, unknown> = { _id: id }
+      categoryMap.forEach((value, key) => {
+        categoryObj[key] = value
+      })
+      yjsCategories.push(categoryObj)
+    })
+
+    console.log('=== Yjs Categories ===')
+    console.log(`Total count: ${yjsCategories.length}`)
+    console.table(yjsCategories)
+    console.log('Raw data:', yjsCategories)
+
+    setDebugMessage(`✓ Logged ${yjsCategories.length} categories from Yjs to console. Check browser console (F12).`)
+  }
+
+  const handleCompareTransactions = async () => {
+    setLoading(true)
+    setDebugMessage(null)
+    setError(null)
+
+    try {
+      // Get Yjs transactions
+      const yjsTransactionsList: Array<Record<string, unknown>> = []
+      yjsTransactions.forEach((transactionMap, id) => {
+        const transactionObj: Record<string, unknown> = { _id: id }
+        transactionMap.forEach((value, key) => {
+          transactionObj[key] = value
+        })
+        yjsTransactionsList.push(transactionObj)
+      })
+
+      // Get Dexie transactions
+      const dexieTransactionsList = await moneyDb.transactions.toArray()
+
+      // Create sets of IDs for comparison
+      const yjsIds = new Set(yjsTransactionsList.map(t => t._id as string))
+      const dexieIds = new Set(dexieTransactionsList.map(t => t._id))
+
+      // Find discrepancies
+      const onlyInYjs = yjsTransactionsList.filter(t => !dexieIds.has(t._id as string))
+      const onlyInDexie = dexieTransactionsList.filter(t => !yjsIds.has(t._id))
+
+      console.log('=== Transaction Comparison ===')
+      console.log(`Yjs transactions: ${yjsTransactionsList.length}`)
+      console.log(`Dexie transactions: ${dexieTransactionsList.length}`)
+      console.log(`Only in Yjs (${onlyInYjs.length}):`, onlyInYjs)
+      console.log(`Only in Dexie (${onlyInDexie.length}):`, onlyInDexie)
+
+      if (onlyInYjs.length > 0) {
+        console.log('=== Transactions ONLY in Yjs ===')
+        console.table(onlyInYjs)
+      }
+
+      if (onlyInDexie.length > 0) {
+        console.log('=== Transactions ONLY in Dexie ===')
+        console.table(onlyInDexie)
+      }
+
+      const totalDiscrepancies = onlyInYjs.length + onlyInDexie.length
+
+      if (totalDiscrepancies === 0) {
+        setDebugMessage(
+          `✓ No discrepancies found!\n` +
+          `Yjs: ${yjsTransactionsList.length} transactions\n` +
+          `Dexie: ${dexieTransactionsList.length} transactions\n` +
+          `All transactions match.`
+        )
+      } else {
+        setDebugMessage(
+          `⚠ Found ${totalDiscrepancies} discrepanc${totalDiscrepancies === 1 ? 'y' : 'ies'}!\n` +
+          `Yjs: ${yjsTransactionsList.length} transactions\n` +
+          `Dexie: ${dexieTransactionsList.length} transactions\n` +
+          `Only in Yjs: ${onlyInYjs.length}\n` +
+          `Only in Dexie: ${onlyInDexie.length}\n\n` +
+          `Check browser console (F12) for details.`
+        )
+      }
+    } catch (err) {
+      console.error('Failed to compare transactions:', err)
+      setError('Failed to compare transactions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUploadStateAsUpdate = async () => {
+    setLoading(true)
+    setDebugMessage(null)
+    setError(null)
+
+    try {
+      // Encode the complete state as an update
+      const stateUpdate = Y.encodeStateAsUpdate(ydoc)
+
+      console.log('=== Uploading Complete State ===')
+      console.log(`State update size: ${stateUpdate.length} bytes`)
+
+      // Convert to base64 for transmission
+      const base64Update = btoa(String.fromCharCode(...stateUpdate))
+
+      // Push to server
+      const response = await apiClient.pushSync([{
+        update: base64Update,
+        timestamp: Date.now(),
+        deviceId: getDeviceId()
+      }])
+
+      if (response.ok) {
+        setDebugMessage(
+          `✓ Successfully uploaded complete state!\n` +
+          `Update size: ${(stateUpdate.length / 1024).toFixed(2)} KB\n\n` +
+          `Other devices should receive complete data on next sync.`
+        )
+        console.log('State upload successful')
+      } else {
+        setError(response.error || 'Failed to upload state')
+      }
+    } catch (err) {
+      console.error('Failed to upload state:', err)
+      setError('Failed to upload state')
+    } finally {
+      setLoading(false)
     }
   }
   return (
@@ -434,6 +566,30 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleLogYjsCategories}
+                    disabled={loading}
+                  >
+                    Log Yjs Categories
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCompareTransactions}
+                    disabled={loading}
+                  >
+                    Compare Transactions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUploadStateAsUpdate}
+                    disabled={loading}
+                  >
+                    Upload State as Update
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleDeletePremiumSyncTimestamp}
                     disabled={loading}
                   >
@@ -449,6 +605,15 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
+                  Log Yjs Categories: Outputs current categories from Yjs to browser console
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Compare Transactions: Finds discrepancies between Yjs and Dexie transactions
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload State as Update: Uploads complete Yjs state to server (overwrites on other devices)
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
                   Delete Premium Sync Timestamp: Triggers full state sync on next change (testing only)
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">

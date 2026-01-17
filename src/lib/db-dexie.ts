@@ -3,7 +3,6 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
-import { addCategoryWithId } from './crdts';
 
 // Define Dexie-specific types with Date objects instead of strings
 type DexieCategory = Omit<Category, 'createdAt' | 'updatedAt'> & {
