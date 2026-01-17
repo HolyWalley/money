@@ -20,11 +20,12 @@ interface TransactionMobileCardProps {
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
   onMakeRecurring?: () => void
+  isRecurring?: boolean
   style?: React.CSSProperties
 }
 
 export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobileCardProps>(
-  ({ transaction, wallets, categories, onEdit, onWalletClick, onCategoryClick, onMakeRecurring, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onWalletClick, onCategoryClick, onMakeRecurring, isRecurring, style }, ref) => {
     const [menuOpen, setMenuOpen] = useState(false)
 
     const category = useMemo(() => {
@@ -133,7 +134,7 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
                     className="h-8 w-8 p-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    <MoreVertical className={`h-4 w-4 ${isRecurring ? 'text-blue-500' : ''}`} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -141,8 +142,8 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
                     setMenuOpen(false)
                     onMakeRecurring()
                   }}>
-                    <Repeat className="mr-2 h-4 w-4" />
-                    Make recurring
+                    <Repeat className={`mr-2 h-4 w-4 ${isRecurring ? 'text-blue-500' : ''}`} />
+                    {isRecurring ? 'Edit recurring payment' : 'Make recurring'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

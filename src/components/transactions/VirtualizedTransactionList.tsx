@@ -9,6 +9,7 @@ import { type CreateTransaction } from '../../../shared/schemas/transaction.sche
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
 import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
+import type { RecurringPayment } from '../../../shared/schemas/recurring-payment.schema'
 
 interface VirtualizedTransactionListProps {
   transactions: DecoratedTransaction[]
@@ -19,9 +20,10 @@ interface VirtualizedTransactionListProps {
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
   onMakeRecurring?: (transaction: DecoratedTransaction) => void
+  getRecurringForTransaction?: (transaction: DecoratedTransaction) => RecurringPayment | undefined
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring }: VirtualizedTransactionListProps) {
+export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring, getRecurringForTransaction }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -56,6 +58,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
 
   const rowRenderer = ({ index, key, style }: ListRowProps) => {
     const transaction = transactions[index]
+    const isRecurring = getRecurringForTransaction ? !!getRecurringForTransaction(transaction) : false
 
     return isMobile ? (
       <TransactionMobileCard
@@ -67,6 +70,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         onWalletClick={onWalletClick}
         onCategoryClick={onCategoryClick}
         onMakeRecurring={onMakeRecurring ? () => onMakeRecurring(transaction) : undefined}
+        isRecurring={isRecurring}
         style={style}
       />
     ) : (
@@ -80,6 +84,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         onWalletClick={onWalletClick}
         onCategoryClick={onCategoryClick}
         onMakeRecurring={onMakeRecurring ? () => onMakeRecurring(transaction) : undefined}
+        isRecurring={isRecurring}
         style={style}
       />
     )

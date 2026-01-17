@@ -5,6 +5,7 @@ import { FilterProvider } from '@/contexts/FilterProvider'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
+import { useLiveRecurringPayments } from '@/hooks/useLiveRecurringPayments'
 import { type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { PeriodFilter } from './PeriodFilter'
@@ -15,8 +16,10 @@ import { UpcomingPaymentsSection } from '@/components/recurring/UpcomingPayments
 import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import { LogPaymentDrawer } from '@/components/recurring/LogPaymentDrawer'
 import { RecurringPaymentDrawer } from '@/components/recurring/RecurringPaymentDrawer'
+import { RecurringPaymentEditDrawer } from '@/components/recurring/RecurringPaymentEditDrawer'
 import { recurringPaymentService } from '@/services/recurringPaymentService'
 import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
+import type { RecurringPayment } from '../../../shared/schemas/recurring-payment.schema'
 
 function TransactionsPageContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
@@ -25,13 +28,40 @@ function TransactionsPageContent() {
   const { user } = useAuth()
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
+  const { recurringPayments } = useLiveRecurringPayments(false)
   const initiallyLoaded = useInitiallyLoaded(isLoading)
   const [logPaymentDrawerOpen, setLogPaymentDrawerOpen] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<UpcomingPayment | null>(null)
   const [makeRecurringDrawerOpen, setMakeRecurringDrawerOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<DecoratedTransaction | null>(null)
+  const [editRecurringDrawerOpen, setEditRecurringDrawerOpen] = useState(false)
+  const [selectedRecurringPayment, setSelectedRecurringPayment] = useState<RecurringPayment | null>(null)
 
   const baseCurrency = user?.settings?.defaultCurrency
+
+  const recurringPaymentsById = useMemo(() => {
+    const map = new Map<string, RecurringPayment>()
+    for (const rp of recurringPayments) {
+      map.set(rp._id, rp)
+    }
+    return map
+  }, [recurringPayments])
+
+  const getRecurringForTransaction = (transaction: DecoratedTransaction): RecurringPayment | undefined => {
+    // Check if this is the source transaction
+    for (const rp of recurringPayments) {
+      if (rp.sourceTransactionId === transaction._id) {
+        return rp
+      }
+    }
+    // Check if this transaction was logged from a recurring payment
+    if (transaction.recurringPaymentLogId) {
+      // Log ID format is: ${recurringPaymentId}_${dateStr}
+      const recurringPaymentId = transaction.recurringPaymentLogId.split('_')[0]
+      return recurringPaymentsById.get(recurringPaymentId)
+    }
+    return undefined
+  }
 
   const periodDates = useMemo(() => {
     if (!effectiveFilters.period) {
@@ -81,8 +111,14 @@ function TransactionsPageContent() {
   }
 
   const handleMakeRecurring = (transaction: DecoratedTransaction) => {
-    setSelectedTransaction(transaction)
-    setMakeRecurringDrawerOpen(true)
+    const existingRecurring = getRecurringForTransaction(transaction)
+    if (existingRecurring) {
+      setSelectedRecurringPayment(existingRecurring)
+      setEditRecurringDrawerOpen(true)
+    } else {
+      setSelectedTransaction(transaction)
+      setMakeRecurringDrawerOpen(true)
+    }
   }
 
   return (
@@ -121,6 +157,7 @@ function TransactionsPageContent() {
             onWalletClick={handleWalletClick}
             onCategoryClick={handleCategoryClick}
             onMakeRecurring={handleMakeRecurring}
+            getRecurringForTransaction={getRecurringForTransaction}
           />
         </div>
       </div>
@@ -138,6 +175,12 @@ function TransactionsPageContent() {
           transaction={selectedTransaction}
         />
       )}
+
+      <RecurringPaymentEditDrawer
+        open={editRecurringDrawerOpen}
+        onOpenChange={setEditRecurringDrawerOpen}
+        payment={selectedRecurringPayment}
+      />
     </>
   )
 }

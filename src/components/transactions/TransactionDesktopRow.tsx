@@ -22,11 +22,12 @@ interface TransactionDesktopRowProps {
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
   onMakeRecurring?: () => void
+  isRecurring?: boolean
   style?: React.CSSProperties
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, onMakeRecurring, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, onMakeRecurring, isRecurring, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -175,9 +176,9 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
                 variant="ghost"
                 onClick={onMakeRecurring}
                 className="h-8 w-8 p-0"
-                title="Make recurring"
+                title={isRecurring ? 'Edit recurring payment' : 'Make recurring'}
               >
-                <Repeat className="h-4 w-4" />
+                <Repeat className={`h-4 w-4 ${isRecurring ? 'text-blue-500' : ''}`} />
               </Button>
             )}
             <Button
