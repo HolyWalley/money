@@ -39,7 +39,12 @@ export function useExchangeRates({
   const endDateStr = endDate?.toISOString();
 
   useEffect(() => {
-    if (!baseCurrency || !startDateStr || !endDateStr || !targetCurrenciesKey) {
+    if (!targetCurrenciesKey) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (!baseCurrency || !startDateStr || !endDateStr) {
       return;
     }
 
