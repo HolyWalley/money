@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette, Bug } from 'lucide-react'
+import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette, Bug, Repeat } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
+import { RecurringPaymentsModal } from '@/components/recurring/RecurringPaymentsModal'
 import { useTheme } from '@/contexts/ThemeContext'
 import { DebugModal } from '@/components/DebugModal'
 
@@ -28,6 +29,7 @@ export function UserDropdownMenu() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [recurringOpen, setRecurringOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
   
   const showDebug = new URLSearchParams(window.location.search).has('debug')
@@ -119,6 +121,10 @@ export function UserDropdownMenu() {
             <FolderOpen className="mr-2 h-4 w-4" />
             <span>Categories</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setRecurringOpen(true)}>
+            <Repeat className="mr-2 h-4 w-4" />
+            <span>Recurring Payments</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
@@ -160,6 +166,7 @@ export function UserDropdownMenu() {
       </DropdownMenu>
 
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+      <RecurringPaymentsModal open={recurringOpen} onOpenChange={setRecurringOpen} />
       <DebugModal open={debugOpen} onOpenChange={setDebugOpen} />
     </>
   )

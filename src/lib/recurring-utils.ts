@@ -28,7 +28,7 @@ const FREQ_REVERSE_MAP: Record<number, Frequency> = {
 }
 
 const DAY_ABBR_JS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
-const DAY_NAMES_RRULE = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const DAY_NAMES_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function getOccurrencesInPeriod(
   rruleString: string,
@@ -70,41 +70,47 @@ export function parseRRule(rruleString: string): string {
   let base: string
   switch (freq) {
     case 'daily':
-      base = interval === 1 ? 'Every day' : `Every ${interval} days`
+      base = interval === 1 ? 'Daily' : `Every ${interval} days`
       break
     case 'weekly':
-      base = interval === 1 ? 'Every week' : `Every ${interval} weeks`
+      base = interval === 1 ? 'Weekly' : `Every ${interval} weeks`
       if (options.byweekday) {
         const byweekday = Array.isArray(options.byweekday) ? options.byweekday : [options.byweekday]
         if (byweekday.length > 0) {
           const day = byweekday[0]
           const dayNum = typeof day === 'number' ? day : (day as { weekday: number }).weekday
-          base += ` on ${DAY_NAMES_RRULE[dayNum]}`
+          base += ` on ${DAY_NAMES_SHORT[dayNum]}`
         }
       }
       break
     case 'monthly':
-      base = interval === 1 ? 'Every month' : `Every ${interval} months`
+      base = interval === 1 ? 'Monthly' : `Every ${interval} months`
       if (options.bymonthday) {
         const bymonthday = Array.isArray(options.bymonthday) ? options.bymonthday : [options.bymonthday]
         if (bymonthday.length > 0) {
           const day = bymonthday[0]
           if (day === -1) {
-            base += ' on the last day'
+            base += ', last day'
           } else {
-            base += ` on day ${day}`
+            base += `, ${day}${getOrdinalSuffix(day)}`
           }
         }
       }
       break
     case 'yearly':
-      base = interval === 1 ? 'Every year' : `Every ${interval} years`
+      base = interval === 1 ? 'Yearly' : `Every ${interval} years`
       break
     default:
-      base = 'Unknown frequency'
+      base = 'Unknown'
   }
 
   return base
+}
+
+function getOrdinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return s[(v - 20) % 10] || s[v] || s[0]
 }
 
 export function buildRRule(options: RRuleOptions): string {
@@ -134,4 +140,51 @@ export function buildRRule(options: RRuleOptions): string {
   }
 
   return parts.join(';')
+}
+
+export interface ParsedRRuleOptions {
+  frequency: Frequency
+  interval: number
+  dayOfWeek?: number
+  dayOfMonth?: number
+  endDate?: string
+}
+
+export function parseRRuleToOptions(rruleString: string): ParsedRRuleOptions {
+  const rule = RRule.fromString(rruleString)
+  const options = rule.origOptions
+
+  const frequency = FREQ_REVERSE_MAP[options.freq!]
+  const interval = options.interval || 1
+
+  let dayOfWeek: number | undefined
+  if (options.byweekday) {
+    const byweekday = Array.isArray(options.byweekday) ? options.byweekday : [options.byweekday]
+    if (byweekday.length > 0) {
+      const day = byweekday[0]
+      const dayNum = typeof day === 'number' ? day : (day as { weekday: number }).weekday
+      dayOfWeek = (dayNum + 1) % 7
+    }
+  }
+
+  let dayOfMonth: number | undefined
+  if (options.bymonthday) {
+    const bymonthday = Array.isArray(options.bymonthday) ? options.bymonthday : [options.bymonthday]
+    if (bymonthday.length > 0) {
+      dayOfMonth = bymonthday[0]
+    }
+  }
+
+  let endDate: string | undefined
+  if (options.until) {
+    endDate = options.until.toISOString()
+  }
+
+  return {
+    frequency,
+    interval,
+    dayOfWeek,
+    dayOfMonth,
+    endDate,
+  }
 }
