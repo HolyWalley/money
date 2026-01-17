@@ -51,14 +51,29 @@ export function getOccurrencesInPeriod(
   const isMonthly = options.freq === RRule.MONTHLY
   const bymonthday = options.bymonthday
   const targetDay = Array.isArray(bymonthday) ? bymonthday[0] : bymonthday
-  const needsFallback = isMonthly && typeof targetDay === 'number' && targetDay >= 29
+  const needsMonthlyFallback = isMonthly && typeof targetDay === 'number' && targetDay >= 29
 
-  if (needsFallback) {
+  if (needsMonthlyFallback) {
     return getMonthlyOccurrencesWithFallback(
       startDate,
       periodStart,
       periodEnd,
       targetDay,
+      options.interval || 1
+    )
+  }
+
+  // Check if this is a yearly rule on Feb 29 (needs fallback for non-leap years)
+  const isYearly = options.freq === RRule.YEARLY
+  const startMonth = startDate.getMonth()
+  const startDay = startDate.getDate()
+  const needsYearlyFallback = isYearly && startMonth === 1 && startDay === 29
+
+  if (needsYearlyFallback) {
+    return getYearlyOccurrencesWithFallback(
+      startDate,
+      periodStart,
+      periodEnd,
       options.interval || 1
     )
   }
@@ -142,6 +157,62 @@ function getMonthlyOccurrencesWithFallback(
     }
 
     currentMonthsFromEpoch += interval
+  }
+
+  return occurrences
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+function getYearlyOccurrencesWithFallback(
+  startDate: Date,
+  periodStart: Date,
+  periodEnd: Date,
+  interval: number
+): Date[] {
+  const occurrences: Date[] = []
+
+  const startYear = startDate.getFullYear()
+  const periodStartYear = periodStart.getFullYear()
+  const periodEndYear = periodEnd.getFullYear()
+
+  // Start from the first year that could have an occurrence in the period
+  let currentYear = startYear
+
+  // Skip to first occurrence at or after periodStart year
+  while (currentYear < periodStartYear) {
+    currentYear += interval
+  }
+
+  // Check if we need to go back one interval
+  if (currentYear > startYear) {
+    const prevYear = currentYear - interval
+    if (prevYear >= startYear) {
+      const day = isLeapYear(prevYear) ? 29 : 28
+      const occurrenceDate = new Date(prevYear, 1, day, 12, 0, 0)
+
+      if (occurrenceDate >= periodStart && occurrenceDate <= periodEnd) {
+        currentYear = prevYear
+      }
+    }
+  }
+
+  // Generate occurrences
+  while (currentYear <= periodEndYear + 1) {
+    const day = isLeapYear(currentYear) ? 29 : 28
+    const occurrenceDate = new Date(currentYear, 1, day, 12, 0, 0)
+
+    if (occurrenceDate > periodEnd) {
+      break
+    }
+
+    if (occurrenceDate >= periodStart) {
+      occurrences.push(occurrenceDate)
+    }
+
+    currentYear += interval
   }
 
   return occurrences

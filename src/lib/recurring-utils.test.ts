@@ -229,14 +229,26 @@ describe('recurring-utils', () => {
         expectDates(occurrences, ['2024-06-01', '2026-06-01', '2028-06-01', '2030-06-01'])
       })
 
-      it('handles Feb 29 in non-leap years', () => {
+      it('handles Feb 29 in non-leap years by falling back to Feb 28', () => {
         const rrule = 'FREQ=YEARLY'
         const startDate = date('2024-02-29')
         const periodStart = date('2024-01-01')
         const periodEnd = date('2028-12-31')
 
         const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
-        expectDates(occurrences, ['2024-02-29', '2028-02-29'])
+        // Falls back to Feb 28 in non-leap years (2025, 2026, 2027)
+        expectDates(occurrences, ['2024-02-29', '2025-02-28', '2026-02-28', '2027-02-28', '2028-02-29'])
+      })
+
+      it('handles Feb 29 with interval in non-leap years', () => {
+        const rrule = 'FREQ=YEARLY;INTERVAL=2'
+        const startDate = date('2024-02-29')
+        const periodStart = date('2024-01-01')
+        const periodEnd = date('2032-12-31')
+
+        const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
+        // 2024 (leap), 2026 (not leap -> 28), 2028 (leap), 2030 (not leap -> 28), 2032 (leap)
+        expectDates(occurrences, ['2024-02-29', '2026-02-28', '2028-02-29', '2030-02-28', '2032-02-29'])
       })
     })
 
