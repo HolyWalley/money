@@ -26,7 +26,7 @@ Personal finances tracking app built with Local First principles using:
 - dexie-react-hooks for reactive queries
 - Cloudflare Pages deployment
 - Cloudflare Worker for backend API
-- Jest + React Testing Library for testing
+- Vitest + React Testing Library for testing
 - Vite for build tooling (with API proxy for development)
 - Zod for data validation
 - React Hook Form for form handling with field-level validation
@@ -94,6 +94,15 @@ Personal finances tracking app built with Local First principles using:
 - **Lint Fix**: `npm run lint:fix`
 - **Typecheck**: `npm run typecheck`
 - **Preview**: `npm run preview`
+
+### Testing
+- **Framework**: Vitest (not Jest)
+- **Run all tests**: `npm run test`
+- **Run specific file**: `npm run test -- src/lib/period-utils.test.ts`
+- **Run with UI**: `npm run test:ui`
+- **Run with coverage**: `npm run test:coverage`
+- **Test file location**: Tests are co-located with source files (e.g., `foo.ts` → `foo.test.ts`)
+- **UTC in tests**: Use `UTCDate` from `@date-fns/utc` for date-related tests to ensure consistent results across timezones
 
 ### Important Notes
 - Always run lint and typecheck commands after making changes
