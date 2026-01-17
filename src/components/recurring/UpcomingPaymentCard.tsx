@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { CategoryIcon } from '@/components/categories/CategoryIcon'
-import { Check, X, AlertCircle, Clock } from 'lucide-react'
+import { Check, X, AlertCircle } from 'lucide-react'
 import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import type { Category } from '../../../shared/schemas/category.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
@@ -60,15 +60,10 @@ export function UpcomingPaymentCard({
           <span className="font-medium truncate">
             {recurring.description || category?.name || 'Payment'}
           </span>
-          {status === 'due' ? (
+          {status === 'due' && (
             <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded">
               <AlertCircle className="h-3 w-3" />
               Due
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-              <Clock className="h-3 w-3" />
-              Upcoming
             </span>
           )}
         </div>

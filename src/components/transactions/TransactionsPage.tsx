@@ -12,10 +12,10 @@ import { QuickFilterChips } from './QuickFilterChips'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
 import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 import { UpcomingPaymentsSection } from '@/components/recurring/UpcomingPaymentsSection'
+import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import { LogPaymentDrawer } from '@/components/recurring/LogPaymentDrawer'
 import { RecurringPaymentDrawer } from '@/components/recurring/RecurringPaymentDrawer'
 import { recurringPaymentService } from '@/services/recurringPaymentService'
-import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
 
 function TransactionsPageContent() {
