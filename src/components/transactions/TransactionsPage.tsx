@@ -87,7 +87,7 @@ function TransactionsPageContent() {
 
   return (
     <>
-      <div className="container mx-auto h-full flex flex-col">
+      <div className="h-full flex flex-col">
         <div className="mb-4 flex-shrink-0 px-4 pt-4">
           <PeriodFilter
             filters={effectiveFilters}

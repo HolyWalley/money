@@ -101,10 +101,10 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
             <div className="col-span-2">Category</div>
             <div className="col-span-2">Date</div>
             <div className="col-span-2">Wallet</div>
-            <div className="col-span-3">Note</div>
+            <div className="col-span-2">Note</div>
             <div className="col-span-2 text-right">Amount</div>
             <div className="col-span-2 text-right">Amount ({baseCurrency})</div>
-            <div className="col-span-1 text-right">Actions</div>
+            <div className="col-span-2 text-right">Actions</div>
           </div>
         )}
         <div className="flex-1">

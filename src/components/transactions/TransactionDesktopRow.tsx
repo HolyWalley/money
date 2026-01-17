@@ -126,7 +126,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="col-span-3 font-medium">
+          <div className="col-span-2 font-medium">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -160,7 +160,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             )}
           </div>
 
-          <div className="col-span-1 flex justify-end gap-1">
+          <div className="col-span-2 flex justify-end gap-1">
             <Button
               size="sm"
               variant="ghost"
