@@ -1,6 +1,6 @@
 import { forwardRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Edit, Trash2 } from 'lucide-react'
+import { Edit, Trash2, Repeat } from 'lucide-react'
 import { CategoryIcon } from '@/components/categories/CategoryIcon'
 import {
   Tooltip,
@@ -21,11 +21,12 @@ interface TransactionDesktopRowProps {
   onDelete: (id: string) => void
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
+  onMakeRecurring?: () => void
   style?: React.CSSProperties
 }
 
 export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDesktopRowProps>(
-  ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, onMakeRecurring, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const getWalletName = (walletId: string) => {
@@ -168,6 +169,17 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
             >
               <Edit className="h-4 w-4" />
             </Button>
+            {onMakeRecurring && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onMakeRecurring}
+                className="h-8 w-8 p-0"
+                title="Make recurring"
+              >
+                <Repeat className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"

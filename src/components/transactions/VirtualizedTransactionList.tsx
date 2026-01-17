@@ -18,9 +18,10 @@ interface VirtualizedTransactionListProps {
   baseCurrency?: string
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
+  onMakeRecurring?: (transaction: DecoratedTransaction) => void
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick }: VirtualizedTransactionListProps) {
+export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -65,6 +66,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         onEdit={() => handleEdit(transaction)}
         onWalletClick={onWalletClick}
         onCategoryClick={onCategoryClick}
+        onMakeRecurring={onMakeRecurring ? () => onMakeRecurring(transaction) : undefined}
         style={style}
       />
     ) : (
@@ -77,6 +79,7 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
         onDelete={handleDelete}
         onWalletClick={onWalletClick}
         onCategoryClick={onCategoryClick}
+        onMakeRecurring={onMakeRecurring ? () => onMakeRecurring(transaction) : undefined}
         style={style}
       />
     )

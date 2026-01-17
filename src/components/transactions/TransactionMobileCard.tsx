@@ -1,7 +1,14 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useMemo, useState } from 'react'
 import { type Transaction } from '../../../shared/schemas/transaction.schema'
-import { ReceiptText } from 'lucide-react'
+import { ReceiptText, MoreVertical, Repeat } from 'lucide-react'
 import { CategoryIcon } from '../categories/CategoryIcon'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { Category } from 'shared/schemas/category.schema'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 
@@ -12,11 +19,13 @@ interface TransactionMobileCardProps {
   onEdit: () => void
   onWalletClick?: (walletId: string, walletName: string) => void
   onCategoryClick?: (categoryId: string, categoryName: string) => void
+  onMakeRecurring?: () => void
   style?: React.CSSProperties
 }
 
 export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobileCardProps>(
-  ({ transaction, wallets, categories, onEdit, onWalletClick, onCategoryClick, style }, ref) => {
+  ({ transaction, wallets, categories, onEdit, onWalletClick, onCategoryClick, onMakeRecurring, style }, ref) => {
+    const [menuOpen, setMenuOpen] = useState(false)
 
     const category = useMemo(() => {
       return categories.find(c => c._id === transaction.categoryId)
@@ -110,11 +119,34 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
             </div>
           </div>
 
-          {/* Right: Amount + Edit */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Right: Amount + Menu */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             <div className={`font-semibold ${getAmountColor(transaction.transactionType)}`}>
               {formatAmount(transaction.amount, transaction.transactionType)} {transaction.currency}
             </div>
+            {onMakeRecurring && (
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    setMenuOpen(false)
+                    onMakeRecurring()
+                  }}>
+                    <Repeat className="mr-2 h-4 w-4" />
+                    Make recurring
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>

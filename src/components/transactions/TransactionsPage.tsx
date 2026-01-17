@@ -1,15 +1,22 @@
+import { useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
-import { type TransactionFilters } from '@/hooks/useLiveTransactions'
+import { type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
 import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
+import { UpcomingPaymentsSection } from '@/components/recurring/UpcomingPaymentsSection'
+import { LogPaymentDrawer } from '@/components/recurring/LogPaymentDrawer'
+import { RecurringPaymentDrawer } from '@/components/recurring/RecurringPaymentDrawer'
+import { recurringPaymentService } from '@/services/recurringPaymentService'
+import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
+import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
 
 function TransactionsPageContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
@@ -19,8 +26,19 @@ function TransactionsPageContent() {
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
   const initiallyLoaded = useInitiallyLoaded(isLoading)
+  const [logPaymentDrawerOpen, setLogPaymentDrawerOpen] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<UpcomingPayment | null>(null)
+  const [makeRecurringDrawerOpen, setMakeRecurringDrawerOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<DecoratedTransaction | null>(null)
 
   const baseCurrency = user?.settings?.defaultCurrency
+
+  const periodDates = useMemo(() => {
+    if (!effectiveFilters.period) {
+      return { start: new Date(), end: new Date() }
+    }
+    return getPeriodDates(effectiveFilters.period)
+  }, [effectiveFilters.period])
 
   if (!initiallyLoaded) {
     return null
@@ -46,34 +64,81 @@ function TransactionsPageContent() {
     })
   }
 
+  const handleLogPayment = (payment: UpcomingPayment) => {
+    setSelectedPayment(payment)
+    setLogPaymentDrawerOpen(true)
+  }
+
+  const handleSkipPayment = async (payment: UpcomingPayment) => {
+    try {
+      await recurringPaymentService.skipRecurringPayment(
+        payment.recurring._id,
+        payment.scheduledDate
+      )
+    } catch (error) {
+      console.error('Failed to skip payment:', error)
+    }
+  }
+
+  const handleMakeRecurring = (transaction: DecoratedTransaction) => {
+    setSelectedTransaction(transaction)
+    setMakeRecurringDrawerOpen(true)
+  }
+
   return (
-    <div className="container mx-auto h-full flex flex-col">
-      <div className="mb-4 flex-shrink-0 px-4 pt-4">
-        <PeriodFilter
-          filters={effectiveFilters}
-          onFiltersChange={handleFiltersChange}
-          subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+    <>
+      <div className="container mx-auto h-full flex flex-col">
+        <div className="mb-4 flex-shrink-0 px-4 pt-4">
+          <PeriodFilter
+            filters={effectiveFilters}
+            onFiltersChange={handleFiltersChange}
+            subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+          />
+        </div>
+
+        <UpcomingPaymentsSection
+          periodStart={periodDates.start}
+          periodEnd={periodDates.end}
+          categories={categories.categories}
+          wallets={wallets.wallets}
+          onLogPayment={handleLogPayment}
+          onSkipPayment={handleSkipPayment}
         />
+
+        <QuickFilterChips
+          quickFilters={quickFilters}
+          onRemove={removeQuickFilter}
+          onClearAll={clearQuickFilters}
+        />
+
+        <div className="flex-1 min-h-0 px-4 pb-4">
+          <VirtualizedTransactionList
+            wallets={wallets.wallets}
+            categories={categories.categories}
+            transactions={transactions}
+            isMobile={isMobile}
+            baseCurrency={baseCurrency}
+            onWalletClick={handleWalletClick}
+            onCategoryClick={handleCategoryClick}
+            onMakeRecurring={handleMakeRecurring}
+          />
+        </div>
       </div>
 
-      <QuickFilterChips
-        quickFilters={quickFilters}
-        onRemove={removeQuickFilter}
-        onClearAll={clearQuickFilters}
+      <LogPaymentDrawer
+        open={logPaymentDrawerOpen}
+        onOpenChange={setLogPaymentDrawerOpen}
+        payment={selectedPayment}
       />
 
-      <div className="flex-1 min-h-0 px-4 pb-4">
-        <VirtualizedTransactionList
-          wallets={wallets.wallets}
-          categories={categories.categories}
-          transactions={transactions}
-          isMobile={isMobile}
-          baseCurrency={baseCurrency}
-          onWalletClick={handleWalletClick}
-          onCategoryClick={handleCategoryClick}
+      {selectedTransaction && (
+        <RecurringPaymentDrawer
+          open={makeRecurringDrawerOpen}
+          onOpenChange={setMakeRecurringDrawerOpen}
+          transaction={selectedTransaction}
         />
-      </div>
-    </div>
+      )}
+    </>
   )
 }
 

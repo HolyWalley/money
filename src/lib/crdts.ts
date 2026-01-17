@@ -6,7 +6,8 @@ import { v4 as uuid } from 'uuid'
 import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
-import type { DexieCategory, DexieWallet, DexieTransaction } from './db-dexie'
+import type { RecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
+import type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog } from './db-dexie'
 
 // Yjs event types
 interface YMapEvent {
@@ -30,12 +31,24 @@ function createTransactionMap(data: Omit<Transaction, '_id'> & { _id: string }):
   return new Y.Map(entries)
 }
 
+function createRecurringPaymentMap(data: Omit<RecurringPayment, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
+function createRecurringPaymentLogMap(data: Omit<RecurringPaymentLog, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
 const ydoc = new Y.Doc()
 new IndexeddbPersistence('money', ydoc)
 
 const categories = ydoc.getMap<Y.Map<unknown>>('categories')
 const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
 const transactions = ydoc.getMap<Y.Map<unknown>>('transactions')
+const recurringPayments = ydoc.getMap<Y.Map<unknown>>('recurringPayments')
+const recurringPaymentLogs = ydoc.getMap<Y.Map<unknown>>('recurringPaymentLogs')
 
 // Generic observer setup for Yjs maps syncing to Dexie
 function setupDeepObserver<TDexie>(
@@ -146,6 +159,44 @@ Promise.resolve().then(() => {
       };
     }
   );
+
+  // Setup observers for recurring payments
+  setupDeepObserver<DexieRecurringPayment>(
+    recurringPayments,
+    db.recurringPayments,
+    (obj) => {
+      const now = new Date();
+      const startDate = obj.startDate ? new Date(obj.startDate as string) : now;
+      const endDate = obj.endDate ? new Date(obj.endDate as string) : undefined;
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as RecurringPayment),
+        startDate: isNaN(startDate.getTime()) ? now : startDate,
+        endDate: endDate && !isNaN(endDate.getTime()) ? endDate : undefined,
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
+  );
+
+  // Setup observers for recurring payment logs
+  setupDeepObserver<DexieRecurringPaymentLog>(
+    recurringPaymentLogs,
+    db.recurringPaymentLogs,
+    (obj) => {
+      const now = new Date();
+      const scheduledDate = obj.scheduledDate ? new Date(obj.scheduledDate as string) : now;
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+
+      return {
+        ...(obj as RecurringPaymentLog),
+        scheduledDate: isNaN(scheduledDate.getTime()) ? now : scheduledDate,
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt
+      };
+    }
+  );
 });
 
 export function addCategory({ name, type, icon, color, isDefault, order }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {
@@ -225,7 +276,7 @@ export function deleteWallet(id: string) {
   })
 }
 
-export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, split, parts, reimbursement }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, split, parts, reimbursement, recurringPaymentLogId }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     transactions.set(id, createTransactionMap({
@@ -244,6 +295,7 @@ export function addTransaction({ type, transactionType, amount, currency, toAmou
       split,
       parts,
       reimbursement,
+      recurringPaymentLogId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -270,6 +322,7 @@ export function updateTransaction(id: string, updates: Partial<Transaction>) {
     if (updates.split !== undefined) transaction.set('split', updates.split)
     if (updates.parts !== undefined) transaction.set('parts', updates.parts)
     if (updates.reimbursement !== undefined) transaction.set('reimbursement', updates.reimbursement)
+    if (updates.recurringPaymentLogId !== undefined) transaction.set('recurringPaymentLogId', updates.recurringPaymentLogId)
     transaction.set('updatedAt', new Date().toISOString())
   })
 }
@@ -280,9 +333,103 @@ export function deleteTransaction(id: string) {
   })
 }
 
+export function addRecurringPayment({
+  amount,
+  currency,
+  categoryId,
+  walletId,
+  toWalletId,
+  transactionType,
+  description,
+  rrule,
+  startDate,
+  endDate,
+  sourceTransactionId,
+}: Omit<RecurringPayment, '_id' | 'isActive' | 'createdAt' | 'updatedAt'>) {
+  const id = uuid()
+  ydoc.transact(() => {
+    recurringPayments.set(id, createRecurringPaymentMap({
+      _id: id,
+      amount,
+      currency,
+      categoryId,
+      walletId,
+      toWalletId,
+      transactionType,
+      description,
+      rrule,
+      startDate,
+      endDate,
+      isActive: true,
+      sourceTransactionId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }))
+  })
+  return id
+}
+
+export function updateRecurringPayment(id: string, updates: Partial<RecurringPayment>) {
+  ydoc.transact(() => {
+    const recurringPayment = recurringPayments.get(id)
+    if (!recurringPayment) return
+
+    if (updates.amount !== undefined) recurringPayment.set('amount', updates.amount)
+    if (updates.currency !== undefined) recurringPayment.set('currency', updates.currency)
+    if (updates.categoryId !== undefined) recurringPayment.set('categoryId', updates.categoryId)
+    if (updates.walletId !== undefined) recurringPayment.set('walletId', updates.walletId)
+    if (updates.toWalletId !== undefined) recurringPayment.set('toWalletId', updates.toWalletId)
+    if (updates.transactionType !== undefined) recurringPayment.set('transactionType', updates.transactionType)
+    if (updates.description !== undefined) recurringPayment.set('description', updates.description)
+    if (updates.rrule !== undefined) recurringPayment.set('rrule', updates.rrule)
+    if (updates.startDate !== undefined) recurringPayment.set('startDate', updates.startDate)
+    if (updates.endDate !== undefined) recurringPayment.set('endDate', updates.endDate)
+    if (updates.isActive !== undefined) recurringPayment.set('isActive', updates.isActive)
+    recurringPayment.set('updatedAt', new Date().toISOString())
+  })
+}
+
+export function deleteRecurringPayment(id: string) {
+  ydoc.transact(() => {
+    recurringPayments.delete(id)
+  })
+}
+
+export function addRecurringPaymentLog({
+  _id,
+  recurringPaymentId,
+  scheduledDate,
+  status,
+  transactionId,
+}: Omit<RecurringPaymentLog, 'createdAt'>) {
+  ydoc.transact(() => {
+    recurringPaymentLogs.set(_id, createRecurringPaymentLogMap({
+      _id,
+      recurringPaymentId,
+      scheduledDate,
+      status,
+      transactionId,
+      createdAt: new Date().toISOString()
+    }))
+  })
+  return _id
+}
+
+export function updateRecurringPaymentLog(id: string, updates: Partial<RecurringPaymentLog>) {
+  ydoc.transact(() => {
+    const log = recurringPaymentLogs.get(id)
+    if (!log) return
+
+    if (updates.status !== undefined) log.set('status', updates.status)
+    if (updates.transactionId !== undefined) log.set('transactionId', updates.transactionId)
+  })
+}
+
 export {
   ydoc,
   categories,
   wallets,
   transactions,
+  recurringPayments,
+  recurringPaymentLogs,
 }

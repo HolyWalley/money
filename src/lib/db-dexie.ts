@@ -3,6 +3,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
+import type { RecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
 
 // Define Dexie-specific types with Date objects instead of strings
 type DexieCategory = Omit<Category, 'createdAt' | 'updatedAt'> & {
@@ -21,6 +22,18 @@ type DexieTransaction = Omit<Transaction, 'date' | 'createdAt' | 'updatedAt'> & 
   updatedAt: Date;
 }
 
+type DexieRecurringPayment = Omit<RecurringPayment, 'startDate' | 'endDate' | 'createdAt' | 'updatedAt'> & {
+  startDate: Date;
+  endDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type DexieRecurringPaymentLog = Omit<RecurringPaymentLog, 'scheduledDate' | 'createdAt'> & {
+  scheduledDate: Date;
+  createdAt: Date;
+}
+
 export interface ExchangeRateRecord {
   key: string;
   from: string;
@@ -35,6 +48,8 @@ const db = new Dexie('MoneyDB') as Dexie & {
   wallets: EntityTable<DexieWallet, '_id'>;
   transactions: EntityTable<DexieTransaction, '_id'>;
   exchangeRates: EntityTable<ExchangeRateRecord, 'key'>;
+  recurringPayments: EntityTable<DexieRecurringPayment, '_id'>;
+  recurringPaymentLogs: EntityTable<DexieRecurringPaymentLog, '_id'>;
 }
 
 db.version(1).stores({
@@ -94,5 +109,15 @@ db.version(8).stores({
   exchangeRates: 'key,from,to,date,expiresAt',
 });
 
+// Version 9: Add recurring payments and logs tables
+db.version(9).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt,recurringPaymentLogId',
+  exchangeRates: 'key,from,to,date,expiresAt',
+  recurringPayments: '_id,isActive,categoryId,walletId,startDate,createdAt,updatedAt',
+  recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
+});
+
 export { db };
-export type { DexieCategory, DexieWallet, DexieTransaction };
+export type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog };

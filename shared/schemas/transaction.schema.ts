@@ -24,6 +24,7 @@ export const transactionSchema = z.object({
     amount: z.number().gte(0, 'Part amount can not be negative'),
   })).optional(),
   reimbursement: z.boolean().default(false).optional(),
+  recurringPaymentLogId: z.string().optional(),
 })
 
 export const createTransactionSchema = transactionSchema.pick({
@@ -39,7 +40,8 @@ export const createTransactionSchema = transactionSchema.pick({
   date: true,
   split: true,
   parts: true,
-  reimbursement: true
+  reimbursement: true,
+  recurringPaymentLogId: true,
 }).refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
@@ -72,7 +74,8 @@ export const updateTransactionSchema = transactionSchema.pick({
   date: true,
   split: true,
   parts: true,
-  reimbursement: true
+  reimbursement: true,
+  recurringPaymentLogId: true,
 }).partial().refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
