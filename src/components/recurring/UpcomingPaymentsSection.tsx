@@ -27,7 +27,7 @@ export function UpcomingPaymentsSection({
 }: UpcomingPaymentsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
-  const { payments, dueCount, upcomingCount, dueTotal, upcomingTotal, baseCurrency, isLoading } = useUpcomingPayments(periodStart, periodEnd)
+  const { payments, dueCount, upcomingCount, totalsByCurrency, isLoading } = useUpcomingPayments(periodStart, periodEnd)
 
   const { duePayments, upcomingPayments } = useMemo(() => {
     return {
@@ -46,17 +46,22 @@ export function UpcomingPaymentsSection({
     return null
   }
 
-  const totalAmount = (dueTotal ?? 0) + (upcomingTotal ?? 0)
-  const summaryParts: string[] = []
+  const countParts: string[] = []
   if (dueCount > 0) {
-    summaryParts.push(`${dueCount} due`)
+    countParts.push(`${dueCount} due`)
   }
   if (upcomingCount > 0) {
-    summaryParts.push(`${upcomingCount} upcoming`)
+    countParts.push(`${upcomingCount} upcoming`)
   }
-  const summary = baseCurrency
-    ? `${summaryParts.join(', ')} (${totalAmount.toFixed(2)} ${baseCurrency})`
-    : summaryParts.join(', ')
+
+  const totalsParts: string[] = []
+  totalsByCurrency.forEach((amount, currency) => {
+    totalsParts.push(`${amount.toFixed(2)} ${currency}`)
+  })
+
+  const summary = totalsParts.length > 0
+    ? `${countParts.join(', ')} (${totalsParts.join(', ')})`
+    : countParts.join(', ')
 
   return (
     <div className="px-4 mb-4">

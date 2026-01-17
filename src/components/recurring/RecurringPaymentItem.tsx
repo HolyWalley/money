@@ -43,7 +43,7 @@ export function RecurringPaymentItem({
   const frequencySummary = parseRRule(payment.rrule)
 
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-border/50 last:border-b-0">
+    <div className="flex items-center gap-3 py-3 px-4 md:px-0 border-b border-border/50 last:border-b-0">
       <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
         {category ? (
           <CategoryIcon icon={category.icon} color={category.color} />

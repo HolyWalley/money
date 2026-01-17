@@ -149,7 +149,7 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
           variant="ghost"
           size="sm"
           onClick={handleNext}
-          disabled={!canNavigatePeriod(settings) || isCurrent}
+          disabled={!canNavigatePeriod(settings)}
           className="h-8 w-8 p-0 hover:bg-accent"
         >
           <ChevronRight className="h-4 w-4" />
