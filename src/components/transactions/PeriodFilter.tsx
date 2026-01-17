@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, addMonths, addWeeks, addYears, subDays, isToday, setDate, setDay, setDayOfYear, startOfDay, endOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { TransactionFilters, PeriodFilter, PeriodType } from '@/hooks/useLiveTransactions'
+import type { TransactionFilters, PeriodFilter as PeriodFilterType } from '@/hooks/useLiveTransactions'
 import { FiltersDrawer } from './FiltersDrawer'
+import {
+  getPeriodContainingDate,
+  getAdjacentPeriod,
+  isDateInPeriod,
+  canNavigate as canNavigatePeriod,
+  type PeriodSettings,
+} from '@/lib/period-utils'
 
 interface PeriodFilterProps {
   filters: TransactionFilters
@@ -13,84 +20,57 @@ interface PeriodFilterProps {
   className?: string
 }
 
+function toPeriodSettings(period: PeriodFilterType): PeriodSettings {
+  return {
+    type: period.type,
+    monthDay: period.monthDay,
+    weekDay: period.weekDay,
+    yearDay: period.yearDay,
+    customFrom: period.customFrom,
+    customTo: period.customTo,
+  }
+}
+
+const DEFAULT_PERIOD_FILTER: PeriodFilterType = {
+  type: 'monthly',
+  monthDay: 1,
+  currentPeriod: 0,
+}
+
 export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: PeriodFilterProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-  // Default to current month if no value
-  const currentPeriod = filters.period || {
-    type: 'monthly' as PeriodType,
-    startDate: new Date(),
-    currentPeriod: 0
-  }
+  const currentPeriodFilter = filters.period || DEFAULT_PERIOD_FILTER
 
-  const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
-    const baseDate = period.startDate || new Date()
-    const offset = period.currentPeriod || 0
+  const settings = useMemo(() => toPeriodSettings(currentPeriodFilter), [currentPeriodFilter])
+  const offset = currentPeriodFilter.currentPeriod || 0
 
-    switch (period.type) {
+  const currentPeriod = useMemo(() => {
+    const basePeriod = getPeriodContainingDate(new Date(), settings)
+    if (offset === 0) return basePeriod
+    return getAdjacentPeriod(basePeriod, offset, settings)
+  }, [settings, offset])
+
+  const getPeriodLabel = (): string => {
+    const { start, end } = currentPeriod
+
+    switch (settings.type) {
       case 'monthly': {
-        const targetDate = addMonths(baseDate, offset)
-        const monthStart = startOfMonth(targetDate)
-        const actualStart = period.monthDay ? setDate(monthStart, period.monthDay) : monthStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfMonth(targetDate))
+        const monthDay = settings.monthDay ?? 1
+        if (monthDay === 1) {
+          return format(start, 'MMMM yyyy')
         }
+        return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
       }
-      case 'weekly': {
-        const targetDate = addWeeks(baseDate, offset)
-        const weekStart = startOfWeek(targetDate)
-        const actualStart = period.weekDay !== undefined ? setDay(weekStart, period.weekDay) : weekStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfWeek(targetDate))
-        }
-      }
-      case 'yearly': {
-        const targetDate = addYears(baseDate, offset)
-        const yearStart = startOfYear(targetDate)
-        const actualStart = period.yearDay ? setDayOfYear(yearStart, period.yearDay) : yearStart
-        return {
-          start: startOfDay(actualStart),
-          end: endOfDay(endOfYear(targetDate))
-        }
-      }
-      case 'last7days': {
-        const end = new Date()
-        const start = subDays(end, 6)
-        return { start, end }
-      }
-      case 'last30days': {
-        const end = new Date()
-        const start = subDays(end, 29)
-        return { start, end }
-      }
-      case 'last365days': {
-        const end = new Date()
-        const start = subDays(end, 364)
-        return { start, end }
-      }
-      case 'custom': {
-        return {
-          start: period.customFrom || new Date(),
-          end: period.customTo || new Date()
-        }
-      }
-      default:
-        return { start: new Date(), end: new Date() }
-    }
-  }
-
-  const getPeriodLabel = (period: PeriodFilter): string => {
-    const { start, end } = getPeriodDates(period)
-
-    switch (period.type) {
-      case 'monthly':
-        return format(start, 'MMMM yyyy')
       case 'weekly':
-        return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`
-      case 'yearly':
-        return format(start, 'yyyy')
+        return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
+      case 'yearly': {
+        const yearDay = settings.yearDay ?? 1
+        if (yearDay === 1) {
+          return format(start, 'yyyy')
+        }
+        return `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`
+      }
       case 'last7days':
         return 'Last 7 days'
       case 'last30days':
@@ -98,44 +78,41 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
       case 'last365days':
         return 'Last 365 days'
       case 'custom':
-        return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`
+        return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
       default:
         return 'All time'
     }
   }
 
-  const canNavigate = (period: PeriodFilter): boolean => {
-    return ['monthly', 'weekly', 'yearly'].includes(period.type)
-  }
-
   const handlePrevious = () => {
-    if (!canNavigate(currentPeriod)) return
+    if (!canNavigatePeriod(settings)) return
 
-    const newPeriod = {
-      ...currentPeriod,
-      currentPeriod: (currentPeriod.currentPeriod || 0) - 1
-    }
-    onFiltersChange({ ...filters, period: newPeriod })
+    onFiltersChange({
+      ...filters,
+      period: {
+        ...currentPeriodFilter,
+        currentPeriod: offset - 1,
+      },
+    })
   }
 
   const handleNext = () => {
-    if (!canNavigate(currentPeriod)) return
+    if (!canNavigatePeriod(settings)) return
 
-    const newPeriod = {
-      ...currentPeriod,
-      currentPeriod: (currentPeriod.currentPeriod || 0) + 1
-    }
-    onFiltersChange({ ...filters, period: newPeriod })
+    onFiltersChange({
+      ...filters,
+      period: {
+        ...currentPeriodFilter,
+        currentPeriod: offset + 1,
+      },
+    })
   }
 
   const handleDrawerClose = () => {
     setIsDrawerOpen(false)
   }
 
-  const isCurrentPeriod = () => {
-    if (!canNavigate(currentPeriod)) return false
-    return (currentPeriod.currentPeriod || 0) === 0
-  }
+  const isCurrent = isDateInPeriod(new Date(), currentPeriod)
 
   return (
     <>
@@ -145,7 +122,7 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
           variant="ghost"
           size="sm"
           onClick={handlePrevious}
-          disabled={!canNavigate(currentPeriod)}
+          disabled={!canNavigatePeriod(settings)}
           className="h-8 w-8 p-0 hover:bg-accent"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -160,8 +137,8 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
         >
           <div className="flex justify-center font-medium">
             <CalendarIcon className="mr-2 h-4 w-4" />
-            <span className={cn(isCurrentPeriod() && isToday(new Date()) && "text-primary")}>
-              {getPeriodLabel(currentPeriod)}
+            <span className={cn(isCurrent && "text-primary")}>
+              {getPeriodLabel()}
             </span>
           </div>
           {subtitle && <p className="text-muted-foreground font-light text-xs">{subtitle}</p>}
@@ -172,7 +149,7 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
           variant="ghost"
           size="sm"
           onClick={handleNext}
-          disabled={!canNavigate(currentPeriod) || isCurrentPeriod()}
+          disabled={!canNavigatePeriod(settings) || isCurrent}
           className="h-8 w-8 p-0 hover:bg-accent"
         >
           <ChevronRight className="h-4 w-4" />
