@@ -46,32 +46,25 @@ export function UpcomingPaymentsSection({
     return null
   }
 
-  const countParts: string[] = []
-  if (dueCount > 0) {
-    countParts.push(`${dueCount} due`)
-  }
-  if (upcomingCount > 0) {
-    countParts.push(`${upcomingCount} upcoming`)
-  }
-
   const totalsParts: string[] = []
   totalsByCurrency.forEach((amount, currency) => {
     totalsParts.push(`${amount.toFixed(2)} ${currency}`)
   })
 
-  const summary = totalsParts.length > 0
-    ? `${countParts.join(', ')} (${totalsParts.join(', ')})`
-    : countParts.join(', ')
-
   return (
-    <div className="px-4 mb-4">
+    <div className="px-4 mb-4 overflow-x-hidden">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="border rounded-lg bg-card overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
             <Repeat className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">Recurring Payments</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-xs text-muted-foreground flex-1">{summary}</span>
+            {totalsParts.length > 0 && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground flex-1">{totalsParts.join(', ')}</span>
+              </>
+            )}
+            {totalsParts.length === 0 && <span className="flex-1" />}
             <Button
               variant="ghost"
               size="sm"

@@ -46,43 +46,43 @@ export function UpcomingPaymentCard({
   }
 
   return (
-    <div className="flex items-center gap-3 py-3 px-4 border-b border-border/50 last:border-b-0">
-      <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+    <div className="flex items-center gap-2 sm:gap-3 py-3 px-3 sm:px-4 border-b border-border/50 last:border-b-0">
+      <div className="flex items-center justify-center flex-shrink-0">
         {category ? (
-          <CategoryIcon icon={category.icon} color={category.color} />
+          <CategoryIcon icon={category.icon} color={category.color} size="sm" />
         ) : (
-          <div className="w-6 h-6 rounded-full bg-muted" />
+          <div className="w-5 h-5 rounded-full bg-muted" />
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium truncate">
+          <span className="font-medium truncate text-sm sm:text-base">
             {recurring.description || category?.name || 'Payment'}
           </span>
           {status === 'due' && (
-            <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded">
+            <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded flex-shrink-0">
               <AlertCircle className="h-3 w-3" />
               Due
             </span>
           )}
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs sm:text-sm text-muted-foreground truncate">
           {format(scheduledDate, 'MMM d')} · {wallet?.name || 'Unknown wallet'}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className={`font-semibold ${getAmountColor(recurring.transactionType)}`}>
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <span className={`font-semibold text-sm sm:text-base ${getAmountColor(recurring.transactionType)}`}>
           {formatAmount(recurring.amount, recurring.transactionType)} {recurring.currency}
         </span>
       </div>
 
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
           onClick={() => onLog(payment)}
           title="Log payment"
         >
@@ -91,7 +91,7 @@ export function UpcomingPaymentCard({
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-foreground"
           onClick={() => onSkip(payment)}
           title="Skip"
         >
