@@ -66,6 +66,28 @@ describe('recurring-utils', () => {
         const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
         expect(occurrences).toEqual([])
       })
+
+      it('correctly handles every N days spanning February in non-leap year', () => {
+        const rrule = 'FREQ=DAILY;INTERVAL=5'
+        const startDate = date('2026-02-25')
+        const periodStart = date('2026-02-01')
+        const periodEnd = date('2026-03-15')
+
+        const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
+        // Feb 25 -> Mar 2 (Feb has 28 days in 2026) -> Mar 7 -> Mar 12
+        expectDates(occurrences, ['2026-02-25', '2026-03-02', '2026-03-07', '2026-03-12'])
+      })
+
+      it('correctly handles every N days spanning February in leap year', () => {
+        const rrule = 'FREQ=DAILY;INTERVAL=5'
+        const startDate = date('2024-02-25')
+        const periodStart = date('2024-02-01')
+        const periodEnd = date('2024-03-15')
+
+        const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
+        // Feb 25 -> Mar 1 (Feb has 29 days in 2024) -> Mar 6 -> Mar 11
+        expectDates(occurrences, ['2024-02-25', '2024-03-01', '2024-03-06', '2024-03-11'])
+      })
     })
 
     describe('weekly recurrence', () => {
@@ -151,15 +173,39 @@ describe('recurring-utils', () => {
         expectDates(occurrences, ['2024-01-31', '2024-02-29', '2024-03-31', '2024-04-30'])
       })
 
-      it('handles day 31 in months with fewer days', () => {
+      it('handles day 31 in months with fewer days by falling back to last day', () => {
         const rrule = 'FREQ=MONTHLY;BYMONTHDAY=31'
         const startDate = date('2026-01-31')
         const periodStart = date('2026-01-01')
         const periodEnd = date('2026-06-30')
 
         const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
-        expectDates(occurrences, ['2026-01-31', '2026-03-31', '2026-05-31'])
+        // Falls back to last day of month when 31st doesn't exist
+        expectDates(occurrences, ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30'])
       })
+
+      it('handles day 29 in February non-leap year by falling back to 28', () => {
+        const rrule = 'FREQ=MONTHLY;BYMONTHDAY=29'
+        const startDate = date('2026-01-29')
+        const periodStart = date('2026-01-01')
+        const periodEnd = date('2026-04-30')
+
+        const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
+        // 2026 is not a leap year, so Feb 29 should fall back to Feb 28
+        expectDates(occurrences, ['2026-01-29', '2026-02-28', '2026-03-29', '2026-04-29'])
+      })
+
+      it('handles day 30 in February by falling back to last day', () => {
+        const rrule = 'FREQ=MONTHLY;BYMONTHDAY=30'
+        const startDate = date('2026-01-30')
+        const periodStart = date('2026-01-01')
+        const periodEnd = date('2026-04-30')
+
+        const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
+        // Feb doesn't have 30 days, so should fall back to Feb 28
+        expectDates(occurrences, ['2026-01-30', '2026-02-28', '2026-03-30', '2026-04-30'])
+      })
+
     })
 
     describe('yearly recurrence', () => {
@@ -267,7 +313,7 @@ describe('recurring-utils', () => {
 
   describe('parseRRule', () => {
     it('parses daily recurrence', () => {
-      expect(parseRRule('FREQ=DAILY')).toBe('Every day')
+      expect(parseRRule('FREQ=DAILY')).toBe('Daily')
     })
 
     it('parses daily with interval', () => {
@@ -275,7 +321,7 @@ describe('recurring-utils', () => {
     })
 
     it('parses weekly recurrence', () => {
-      expect(parseRRule('FREQ=WEEKLY')).toBe('Every week')
+      expect(parseRRule('FREQ=WEEKLY')).toBe('Weekly')
     })
 
     it('parses weekly with interval', () => {
@@ -283,11 +329,11 @@ describe('recurring-utils', () => {
     })
 
     it('parses weekly with day', () => {
-      expect(parseRRule('FREQ=WEEKLY;BYDAY=MO')).toBe('Every week on Monday')
+      expect(parseRRule('FREQ=WEEKLY;BYDAY=MO')).toBe('Weekly on Mon')
     })
 
     it('parses monthly recurrence', () => {
-      expect(parseRRule('FREQ=MONTHLY')).toBe('Every month')
+      expect(parseRRule('FREQ=MONTHLY')).toBe('Monthly')
     })
 
     it('parses monthly with interval', () => {
@@ -295,15 +341,15 @@ describe('recurring-utils', () => {
     })
 
     it('parses monthly with day of month', () => {
-      expect(parseRRule('FREQ=MONTHLY;BYMONTHDAY=15')).toBe('Every month on day 15')
+      expect(parseRRule('FREQ=MONTHLY;BYMONTHDAY=15')).toBe('Monthly, 15th')
     })
 
     it('parses monthly with last day', () => {
-      expect(parseRRule('FREQ=MONTHLY;BYMONTHDAY=-1')).toBe('Every month on the last day')
+      expect(parseRRule('FREQ=MONTHLY;BYMONTHDAY=-1')).toBe('Monthly, last day')
     })
 
     it('parses yearly recurrence', () => {
-      expect(parseRRule('FREQ=YEARLY')).toBe('Every year')
+      expect(parseRRule('FREQ=YEARLY')).toBe('Yearly')
     })
 
     it('parses yearly with interval', () => {

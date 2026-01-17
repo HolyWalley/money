@@ -1,5 +1,5 @@
 import { RRule } from 'rrule'
-import { format } from 'date-fns'
+import { format, getDaysInMonth } from 'date-fns'
 
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
@@ -9,6 +9,10 @@ function toUTCMidnight(date: Date): Date {
 
 function fromUTCToLocal(date: Date): Date {
   return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0)
+}
+
+function getLastDayOfMonth(year: number, month: number): number {
+  return getDaysInMonth(new Date(year, month))
 }
 
 export interface RRuleOptions {
@@ -41,11 +45,29 @@ export function getOccurrencesInPeriod(
   }
 
   const rule = RRule.fromString(rruleString)
-  const options = {
-    ...rule.origOptions,
+  const options = rule.origOptions
+
+  // Check if this is a monthly rule with a day that might not exist in all months
+  const isMonthly = options.freq === RRule.MONTHLY
+  const bymonthday = options.bymonthday
+  const targetDay = Array.isArray(bymonthday) ? bymonthday[0] : bymonthday
+  const needsFallback = isMonthly && typeof targetDay === 'number' && targetDay >= 29
+
+  if (needsFallback) {
+    return getMonthlyOccurrencesWithFallback(
+      startDate,
+      periodStart,
+      periodEnd,
+      targetDay,
+      options.interval || 1
+    )
+  }
+
+  const ruleOptions = {
+    ...options,
     dtstart: toUTCMidnight(startDate),
   }
-  const ruleWithStart = new RRule(options)
+  const ruleWithStart = new RRule(ruleOptions)
 
   const utcOccurrences = ruleWithStart.between(
     toUTCMidnight(periodStart),
@@ -54,6 +76,75 @@ export function getOccurrencesInPeriod(
   )
 
   return utcOccurrences.map(fromUTCToLocal)
+}
+
+function getMonthlyOccurrencesWithFallback(
+  startDate: Date,
+  periodStart: Date,
+  periodEnd: Date,
+  targetDay: number,
+  interval: number
+): Date[] {
+  const occurrences: Date[] = []
+
+  // Use consistent date extraction
+  const startYear = startDate.getFullYear()
+  const startMonth = startDate.getMonth()
+  const periodStartYear = periodStart.getFullYear()
+  const periodStartMonth = periodStart.getMonth()
+  const periodEndYear = periodEnd.getFullYear()
+  const periodEndMonth = periodEnd.getMonth()
+
+  // Calculate months since epoch for easier interval math
+  const startMonthsFromEpoch = startYear * 12 + startMonth
+  const periodStartMonthsFromEpoch = periodStartYear * 12 + periodStartMonth
+  const periodEndMonthsFromEpoch = periodEndYear * 12 + periodEndMonth
+
+  // Start from the first month that could have an occurrence in the period
+  let currentMonthsFromEpoch = startMonthsFromEpoch
+
+  // Skip to first occurrence at or after periodStart
+  while (currentMonthsFromEpoch < periodStartMonthsFromEpoch) {
+    currentMonthsFromEpoch += interval
+  }
+
+  // But we might need to go back if the occurrence day falls within the period
+  // Check the previous interval's month
+  if (currentMonthsFromEpoch > startMonthsFromEpoch) {
+    const prevMonthsFromEpoch = currentMonthsFromEpoch - interval
+    if (prevMonthsFromEpoch >= startMonthsFromEpoch) {
+      const prevYear = Math.floor(prevMonthsFromEpoch / 12)
+      const prevMonth = prevMonthsFromEpoch % 12
+      const lastDay = getLastDayOfMonth(prevYear, prevMonth)
+      const day = Math.min(targetDay, lastDay)
+      const occurrenceDate = new Date(prevYear, prevMonth, day, 12, 0, 0)
+
+      if (occurrenceDate >= periodStart && occurrenceDate <= periodEnd) {
+        currentMonthsFromEpoch = prevMonthsFromEpoch
+      }
+    }
+  }
+
+  // Generate occurrences
+  while (currentMonthsFromEpoch <= periodEndMonthsFromEpoch + 1) {
+    const year = Math.floor(currentMonthsFromEpoch / 12)
+    const month = currentMonthsFromEpoch % 12
+    const lastDay = getLastDayOfMonth(year, month)
+    const day = Math.min(targetDay, lastDay)
+    const occurrenceDate = new Date(year, month, day, 12, 0, 0)
+
+    if (occurrenceDate > periodEnd) {
+      break
+    }
+
+    if (occurrenceDate >= periodStart) {
+      occurrences.push(occurrenceDate)
+    }
+
+    currentMonthsFromEpoch += interval
+  }
+
+  return occurrences
 }
 
 export function generateLogId(recurringPaymentId: string, scheduledDate: Date): string {
