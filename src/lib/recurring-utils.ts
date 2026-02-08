@@ -1,5 +1,7 @@
 import { RRule } from 'rrule'
 import { format, getDaysInMonth } from 'date-fns'
+import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
+import type { CreateTransaction } from '../../shared/schemas/transaction.schema'
 
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
@@ -349,4 +351,55 @@ export function parseRRuleToOptions(rruleString: string): ParsedRRuleOptions {
     dayOfMonth,
     endDate,
   }
+}
+
+export interface TemplateChange {
+  field: string
+  label: string
+  from: string | number | undefined
+  to: string | number | undefined
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  amount: 'Amount',
+  currency: 'Currency',
+  categoryId: 'Category',
+  walletId: 'Wallet',
+  toWalletId: 'To wallet',
+  transactionType: 'Type',
+  description: 'Note',
+}
+
+const COMPARE_FIELDS = [
+  { recurring: 'amount', transaction: 'amount' },
+  { recurring: 'currency', transaction: 'currency' },
+  { recurring: 'categoryId', transaction: 'categoryId' },
+  { recurring: 'walletId', transaction: 'walletId' },
+  { recurring: 'toWalletId', transaction: 'toWalletId' },
+  { recurring: 'transactionType', transaction: 'transactionType' },
+  { recurring: 'description', transaction: 'note' },
+] as const
+
+export function detectTemplateChanges(
+  recurring: RecurringPayment,
+  transactionData: CreateTransaction,
+): TemplateChange[] {
+  const changes: TemplateChange[] = []
+
+  for (const { recurring: rField, transaction: tField } of COMPARE_FIELDS) {
+    const fromVal = recurring[rField]
+    const toVal = transactionData[tField]
+    const normalizedFrom = fromVal === undefined ? '' : fromVal
+    const normalizedTo = toVal === undefined ? '' : toVal
+    if (normalizedFrom !== normalizedTo) {
+      changes.push({
+        field: rField,
+        label: FIELD_LABELS[rField],
+        from: fromVal,
+        to: toVal,
+      })
+    }
+  }
+
+  return changes
 }

@@ -5,8 +5,11 @@ import {
   generateLogId,
   parseRRule,
   buildRRule,
+  detectTemplateChanges,
   type RRuleOptions,
 } from './recurring-utils'
+import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
+import type { CreateTransaction } from '../../shared/schemas/transaction.schema'
 
 function date(str: string): Date {
   const [year, month, day] = str.split('-').map(Number)
@@ -438,6 +441,123 @@ describe('recurring-utils', () => {
     it('interval of 1 is omitted', () => {
       const options: RRuleOptions = { frequency: 'daily', interval: 1 }
       expect(buildRRule(options)).toBe('FREQ=DAILY')
+    })
+  })
+
+  describe('detectTemplateChanges', () => {
+    const baseRecurring: RecurringPayment = {
+      _id: 'rec-1',
+      amount: 100,
+      currency: 'USD',
+      categoryId: 'cat-1',
+      walletId: 'wallet-1',
+      transactionType: 'expense',
+      description: 'Netflix',
+      rrule: 'FREQ=MONTHLY',
+      startDate: '2026-01-01T00:00:00.000Z',
+      isActive: true,
+      sourceTransactionId: 'tx-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
+
+    const baseTransaction: CreateTransaction = {
+      amount: 100,
+      currency: 'USD',
+      categoryId: 'cat-1',
+      walletId: 'wallet-1',
+      transactionType: 'expense',
+      note: 'Netflix',
+      date: '2026-02-01T00:00:00.000Z',
+    }
+
+    it('returns empty array when nothing changed', () => {
+      const changes = detectTemplateChanges(baseRecurring, baseTransaction)
+      expect(changes).toEqual([])
+    })
+
+    it('detects amount change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, amount: 150 })
+      expect(changes).toEqual([
+        { field: 'amount', label: 'Amount', from: 100, to: 150 },
+      ])
+    })
+
+    it('detects currency change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, currency: 'EUR' })
+      expect(changes).toEqual([
+        { field: 'currency', label: 'Currency', from: 'USD', to: 'EUR' },
+      ])
+    })
+
+    it('detects category change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, categoryId: 'cat-2' })
+      expect(changes).toEqual([
+        { field: 'categoryId', label: 'Category', from: 'cat-1', to: 'cat-2' },
+      ])
+    })
+
+    it('detects wallet change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, walletId: 'wallet-2' })
+      expect(changes).toEqual([
+        { field: 'walletId', label: 'Wallet', from: 'wallet-1', to: 'wallet-2' },
+      ])
+    })
+
+    it('detects note/description change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, note: 'Spotify' })
+      expect(changes).toEqual([
+        { field: 'description', label: 'Note', from: 'Netflix', to: 'Spotify' },
+      ])
+    })
+
+    it('detects transaction type change', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, transactionType: 'income' })
+      expect(changes).toEqual([
+        { field: 'transactionType', label: 'Type', from: 'expense', to: 'income' },
+      ])
+    })
+
+    it('detects multiple changes at once', () => {
+      const changes = detectTemplateChanges(baseRecurring, {
+        ...baseTransaction,
+        amount: 200,
+        note: 'Spotify',
+        walletId: 'wallet-2',
+      })
+      expect(changes).toHaveLength(3)
+      expect(changes.map(c => c.field)).toEqual(['amount', 'walletId', 'description'])
+    })
+
+    it('treats undefined and empty string description as equal', () => {
+      const recurringNoDesc = { ...baseRecurring, description: undefined }
+      const txNoNote = { ...baseTransaction, note: undefined }
+      const changes = detectTemplateChanges(recurringNoDesc, txNoNote)
+      expect(changes).toEqual([])
+    })
+
+    it('detects toWalletId change for transfers', () => {
+      const recurringTransfer: RecurringPayment = {
+        ...baseRecurring,
+        transactionType: 'transfer',
+        toWalletId: 'wallet-2',
+      }
+      const txTransfer: CreateTransaction = {
+        ...baseTransaction,
+        transactionType: 'transfer',
+        toWalletId: 'wallet-3',
+      }
+      const changes = detectTemplateChanges(recurringTransfer, txTransfer)
+      expect(changes).toEqual([
+        { field: 'toWalletId', label: 'To wallet', from: 'wallet-2', to: 'wallet-3' },
+      ])
+    })
+
+    it('detects change when description is set and note is undefined', () => {
+      const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, note: undefined })
+      expect(changes).toEqual([
+        { field: 'description', label: 'Note', from: 'Netflix', to: undefined },
+      ])
     })
   })
 })
