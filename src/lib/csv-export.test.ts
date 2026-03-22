@@ -23,13 +23,13 @@ function makeTransaction(overrides: Partial<DecoratedTransaction> = {}): Decorat
 }
 
 const categories: Category[] = [
-  { _id: 'cat1', type: 'category', name: 'Food', icon: 'utensils', color: '#000', transactionType: 'expense', createdAt: '', updatedAt: '' },
-  { _id: 'cat2', type: 'category', name: 'Salary', icon: 'wallet', color: '#000', transactionType: 'income', createdAt: '', updatedAt: '' },
+  { _id: 'cat1', type: 'expense', name: 'Food', icon: 'utensils', color: 'green', isDefault: false, order: 0, createdAt: '', updatedAt: '' },
+  { _id: 'cat2', type: 'income', name: 'Salary', icon: 'wallet', color: 'blue', isDefault: false, order: 1, createdAt: '', updatedAt: '' },
 ]
 
 const wallets: Wallet[] = [
-  { _id: 'w1', type: 'wallet', name: 'Cash', currency: 'PLN', createdAt: '', updatedAt: '' },
-  { _id: 'w2', type: 'wallet', name: 'Bank', currency: 'PLN', createdAt: '', updatedAt: '' },
+  { _id: 'w1', type: 'wallet', name: 'Cash', currency: 'PLN', initialBalance: 0, order: 0, createdAt: '', updatedAt: '' },
+  { _id: 'w2', type: 'wallet', name: 'Bank', currency: 'PLN', initialBalance: 0, order: 1, createdAt: '', updatedAt: '' },
 ]
 
 describe('buildTransactionsCsv', () => {
