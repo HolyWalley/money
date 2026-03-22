@@ -8,6 +8,7 @@ import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveRecurringPayments } from '@/hooks/useLiveRecurringPayments'
 import { type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { exportTransactionsToCsv } from '@/lib/csv-export'
 import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
@@ -110,6 +111,10 @@ function TransactionsPageContent() {
     }
   }
 
+  const handleExportCsv = () => {
+    exportTransactionsToCsv(transactions, categories.categories, wallets.wallets, baseCurrency)
+  }
+
   const handleMakeRecurring = (transaction: DecoratedTransaction) => {
     const existingRecurring = getRecurringForTransaction(transaction)
     if (existingRecurring) {
@@ -128,6 +133,7 @@ function TransactionsPageContent() {
           <PeriodFilter
             filters={effectiveFilters}
             onFiltersChange={handleFiltersChange}
+            onExportCsv={handleExportCsv}
             subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
           />
         </div>

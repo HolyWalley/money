@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Info } from 'lucide-react'
+import { Download, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DatePicker } from './DatePicker'
 import { FilterCheckboxList } from './FilterCheckboxList'
@@ -20,9 +20,10 @@ interface FiltersDrawerProps {
   currentFilters: TransactionFilters
   onClose: () => void
   onFiltersChange: (filters: TransactionFilters) => void
+  onExportCsv?: () => void
 }
 
-export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange }: FiltersDrawerProps) {
+export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange, onExportCsv }: FiltersDrawerProps) {
   const { categories } = useLiveCategories()
   const { wallets } = useLiveWallets()
   const { quickFilters, clearQuickFilters, hasQuickFilters } = useFilterContext()
@@ -208,7 +209,20 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader>
-          <DrawerTitle>Filter Transactions</DrawerTitle>
+          <div className="flex items-center justify-between">
+            <DrawerTitle>Filter Transactions</DrawerTitle>
+            {onExportCsv && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onExportCsv}
+                className="h-8 gap-1.5 text-muted-foreground"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            )}
+          </div>
           <DrawerDescription>
             Filter transactions by period, categories, and wallets
           </DrawerDescription>

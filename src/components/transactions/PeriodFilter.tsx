@@ -16,6 +16,7 @@ import {
 interface PeriodFilterProps {
   filters: TransactionFilters
   onFiltersChange: (filters: TransactionFilters) => void
+  onExportCsv?: () => void
   subtitle?: string
   className?: string
 }
@@ -37,7 +38,7 @@ const DEFAULT_PERIOD_FILTER: PeriodFilterType = {
   currentPeriod: 0,
 }
 
-export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: PeriodFilterProps) {
+export function PeriodFilter({ filters, subtitle, onFiltersChange, onExportCsv, className }: PeriodFilterProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   const currentPeriodFilter = filters.period || DEFAULT_PERIOD_FILTER
@@ -163,6 +164,7 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, className }: 
         currentFilters={filters}
         onClose={handleDrawerClose}
         onFiltersChange={onFiltersChange}
+        onExportCsv={onExportCsv}
       />
     </>
   )
