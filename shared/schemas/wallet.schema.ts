@@ -8,6 +8,7 @@ export const walletSchema = z.object({
   name: z.string().min(1, 'Wallet name is required').max(50, 'Wallet name is too long'),
   currency: CurrencyEnum,
   initialBalance: z.number().default(0),
+  isSavings: z.boolean().default(false),
   order: z.number().default(0),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -17,6 +18,7 @@ export const createWalletSchema = walletSchema.pick({
   name: true,
   currency: true,
   initialBalance: true,
+  isSavings: true,
   order: true,
 });
 
@@ -24,6 +26,7 @@ export const updateWalletSchema = walletSchema.pick({
   name: true,
   currency: true,
   initialBalance: true,
+  isSavings: true,
   order: true,
 }).partial();
 

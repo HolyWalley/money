@@ -10,68 +10,62 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { WalletForm } from './WalletForm'
-import { walletService } from '@/services/walletService'
-import { useAuth } from '@/contexts/AuthContext'
-import type { Wallet, CreateWallet, UpdateWallet } from '../../../shared/schemas/wallet.schema'
-import { createWalletSchema, updateWalletSchema } from '../../../shared/schemas/wallet.schema'
+import { GoalForm } from './GoalForm'
+import { savingGoalService } from '@/services/savingGoalService'
+import type { SavingGoal, CreateSavingGoal, UpdateSavingGoal } from '../../../shared/schemas/saving-goal.schema'
+import { createSavingGoalSchema, updateSavingGoalSchema } from '../../../shared/schemas/saving-goal.schema'
+import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
-interface WalletDialogProps {
+interface GoalDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  wallet?: Wallet | null
-  onSuccess?: () => void
+  goal?: SavingGoal | null
+  savingsWallets: Wallet[]
 }
 
-export function WalletDialog({ open, onOpenChange, wallet, onSuccess }: WalletDialogProps) {
-  const { user } = useAuth()
+export function GoalDialog({ open, onOpenChange, goal, savingsWallets }: GoalDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isEditMode = !!wallet
+  const isEditMode = !!goal
 
-  const form = useForm<CreateWallet | UpdateWallet>({
-    resolver: zodResolver(isEditMode ? updateWalletSchema : createWalletSchema),
+  const schema = isEditMode ? updateSavingGoalSchema : createSavingGoalSchema
+  const form = useForm<CreateSavingGoal>({
+    // @ts-expect-error zodResolver union type mismatch between create/update schemas
+    resolver: zodResolver(schema),
     defaultValues: {
+      walletId: savingsWallets[0]?._id || '',
       name: '',
-      currency: 'USD',
-      initialBalance: 0,
-      isSavings: false,
+      targetAmount: 0,
     },
   })
 
   useEffect(() => {
-    if (wallet) {
+    if (goal) {
       form.reset({
-        name: wallet.name,
-        currency: wallet.currency,
-        initialBalance: wallet.initialBalance,
-        isSavings: wallet.isSavings,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
       })
     } else {
       form.reset({
+        walletId: savingsWallets[0]?._id || '',
         name: '',
-        currency: 'USD',
-        initialBalance: 0,
-        isSavings: false,
+        targetAmount: 0,
       })
     }
-  }, [wallet, form])
+  }, [goal, form, savingsWallets])
 
-  const onSubmit = async (data: CreateWallet | UpdateWallet) => {
-    if (!user) return
-
+  const onSubmit = async (data: CreateSavingGoal) => {
     setIsSubmitting(true)
     setError(null)
 
     try {
-      if (isEditMode && wallet) {
-        await walletService.updateWallet(wallet._id, data as UpdateWallet)
+      if (isEditMode && goal) {
+        await savingGoalService.updateGoal(goal._id, data as UpdateSavingGoal)
       } else {
-        await walletService.createWallet(data as CreateWallet)
+        await savingGoalService.createGoal(data as CreateSavingGoal)
       }
       onOpenChange(false)
-      onSuccess?.()
       form.reset()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -84,15 +78,20 @@ export function WalletDialog({ open, onOpenChange, wallet, onSuccess }: WalletDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Wallet' : 'Create New Wallet'}</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Goal' : 'Create New Goal'}</DialogTitle>
           <DialogDescription>
             {isEditMode
-              ? 'Update your wallet details below.'
-              : 'Add a new wallet to track your finances.'}
+              ? 'Update your savings goal details.'
+              : 'Add a new savings goal to track your progress.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <WalletForm form={form} isSubmitting={isSubmitting} />
+          <GoalForm
+            form={form}
+            isSubmitting={isSubmitting}
+            savingsWallets={savingsWallets}
+            isEditMode={isEditMode}
+          />
 
           {error && (
             <div className="text-sm text-destructive">{error}</div>

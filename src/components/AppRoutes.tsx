@@ -4,6 +4,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Overview } from '@/components/Overview'
 import { WalletsPage } from '@/components/wallets/WalletsPage'
+import { SavingsPage } from '@/components/savings/SavingsPage'
+import { SavingsNotificationListener } from '@/components/savings/SavingsNotificationListener'
 import { TransactionsPage } from '@/components/transactions/TransactionsPage'
 import { AppSidebar } from './AppSidebar'
 
@@ -29,6 +31,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="bg-background text-foreground flex">
       <AppSidebar />
       <div className={`flex-1 min-h-[calc(100dvh)] ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
+      <SavingsNotificationListener />
     </div>
   )
 }
@@ -46,6 +49,7 @@ export function AppRoutes() {
                 <Routes>
                   <Route path="/dashboard" element={<Overview />} />
                   <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/savings" element={<SavingsPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 </Routes>

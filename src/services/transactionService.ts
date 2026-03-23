@@ -1,5 +1,6 @@
 import { db } from '../lib/db-dexie'
 import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crdts'
+import { eventBus } from '../lib/event-bus'
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
 import { transactionSchema, createTransactionSchema, updateTransactionSchema } from '../../shared/schemas/transaction.schema'
 
@@ -115,12 +116,16 @@ class TransactionService {
 
       const id = addTransaction(validatedTransaction)
 
-      return {
+      const created: Transaction = {
         _id: id,
         ...validatedTransaction,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
+
+      eventBus.emit('transaction:created', created)
+
+      return created
     } catch (error) {
       console.error('Error creating transaction:', error)
       throw error

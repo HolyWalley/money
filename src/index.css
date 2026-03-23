@@ -138,3 +138,9 @@
     padding-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0));
   }
 }
+
+@media (max-width: 768px) {
+  [data-sonner-toaster] {
+    --offset: calc(theme(spacing.16) + env(safe-area-inset-bottom, 0)) !important;
+  }
+}

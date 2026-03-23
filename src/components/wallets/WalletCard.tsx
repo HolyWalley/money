@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, Trash } from 'lucide-react'
+import { MoreHorizontal, Pencil, PiggyBank, Trash } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,7 +59,8 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
     >
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-medium">
+          <CardTitle className="text-base font-medium flex items-center gap-1.5">
+            {wallet.isSavings && <PiggyBank className="h-4 w-4 text-muted-foreground" />}
             {wallet.name}
           </CardTitle>
           <DropdownMenu>
