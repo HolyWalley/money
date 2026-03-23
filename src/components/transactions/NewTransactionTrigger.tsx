@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { TransactionDrawer } from './TransactionDrawer'
 import { transactionService } from '@/services/transactionService'
@@ -10,11 +10,10 @@ export function NewTransactionTrigger() {
   const [open, setOpen] = useState(false)
   const { user } = useAuth()
 
-  const handleSubmit = async (data: CreateTransaction) => {
+  const handleSubmit = useCallback(async (data: CreateTransaction) => {
     if (!user) return
-    console.log('Submitting transaction data:', data)
     await transactionService.createTransaction(data)
-  }
+  }, [user])
 
   return (
     <>
