@@ -1,6 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -71,6 +72,18 @@ export function WalletForm({ form, isSubmitting }: WalletFormProps) {
             <p className="text-sm text-destructive">{form.formState.errors.currency.message}</p>
           )}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="isSavings"
+          checked={form.watch('isSavings') ?? false}
+          onCheckedChange={(checked) => form.setValue('isSavings', checked === true)}
+          disabled={isSubmitting}
+        />
+        <Label htmlFor="isSavings" className="font-normal">
+          Savings wallet
+        </Label>
       </div>
     </>
   )

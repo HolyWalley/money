@@ -7,7 +7,8 @@ import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 import type { RecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
-import type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog } from './db-dexie'
+import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
+import type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog, DexieSavingGoal } from './db-dexie'
 
 // Yjs event types
 interface YMapEvent {
@@ -41,6 +42,11 @@ function createRecurringPaymentLogMap(data: Omit<RecurringPaymentLog, '_id'> & {
   return new Y.Map(entries)
 }
 
+function createSavingGoalMap(data: Omit<SavingGoal, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
 const ydoc = new Y.Doc()
 new IndexeddbPersistence('money', ydoc)
 
@@ -49,6 +55,7 @@ const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
 const transactions = ydoc.getMap<Y.Map<unknown>>('transactions')
 const recurringPayments = ydoc.getMap<Y.Map<unknown>>('recurringPayments')
 const recurringPaymentLogs = ydoc.getMap<Y.Map<unknown>>('recurringPaymentLogs')
+const savingGoals = ydoc.getMap<Y.Map<unknown>>('savingGoals')
 
 // Generic observer setup for Yjs maps syncing to Dexie
 function setupDeepObserver<TDexie>(
@@ -197,6 +204,23 @@ Promise.resolve().then(() => {
       };
     }
   );
+
+  // Setup observers for saving goals
+  setupDeepObserver<DexieSavingGoal>(
+    savingGoals,
+    db.savingGoals,
+    (obj) => {
+      const now = new Date();
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as SavingGoal),
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
+  );
 });
 
 export function addCategory({ name, type, icon, color, isDefault, order }: Omit<Category, '_id' | 'createdAt' | 'updatedAt'>) {
@@ -239,7 +263,7 @@ export function updateCategory(id: string, updates: Partial<Category>) {
   })
 }
 
-export function addWallet({ name, type, currency, initialBalance, order }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addWallet({ name, type, currency, initialBalance, isSavings, order }: Omit<Wallet, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     wallets.set(id, createWalletMap({
@@ -250,6 +274,7 @@ export function addWallet({ name, type, currency, initialBalance, order }: Omit<
       updatedAt: new Date().toISOString(),
       currency,
       initialBalance,
+      isSavings,
       order
     }))
   })
@@ -265,6 +290,7 @@ export function updateWallet(id: string, updates: Partial<Wallet>) {
     if (updates.type !== undefined) wallet.set('type', updates.type)
     if (updates.currency !== undefined) wallet.set('currency', updates.currency)
     if (updates.initialBalance !== undefined) wallet.set('initialBalance', updates.initialBalance)
+    if (updates.isSavings !== undefined) wallet.set('isSavings', updates.isSavings)
     if (updates.order !== undefined) wallet.set('order', updates.order)
     wallet.set('updatedAt', new Date().toISOString())
   })
@@ -425,6 +451,45 @@ export function updateRecurringPaymentLog(id: string, updates: Partial<Recurring
   })
 }
 
+export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
+  const id = uuid()
+  ydoc.transact(() => {
+    savingGoals.set(id, createSavingGoalMap({
+      _id: id,
+      walletId,
+      name,
+      targetAmount,
+      allocatedAmount,
+      achieved,
+      order,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }))
+  })
+  return id
+}
+
+export function updateSavingGoal(id: string, updates: Partial<SavingGoal>) {
+  ydoc.transact(() => {
+    const goal = savingGoals.get(id)
+    if (!goal) return
+
+    if (updates.walletId !== undefined) goal.set('walletId', updates.walletId)
+    if (updates.name !== undefined) goal.set('name', updates.name)
+    if (updates.targetAmount !== undefined) goal.set('targetAmount', updates.targetAmount)
+    if (updates.allocatedAmount !== undefined) goal.set('allocatedAmount', updates.allocatedAmount)
+    if (updates.achieved !== undefined) goal.set('achieved', updates.achieved)
+    if (updates.order !== undefined) goal.set('order', updates.order)
+    goal.set('updatedAt', new Date().toISOString())
+  })
+}
+
+export function deleteSavingGoal(id: string) {
+  ydoc.transact(() => {
+    savingGoals.delete(id)
+  })
+}
+
 export {
   ydoc,
   categories,
@@ -432,4 +497,5 @@ export {
   transactions,
   recurringPayments,
   recurringPaymentLogs,
+  savingGoals,
 }

@@ -4,6 +4,7 @@ import type { Category } from '../../shared/schemas/category.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 import type { RecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
+import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
 
 // Define Dexie-specific types with Date objects instead of strings
 type DexieCategory = Omit<Category, 'createdAt' | 'updatedAt'> & {
@@ -34,6 +35,11 @@ type DexieRecurringPaymentLog = Omit<RecurringPaymentLog, 'scheduledDate' | 'cre
   createdAt: Date;
 }
 
+type DexieSavingGoal = Omit<SavingGoal, 'createdAt' | 'updatedAt'> & {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ExchangeRateRecord {
   key: string;
   from: string;
@@ -50,6 +56,7 @@ const db = new Dexie('MoneyDB') as Dexie & {
   exchangeRates: EntityTable<ExchangeRateRecord, 'key'>;
   recurringPayments: EntityTable<DexieRecurringPayment, '_id'>;
   recurringPaymentLogs: EntityTable<DexieRecurringPaymentLog, '_id'>;
+  savingGoals: EntityTable<DexieSavingGoal, '_id'>;
 }
 
 db.version(1).stores({
@@ -119,5 +126,16 @@ db.version(9).stores({
   recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
 });
 
+// Version 10: Add saving goals table
+db.version(10).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt,recurringPaymentLogId',
+  exchangeRates: 'key,from,to,date,expiresAt',
+  recurringPayments: '_id,isActive,categoryId,walletId,startDate,createdAt,updatedAt',
+  recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
+  savingGoals: '_id,walletId,name,achieved,order,createdAt,updatedAt',
+});
+
 export { db };
-export type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog };
+export type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog, DexieSavingGoal };
