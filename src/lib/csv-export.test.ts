@@ -28,8 +28,8 @@ const categories: Category[] = [
 ]
 
 const wallets: Wallet[] = [
-  { _id: 'w1', type: 'wallet', name: 'Cash', currency: 'PLN', initialBalance: 0, order: 0, createdAt: '', updatedAt: '' },
-  { _id: 'w2', type: 'wallet', name: 'Bank', currency: 'PLN', initialBalance: 0, order: 1, createdAt: '', updatedAt: '' },
+  { _id: 'w1', type: 'wallet', name: 'Cash', currency: 'PLN', initialBalance: 0, isSavings: false, order: 0, createdAt: '', updatedAt: '' },
+  { _id: 'w2', type: 'wallet', name: 'Bank', currency: 'PLN', initialBalance: 0, isSavings: false, order: 1, createdAt: '', updatedAt: '' },
 ]
 
 describe('buildTransactionsCsv', () => {
