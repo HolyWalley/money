@@ -211,11 +211,13 @@ Promise.resolve().then(() => {
     db.savingGoals,
     (obj) => {
       const now = new Date();
+      const targetDate = obj.targetDate ? new Date(obj.targetDate as string) : undefined;
       const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
       const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
 
       return {
         ...(obj as SavingGoal),
+        targetDate: targetDate && !isNaN(targetDate.getTime()) ? targetDate : undefined,
         createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
         updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
       };
@@ -451,7 +453,7 @@ export function updateRecurringPaymentLog(id: string, updates: Partial<Recurring
   })
 }
 
-export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order, targetDate }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     savingGoals.set(id, createSavingGoalMap({
@@ -462,6 +464,7 @@ export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, a
       allocatedAmount,
       achieved,
       order,
+      targetDate,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -480,6 +483,7 @@ export function updateSavingGoal(id: string, updates: Partial<SavingGoal>) {
     if (updates.allocatedAmount !== undefined) goal.set('allocatedAmount', updates.allocatedAmount)
     if (updates.achieved !== undefined) goal.set('achieved', updates.achieved)
     if (updates.order !== undefined) goal.set('order', updates.order)
+    if (updates.targetDate !== undefined) goal.set('targetDate', updates.targetDate)
     goal.set('updatedAt', new Date().toISOString())
   })
 }

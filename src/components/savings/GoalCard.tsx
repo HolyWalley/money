@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MoreHorizontal, Pencil, Trash, Check, Undo } from 'lucide-react'
+import { format } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { savingGoalService } from '@/services/savingGoalService'
+import { getSavingsSuggestion } from '@/lib/savings-suggestion'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
 interface GoalCardProps {
@@ -26,6 +28,7 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
     : 0
 
   const isFullyFunded = goal.allocatedAmount >= goal.targetAmount
+  const suggestion = getSavingsSuggestion(goal)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -58,6 +61,11 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
             {!goal.achieved && isFullyFunded && (
               <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1.5 py-0.5 rounded">
                 Fully funded
+              </span>
+            )}
+            {!goal.achieved && !isFullyFunded && suggestion.status === 'overdue' && (
+              <span className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded">
+                Overdue
               </span>
             )}
           </CardTitle>
@@ -113,6 +121,18 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
             />
           </div>
           <p className="text-xs text-muted-foreground text-right">{percentage}%</p>
+          {goal.targetDate && !goal.achieved && suggestion.status !== 'fully-funded' && (() => {
+            const formattedDate = format(new Date(goal.targetDate), 'MMM d, yyyy')
+            let text: string | null = null
+            if (suggestion.status === 'on-track') {
+              text = `Suggested: ~${formatCurrency(suggestion.monthlyAmount)} / month — by ${formattedDate}`
+            } else if (suggestion.status === 'under-month') {
+              text = `${formatCurrency(suggestion.remainingAmount)} to go — under a month left (${formattedDate})`
+            } else if (suggestion.status === 'overdue') {
+              text = `${formatCurrency(suggestion.remainingAmount)} short — was due ${formattedDate}`
+            }
+            return text ? <p className="text-xs text-muted-foreground">{text}</p> : null
+          })()}
         </CardContent>
       </Card>
 

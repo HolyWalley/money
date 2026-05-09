@@ -8,6 +8,7 @@ export const savingGoalSchema = z.object({
   allocatedAmount: z.number().min(0).default(0),
   achieved: z.boolean().default(false),
   order: z.number().default(0),
+  targetDate: z.string().datetime().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -16,6 +17,7 @@ export const createSavingGoalSchema = savingGoalSchema.pick({
   walletId: true,
   name: true,
   targetAmount: true,
+  targetDate: true,
 })
 
 export const updateSavingGoalSchema = savingGoalSchema.pick({
@@ -24,6 +26,7 @@ export const updateSavingGoalSchema = savingGoalSchema.pick({
   allocatedAmount: true,
   achieved: true,
   order: true,
+  targetDate: true,
 }).partial()
 
 export type SavingGoal = z.infer<typeof savingGoalSchema>

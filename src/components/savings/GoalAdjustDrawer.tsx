@@ -11,6 +11,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { useUnallocatedAmount } from '@/hooks/useUnallocatedAmount'
 import { savingGoalService } from '@/services/savingGoalService'
+import { getSavingsSuggestion } from '@/lib/savings-suggestion'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
 interface GoalAdjustDrawerProps {
@@ -82,6 +83,22 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleSuggest = () => {
+    const raw = goals.map(g => {
+      const s = getSavingsSuggestion(g)
+      const monthly = s.status === 'on-track' ? s.monthlyAmount : 0
+      const cap = Math.round((g.targetAmount - g.allocatedAmount) * 100) / 100
+      return { id: g._id, value: Math.min(monthly, cap) }
+    })
+    const total = raw.reduce((sum, r) => sum + r.value, 0)
+    const scale = total > adjustAmount && total > 0 ? adjustAmount / total : 1
+    const next: Record<string, number> = {}
+    for (const r of raw) {
+      next[r.id] = Math.round(r.value * scale * 100) / 100
+    }
+    setAmounts(prev => ({ ...prev, ...next }))
   }
 
   const handleSpendEvenly = async () => {
@@ -184,6 +201,13 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
           <DrawerFooter className="border-t-0">
             {mode === 'allocate' ? (
               <>
+                <Button
+                  variant="secondary"
+                  onClick={handleSuggest}
+                  disabled={isSubmitting || !goals.some(g => !!g.targetDate)}
+                >
+                  Suggest
+                </Button>
                 <Button onClick={handleSubmit} disabled={isSubmitting || totalAdjusted === 0}>
                   {isSubmitting ? 'Allocating...' : 'Allocate'}
                 </Button>

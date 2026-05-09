@@ -95,7 +95,7 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
                   }
                 })()}
                 onChange={(date) => {
-                  field.onChange(date.toISOString())
+                  if (date) field.onChange(date.toISOString())
                 }}
                 disabled={isSubmitting}
                 className="w-full"

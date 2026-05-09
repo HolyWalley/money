@@ -168,7 +168,7 @@ export function RecurringPaymentForm() {
             <FormControl>
               <DatePicker
                 value={field.value ? new Date(field.value) : new Date()}
-                onChange={(date) => field.onChange(date.toISOString())}
+                onChange={(date) => { if (date) field.onChange(date.toISOString()) }}
               />
             </FormControl>
             <FormMessage />
@@ -202,7 +202,7 @@ export function RecurringPaymentForm() {
               <FormControl>
                 <DatePicker
                   value={field.value ? new Date(field.value) : new Date()}
-                  onChange={(date) => field.onChange(date.toISOString())}
+                  onChange={(date) => { if (date) field.onChange(date.toISOString()) }}
                 />
               </FormControl>
               <FormMessage />

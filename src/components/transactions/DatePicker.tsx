@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react'
 import { format, addDays, subDays, isToday, isYesterday, isTomorrow } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -11,26 +11,29 @@ import {
 import { cn } from '@/lib/utils'
 
 interface DatePickerProps {
-  value: Date
-  onChange: (date: Date) => void
+  value: Date | undefined
+  onChange: (date: Date | undefined) => void
   disabled?: boolean
   className?: string
+  clearable?: boolean
+  placeholder?: string
 }
 
-export function DatePicker({ value, onChange, disabled, className }: DatePickerProps) {
+export function DatePicker({ value, onChange, disabled, className, clearable, placeholder = 'Pick a date' }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const handlePreviousDay = () => {
-    const newDate = subDays(value, 1)
-    onChange(newDate)
+    if (!value) return
+    onChange(subDays(value, 1))
   }
 
   const handleNextDay = () => {
-    const newDate = addDays(value, 1)
-    onChange(newDate)
+    if (!value) return
+    onChange(addDays(value, 1))
   }
 
-  const getDateLabel = (date: Date) => {
+  const getDateLabel = (date: Date | undefined) => {
+    if (!date) return placeholder
     if (isToday(date)) return 'Today'
     if (isYesterday(date)) return 'Yesterday'
     if (isTomorrow(date)) return 'Tomorrow'
@@ -44,6 +47,8 @@ export function DatePicker({ value, onChange, disabled, className }: DatePickerP
     }
   }
 
+  const showClear = clearable && !!value
+
   return (
     <div className={cn("flex items-center justify-between rounded-lg border bg-card px-3 py-2", className)}>
       <Button
@@ -51,7 +56,7 @@ export function DatePicker({ value, onChange, disabled, className }: DatePickerP
         variant="ghost"
         size="sm"
         onClick={handlePreviousDay}
-        disabled={disabled}
+        disabled={disabled || !value}
         className="h-8 w-8 p-0 hover:bg-accent"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -64,7 +69,10 @@ export function DatePicker({ value, onChange, disabled, className }: DatePickerP
             type="button"
             variant="ghost"
             disabled={disabled}
-            className="flex-1 justify-center font-medium hover:bg-accent"
+            className={cn(
+              "flex-1 justify-center font-medium hover:bg-accent",
+              !value && "text-muted-foreground"
+            )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {getDateLabel(value)}
@@ -80,17 +88,31 @@ export function DatePicker({ value, onChange, disabled, className }: DatePickerP
         </PopoverContent>
       </Popover>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleNextDay}
-        disabled={disabled}
-        className="h-8 w-8 p-0 hover:bg-accent"
-      >
-        <ChevronRight className="h-4 w-4" />
-        <span className="sr-only">Next day</span>
-      </Button>
+      {showClear ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onChange(undefined)}
+          disabled={disabled}
+          className="h-8 w-8 p-0 hover:bg-accent"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Clear date</span>
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleNextDay}
+          disabled={disabled || !value}
+          className="h-8 w-8 p-0 hover:bg-accent"
+        >
+          <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Next day</span>
+        </Button>
+      )}
     </div>
   )
 }

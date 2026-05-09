@@ -104,6 +104,53 @@ describe('saving-goal.schema', () => {
       })
       expect(result.success).toBe(false)
     })
+
+    it('validates a goal with a valid ISO targetDate', () => {
+      const result = savingGoalSchema.safeParse({
+        _id: 'goal-1',
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        order: 0,
+        targetDate: '2026-12-31T00:00:00.000Z',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.targetDate).toBe('2026-12-31T00:00:00.000Z')
+      }
+    })
+
+    it('validates a goal when targetDate is omitted', () => {
+      const result = savingGoalSchema.safeParse({
+        _id: 'goal-1',
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        order: 0,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.targetDate).toBeUndefined()
+      }
+    })
+
+    it('rejects a goal with a non-ISO targetDate string', () => {
+      const result = savingGoalSchema.safeParse({
+        _id: 'goal-1',
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        order: 0,
+        targetDate: 'not-a-date',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      expect(result.success).toBe(false)
+    })
   })
 
   describe('createSavingGoalSchema', () => {
@@ -138,6 +185,25 @@ describe('saving-goal.schema', () => {
         name: 'New Camera',
       })
       expect(result.success).toBe(false)
+    })
+
+    it('accepts targetDate when provided', () => {
+      const result = createSavingGoalSchema.safeParse({
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        targetDate: '2026-12-31T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('accepts the absence of targetDate', () => {
+      const result = createSavingGoalSchema.safeParse({
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+      })
+      expect(result.success).toBe(true)
     })
   })
 
@@ -180,6 +246,16 @@ describe('saving-goal.schema', () => {
         targetAmount: -100,
       })
       expect(result.success).toBe(false)
+    })
+
+    it('validates a partial update containing only targetDate', () => {
+      const result = updateSavingGoalSchema.safeParse({
+        targetDate: '2026-12-31T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.targetDate).toBe('2026-12-31T00:00:00.000Z')
+      }
     })
   })
 })

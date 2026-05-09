@@ -35,7 +35,8 @@ type DexieRecurringPaymentLog = Omit<RecurringPaymentLog, 'scheduledDate' | 'cre
   createdAt: Date;
 }
 
-type DexieSavingGoal = Omit<SavingGoal, 'createdAt' | 'updatedAt'> & {
+type DexieSavingGoal = Omit<SavingGoal, 'createdAt' | 'updatedAt' | 'targetDate'> & {
+  targetDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -135,6 +136,17 @@ db.version(10).stores({
   recurringPayments: '_id,isActive,categoryId,walletId,startDate,createdAt,updatedAt',
   recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
   savingGoals: '_id,walletId,name,achieved,order,createdAt,updatedAt',
+});
+
+// Version 11: Add targetDate field to saving goals
+db.version(11).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt,recurringPaymentLogId',
+  exchangeRates: 'key,from,to,date,expiresAt',
+  recurringPayments: '_id,isActive,categoryId,walletId,startDate,createdAt,updatedAt',
+  recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
+  savingGoals: '_id,walletId,name,achieved,order,targetDate,createdAt,updatedAt',
 });
 
 export { db };

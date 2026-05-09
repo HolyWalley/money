@@ -37,6 +37,7 @@ export function GoalDialog({ open, onOpenChange, goal, savingsWallets }: GoalDia
       walletId: savingsWallets[0]?._id || '',
       name: '',
       targetAmount: 0,
+      targetDate: undefined,
     },
   })
 
@@ -45,12 +46,14 @@ export function GoalDialog({ open, onOpenChange, goal, savingsWallets }: GoalDia
       form.reset({
         name: goal.name,
         targetAmount: goal.targetAmount,
+        targetDate: goal.targetDate,
       })
     } else {
       form.reset({
         walletId: savingsWallets[0]?._id || '',
         name: '',
         targetAmount: 0,
+        targetDate: undefined,
       })
     }
   }, [goal, form, savingsWallets])

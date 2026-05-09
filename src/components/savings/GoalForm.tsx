@@ -8,11 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DatePicker } from '@/components/transactions/DatePicker'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 import type { CreateSavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
+type GoalFormValues = CreateSavingGoal & { targetDate?: string }
+
 interface GoalFormProps {
-  form: UseFormReturn<CreateSavingGoal>
+  form: UseFormReturn<GoalFormValues>
   isSubmitting: boolean
   savingsWallets: Wallet[]
   isEditMode: boolean
@@ -71,6 +74,20 @@ export function GoalForm({ form, isSubmitting, savingsWallets, isEditMode }: Goa
         />
         {'targetAmount' in form.formState.errors && form.formState.errors.targetAmount && (
           <p className="text-sm text-destructive">{form.formState.errors.targetAmount.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="targetDate">Deadline (optional)</Label>
+        <DatePicker
+          value={form.watch('targetDate') ? new Date(form.watch('targetDate')!) : undefined}
+          onChange={(date) => form.setValue('targetDate', date ? date.toISOString() : undefined, { shouldDirty: true })}
+          disabled={isSubmitting}
+          clearable
+          placeholder="No deadline"
+        />
+        {'targetDate' in form.formState.errors && form.formState.errors.targetDate && (
+          <p className="text-sm text-destructive">{form.formState.errors.targetDate.message}</p>
         )}
       </div>
     </>
