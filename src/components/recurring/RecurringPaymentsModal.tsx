@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { ResponsiveModal } from '@/components/ui/responsive-modal'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { RecurringPaymentItem } from './RecurringPaymentItem'
 import { RecurringPaymentEditDrawer } from './RecurringPaymentEditDrawer'
@@ -61,32 +60,28 @@ export function RecurringPaymentsModal({
         onOpenChange={onOpenChange}
         title="Recurring Payments"
       >
-        <div className="pb-4 md:pb-0">
-          {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">
-              Loading...
-            </div>
-          ) : recurringPayments.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              No recurring payments set up yet.
-            </div>
-          ) : (
-            <ScrollArea className="max-h-[60vh]">
-              <div className="divide-y divide-border/50">
-                {recurringPayments.map((payment) => (
-                  <RecurringPaymentItem
-                    key={payment._id}
-                    payment={payment}
-                    category={categoriesMap.get(payment.categoryId)}
-                    wallet={walletsMap.get(payment.walletId)}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </div>
+        {isLoading ? (
+          <div className="py-8 text-center text-muted-foreground">
+            Loading...
+          </div>
+        ) : recurringPayments.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground">
+            No recurring payments set up yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {recurringPayments.map((payment) => (
+              <RecurringPaymentItem
+                key={payment._id}
+                payment={payment}
+                category={categoriesMap.get(payment.categoryId)}
+                wallet={walletsMap.get(payment.walletId)}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
       </ResponsiveModal>
 
       <RecurringPaymentEditDrawer

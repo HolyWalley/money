@@ -34,7 +34,9 @@ export function ResponsiveModal({
           <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
           </DrawerHeader>
-          {children}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            {children}
+          </div>
         </DrawerContent>
       </Drawer>
     )
@@ -42,11 +44,13 @@ export function ResponsiveModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="p-6 pb-4">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        {children}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+          {children}
+        </div>
       </DialogContent>
     </Dialog>
   )
