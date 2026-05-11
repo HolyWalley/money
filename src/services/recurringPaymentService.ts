@@ -7,6 +7,7 @@ import {
   addTransaction,
   updateTransaction,
 } from '../lib/crdts'
+import { eventBus } from '../lib/event-bus'
 import { generateLogId } from '../lib/recurring-utils'
 import type { RecurringPayment, CreateRecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
 import type { Transaction, CreateTransaction } from '../../shared/schemas/transaction.schema'
@@ -46,15 +47,24 @@ class RecurringPaymentService {
         startDate: validatedData.startDate,
         endDate: validatedData.endDate,
         sourceTransactionId: validatedData.sourceTransactionId,
+        savingsWalletId: validatedData.savingsWalletId,
       })
 
-      return {
+      const created: RecurringPayment = {
         _id: id,
         ...validatedData,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
+
+      try {
+        eventBus.emit('recurringPayment:created', created)
+      } catch (emitError) {
+        console.error('Error emitting recurringPayment:created event:', emitError)
+      }
+
+      return created
     } catch (error) {
       console.error('Error creating recurring payment:', error)
       throw error
@@ -123,9 +133,17 @@ class RecurringPaymentService {
         throw new Error('Recurring payment not found')
       }
 
+      const prev: RecurringPayment = {
+        ...existing,
+        startDate: existing.startDate.toISOString(),
+        endDate: existing.endDate?.toISOString(),
+        createdAt: existing.createdAt.toISOString(),
+        updatedAt: existing.updatedAt.toISOString(),
+      } as RecurringPayment
+
       updateRecurringPayment(id, validatedUpdates)
 
-      return {
+      const updated: RecurringPayment = {
         ...existing,
         ...validatedUpdates,
         startDate: validatedUpdates.startDate || existing.startDate.toISOString(),
@@ -133,6 +151,14 @@ class RecurringPaymentService {
         createdAt: existing.createdAt.toISOString(),
         updatedAt: new Date().toISOString()
       } as RecurringPayment
+
+      try {
+        eventBus.emit('recurringPayment:updated', { rp: updated, prev })
+      } catch (emitError) {
+        console.error('Error emitting recurringPayment:updated event:', emitError)
+      }
+
+      return updated
     } catch (error) {
       console.error('Error updating recurring payment:', error)
       throw error
@@ -141,7 +167,25 @@ class RecurringPaymentService {
 
   async deactivateRecurringPayment(id: string): Promise<void> {
     try {
+      const existing = await db.recurringPayments.get(id)
       updateRecurringPayment(id, { isActive: false })
+
+      if (existing) {
+        const deactivated: RecurringPayment = {
+          ...existing,
+          isActive: false,
+          startDate: existing.startDate.toISOString(),
+          endDate: existing.endDate?.toISOString(),
+          createdAt: existing.createdAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as RecurringPayment
+
+        try {
+          eventBus.emit('recurringPayment:deactivated', deactivated)
+        } catch (emitError) {
+          console.error('Error emitting recurringPayment:deactivated event:', emitError)
+        }
+      }
     } catch (error) {
       console.error('Error deactivating recurring payment:', error)
       throw error
@@ -151,6 +195,12 @@ class RecurringPaymentService {
   async deleteRecurringPaymentById(id: string): Promise<void> {
     try {
       deleteRecurringPayment(id)
+
+      try {
+        eventBus.emit('recurringPayment:deleted', id)
+      } catch (emitError) {
+        console.error('Error emitting recurringPayment:deleted event:', emitError)
+      }
     } catch (error) {
       console.error('Error deleting recurring payment:', error)
       throw error
@@ -169,6 +219,8 @@ class RecurringPaymentService {
       if (existingLog) {
         throw new Error('This occurrence has already been logged')
       }
+
+      const existingRp = await db.recurringPayments.get(recurringPaymentId)
 
       const transactionId = addTransaction({
         type: 'transaction',
@@ -214,6 +266,22 @@ class RecurringPaymentService {
         createdAt: new Date().toISOString(),
       }
 
+      if (existingRp) {
+        const rp: RecurringPayment = {
+          ...existingRp,
+          startDate: existingRp.startDate.toISOString(),
+          endDate: existingRp.endDate?.toISOString(),
+          createdAt: existingRp.createdAt.toISOString(),
+          updatedAt: existingRp.updatedAt.toISOString(),
+        } as RecurringPayment
+
+        try {
+          eventBus.emit('recurringPayment:logged', { rp, scheduledDate: scheduledDate.toISOString() })
+        } catch (emitError) {
+          console.error('Error emitting recurringPayment:logged event:', emitError)
+        }
+      }
+
       return { transaction, log }
     } catch (error) {
       console.error('Error logging recurring payment:', error)
@@ -233,12 +301,30 @@ class RecurringPaymentService {
         throw new Error('This occurrence has already been processed')
       }
 
+      const existingRp = await db.recurringPayments.get(recurringPaymentId)
+
       addRecurringPaymentLog({
         _id: logId,
         recurringPaymentId,
         scheduledDate: scheduledDate.toISOString(),
         status: 'skipped',
       })
+
+      if (existingRp) {
+        const rp: RecurringPayment = {
+          ...existingRp,
+          startDate: existingRp.startDate.toISOString(),
+          endDate: existingRp.endDate?.toISOString(),
+          createdAt: existingRp.createdAt.toISOString(),
+          updatedAt: existingRp.updatedAt.toISOString(),
+        } as RecurringPayment
+
+        try {
+          eventBus.emit('recurringPayment:skipped', { rp, scheduledDate: scheduledDate.toISOString() })
+        } catch (emitError) {
+          console.error('Error emitting recurringPayment:skipped event:', emitError)
+        }
+      }
 
       return {
         _id: logId,

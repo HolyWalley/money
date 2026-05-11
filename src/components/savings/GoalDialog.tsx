@@ -28,6 +28,7 @@ export function GoalDialog({ open, onOpenChange, goal, savingsWallets }: GoalDia
   const [error, setError] = useState<string | null>(null)
 
   const isEditMode = !!goal
+  const isLinkedToRecurring = !!goal?.sourceRecurringPaymentId
 
   const schema = isEditMode ? updateSavingGoalSchema : createSavingGoalSchema
   const form = useForm<CreateSavingGoal>({
@@ -94,6 +95,7 @@ export function GoalDialog({ open, onOpenChange, goal, savingsWallets }: GoalDia
             isSubmitting={isSubmitting}
             savingsWallets={savingsWallets}
             isEditMode={isEditMode}
+            isLinkedToRecurring={isLinkedToRecurring}
           />
 
           {error && (

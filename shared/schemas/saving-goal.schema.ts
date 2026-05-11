@@ -9,6 +9,7 @@ export const savingGoalSchema = z.object({
   achieved: z.boolean().default(false),
   order: z.number().default(0),
   targetDate: z.string().datetime().optional(),
+  sourceRecurringPaymentId: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -18,15 +19,18 @@ export const createSavingGoalSchema = savingGoalSchema.pick({
   name: true,
   targetAmount: true,
   targetDate: true,
+  sourceRecurringPaymentId: true,
 })
 
 export const updateSavingGoalSchema = savingGoalSchema.pick({
+  walletId: true,
   name: true,
   targetAmount: true,
   allocatedAmount: true,
   achieved: true,
   order: true,
   targetDate: true,
+  sourceRecurringPaymentId: true,
 }).partial()
 
 export type SavingGoal = z.infer<typeof savingGoalSchema>

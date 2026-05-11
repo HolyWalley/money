@@ -17,14 +17,15 @@ interface TransactionDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   transaction?: Transaction | null
+  initialValues?: Partial<CreateTransaction>
   onSubmit: (data: CreateTransaction) => Promise<void>
   onDelete?: (id: string) => void
 }
 
-export function TransactionDrawer({ open, onOpenChange, transaction, onSubmit, onDelete }: TransactionDrawerProps) {
+export function TransactionDrawer({ open, onOpenChange, transaction, initialValues, onSubmit, onDelete }: TransactionDrawerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const { form, resetToDefaults } = useTransactionForm(transaction)
+  const { form, resetToDefaults } = useTransactionForm(transaction, initialValues)
 
   const handleSubmit = async (data: CreateTransaction) => {
     setIsSubmitting(true)

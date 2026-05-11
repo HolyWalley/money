@@ -16,15 +16,27 @@ import { buildRRule, type Frequency } from '@/lib/recurring-utils'
 import { recurringPaymentService } from '@/services/recurringPaymentService'
 import type { Transaction } from '../../../shared/schemas/transaction.schema'
 
-const formSchema = z.object({
-  frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
-  interval: z.number().min(1).max(365),
-  dayOfWeek: z.number().min(0).max(6).optional(),
-  dayOfMonth: z.number().min(-1).max(31).optional(),
-  startDate: z.string(),
-  hasEndDate: z.boolean(),
-  endDate: z.string().optional(),
-})
+const formSchema = z
+  .object({
+    frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+    interval: z.number().min(1).max(365),
+    dayOfWeek: z.number().min(0).max(6).optional(),
+    dayOfMonth: z.number().min(-1).max(31).optional(),
+    startDate: z.string(),
+    hasEndDate: z.boolean(),
+    endDate: z.string().optional(),
+    saveUp: z.boolean(),
+    savingsWalletId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.saveUp && !data.savingsWalletId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please select a savings wallet',
+        path: ['savingsWalletId'],
+      })
+    }
+  })
 
 type FormValues = z.infer<typeof formSchema>
 
@@ -57,6 +69,8 @@ export function RecurringPaymentDrawer({
       startDate: transaction.date,
       hasEndDate: false,
       endDate: undefined,
+      saveUp: false,
+      savingsWalletId: undefined,
     },
   })
 
@@ -71,6 +85,8 @@ export function RecurringPaymentDrawer({
         startDate: transaction.date,
         hasEndDate: false,
         endDate: undefined,
+        saveUp: false,
+        savingsWalletId: undefined,
       })
     }
   }, [open, transaction.date, form])
@@ -86,11 +102,17 @@ export function RecurringPaymentDrawer({
         endDate: data.hasEndDate && data.endDate ? new Date(data.endDate) : undefined,
       })
 
-      await recurringPaymentService.createFromTransaction(
+      const created = await recurringPaymentService.createFromTransaction(
         transaction._id,
         rrule,
         data.startDate
       )
+
+      if (data.saveUp && data.savingsWalletId) {
+        await recurringPaymentService.updateRecurringPaymentDetails(created._id, {
+          savingsWalletId: data.savingsWalletId,
+        })
+      }
 
       onOpenChange(false)
       onSuccess?.()
@@ -117,7 +139,7 @@ export function RecurringPaymentDrawer({
                     {transaction.amount.toFixed(2)} {transaction.currency}
                   </p>
                 </div>
-                <RecurringPaymentForm />
+                <RecurringPaymentForm rpCurrency={transaction.currency} />
               </div>
             </form>
           </Form>

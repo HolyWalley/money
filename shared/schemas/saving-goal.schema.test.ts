@@ -151,6 +151,39 @@ describe('saving-goal.schema', () => {
       })
       expect(result.success).toBe(false)
     })
+
+    it('parses a goal with sourceRecurringPaymentId set', () => {
+      const result = savingGoalSchema.safeParse({
+        _id: 'goal-1',
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        order: 0,
+        sourceRecurringPaymentId: 'rp-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.sourceRecurringPaymentId).toBe('rp-1')
+      }
+    })
+
+    it('parses a goal without sourceRecurringPaymentId', () => {
+      const result = savingGoalSchema.safeParse({
+        _id: 'goal-1',
+        walletId: 'wallet-1',
+        name: 'New Camera',
+        targetAmount: 500,
+        order: 0,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.sourceRecurringPaymentId).toBeUndefined()
+      }
+    })
   })
 
   describe('createSavingGoalSchema', () => {

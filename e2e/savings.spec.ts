@@ -165,7 +165,7 @@ test.describe('Savings Feature', () => {
     // Confirmation dialog
     await page.getByRole('button', { name: 'Delete' }).click()
 
-    await expect(page.getByText('Vacation Fund')).not.toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-slot="card"]').filter({ hasText: 'Vacation Fund' })).toHaveCount(0, { timeout: 5000 })
   })
 
   test('goal with deadline shows monthly suggestion', async ({ page }) => {

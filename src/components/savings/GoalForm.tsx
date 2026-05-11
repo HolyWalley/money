@@ -1,4 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form'
+import { RotateCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,9 +20,10 @@ interface GoalFormProps {
   isSubmitting: boolean
   savingsWallets: Wallet[]
   isEditMode: boolean
+  isLinkedToRecurring: boolean
 }
 
-export function GoalForm({ form, isSubmitting, savingsWallets, isEditMode }: GoalFormProps) {
+export function GoalForm({ form, isSubmitting, savingsWallets, isEditMode, isLinkedToRecurring }: GoalFormProps) {
   return (
     <>
       {!isEditMode && (
@@ -78,16 +80,25 @@ export function GoalForm({ form, isSubmitting, savingsWallets, isEditMode }: Goa
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="targetDate">Deadline (optional)</Label>
-        <DatePicker
-          value={form.watch('targetDate') ? new Date(form.watch('targetDate')!) : undefined}
-          onChange={(date) => form.setValue('targetDate', date ? date.toISOString() : undefined, { shouldDirty: true })}
-          disabled={isSubmitting}
-          clearable
-          placeholder="No deadline"
-        />
-        {'targetDate' in form.formState.errors && form.formState.errors.targetDate && (
-          <p className="text-sm text-destructive">{form.formState.errors.targetDate.message}</p>
+        {isLinkedToRecurring ? (
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <RotateCw className="size-3" />
+            Deadline is managed by the linked recurring payment.
+          </p>
+        ) : (
+          <>
+            <Label htmlFor="targetDate">Deadline (optional)</Label>
+            <DatePicker
+              value={form.watch('targetDate') ? new Date(form.watch('targetDate')!) : undefined}
+              onChange={(date) => form.setValue('targetDate', date ? date.toISOString() : undefined, { shouldDirty: true })}
+              disabled={isSubmitting}
+              clearable
+              placeholder="No deadline"
+            />
+            {'targetDate' in form.formState.errors && form.formState.errors.targetDate && (
+              <p className="text-sm text-destructive">{form.formState.errors.targetDate.message}</p>
+            )}
+          </>
         )}
       </div>
     </>

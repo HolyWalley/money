@@ -6,7 +6,10 @@ import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { createTransactionSchema, type CreateTransaction, type Transaction } from '../../shared/schemas/transaction.schema'
 import { type Currency } from '../../shared/schemas/user_settings.schema'
 
-export function useTransactionForm(transaction?: Transaction | null) {
+export function useTransactionForm(
+  transaction?: Transaction | null,
+  initialValues?: Partial<CreateTransaction>,
+) {
   const { user } = useAuth()
   const { wallets } = useLiveWallets()
 
@@ -21,6 +24,7 @@ export function useTransactionForm(transaction?: Transaction | null) {
       date: new Date().toISOString(),
       split: false,
       parts: [],
+      ...(initialValues ?? {}),
     },
   })
 
@@ -39,10 +43,10 @@ export function useTransactionForm(transaction?: Transaction | null) {
     form.reset(getDefaultValues())
   }, [form, getDefaultValues])
 
-  // Initialize form based on transaction prop
+  const initialValuesKey = initialValues ? JSON.stringify(initialValues) : ''
+
   useEffect(() => {
     if (transaction) {
-      // Editing mode - populate with transaction data
       form.reset({
         transactionType: transaction.transactionType,
         amount: transaction.amount,
@@ -59,7 +63,6 @@ export function useTransactionForm(transaction?: Transaction | null) {
         reimbursement: transaction.reimbursement,
       })
     } else if (!transaction && wallets.length > 0) {
-      // Creating mode - set defaults with first wallet
       form.reset({
         transactionType: 'expense',
         amount: undefined as unknown as number,
@@ -69,21 +72,24 @@ export function useTransactionForm(transaction?: Transaction | null) {
         date: new Date().toISOString(),
         split: false,
         parts: [],
+        ...(initialValues ?? {}),
       })
     }
-  }, [transaction, form, user, wallets])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transaction, form, user, wallets, initialValuesKey])
 
-  // Set default wallet when wallets are loaded (only for new transactions)
   useEffect(() => {
     if (!transaction && wallets.length > 0) {
       const currentWalletId = form.getValues('walletId')
       if (!currentWalletId) {
         const defaultWallet = wallets[0]
         form.setValue('walletId', defaultWallet._id)
-        form.setValue('currency', defaultWallet.currency)
+        if (!initialValues?.currency) {
+          form.setValue('currency', defaultWallet.currency)
+        }
       }
     }
-  }, [wallets, form, transaction])
+  }, [wallets, form, transaction, initialValues?.currency])
 
   return {
     form,

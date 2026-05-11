@@ -149,5 +149,16 @@ db.version(11).stores({
   savingGoals: '_id,walletId,name,achieved,order,targetDate,createdAt,updatedAt',
 });
 
+// Version 12: Add savingsWalletId on recurringPayments and sourceRecurringPaymentId on savingGoals
+db.version(12).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt,recurringPaymentLogId',
+  exchangeRates: 'key,from,to,date,expiresAt',
+  recurringPayments: '_id,isActive,categoryId,walletId,startDate,savingsWalletId,createdAt,updatedAt',
+  recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
+  savingGoals: '_id,walletId,name,achieved,order,targetDate,sourceRecurringPaymentId,createdAt,updatedAt',
+});
+
 export { db };
 export type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog, DexieSavingGoal };

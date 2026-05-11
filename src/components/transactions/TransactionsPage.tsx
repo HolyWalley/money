@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { FilterProvider } from '@/contexts/FilterProvider'
@@ -8,9 +8,11 @@ import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveRecurringPayments } from '@/hooks/useLiveRecurringPayments'
 import { type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { useSavingsSuggestions } from '@/hooks/useSavingsSuggestions'
 import { exportTransactionsToCsv } from '@/lib/csv-export'
 import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
+import { TransactionDrawer } from './TransactionDrawer'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
 import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 import { UpcomingPaymentsSection } from '@/components/recurring/UpcomingPaymentsSection'
@@ -19,8 +21,11 @@ import { LogPaymentDrawer } from '@/components/recurring/LogPaymentDrawer'
 import { RecurringPaymentDrawer } from '@/components/recurring/RecurringPaymentDrawer'
 import { RecurringPaymentEditDrawer } from '@/components/recurring/RecurringPaymentEditDrawer'
 import { recurringPaymentService } from '@/services/recurringPaymentService'
+import { transactionService } from '@/services/transactionService'
 import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
 import type { RecurringPayment } from '../../../shared/schemas/recurring-payment.schema'
+import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
+import type { WalletSavingsSuggestion } from '@/lib/savings-suggestion'
 
 function TransactionsPageContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
@@ -37,6 +42,9 @@ function TransactionsPageContent() {
   const [selectedTransaction, setSelectedTransaction] = useState<DecoratedTransaction | null>(null)
   const [editRecurringDrawerOpen, setEditRecurringDrawerOpen] = useState(false)
   const [selectedRecurringPayment, setSelectedRecurringPayment] = useState<RecurringPayment | null>(null)
+  const [transferDrawerOpen, setTransferDrawerOpen] = useState(false)
+  const [transferInitialValues, setTransferInitialValues] = useState<Partial<CreateTransaction> | null>(null)
+  const [transferDrawerKey, setTransferDrawerKey] = useState(0)
 
   const baseCurrency = user?.settings?.defaultCurrency
 
@@ -70,6 +78,23 @@ function TransactionsPageContent() {
     }
     return getPeriodDates(effectiveFilters.period)
   }, [effectiveFilters.period])
+
+  const { suggestions, totalsByCurrency } = useSavingsSuggestions(periodDates.start, periodDates.end)
+
+  const handleLogTransfer = useCallback((suggestion: WalletSavingsSuggestion) => {
+    setTransferInitialValues({
+      transactionType: 'transfer',
+      toWalletId: suggestion.wallet._id,
+      amount: suggestion.amount,
+      currency: suggestion.wallet.currency,
+    })
+    setTransferDrawerKey((k) => k + 1)
+    setTransferDrawerOpen(true)
+  }, [])
+
+  const handleTransferSubmit = useCallback(async (data: CreateTransaction) => {
+    await transactionService.createTransaction(data)
+  }, [])
 
   if (!initiallyLoaded) {
     return null
@@ -145,6 +170,9 @@ function TransactionsPageContent() {
           wallets={wallets.wallets}
           onLogPayment={handleLogPayment}
           onSkipPayment={handleSkipPayment}
+          savingsSuggestions={suggestions}
+          suggestionTotalsByCurrency={totalsByCurrency}
+          onLogTransfer={handleLogTransfer}
         />
 
         <QuickFilterChips
@@ -186,6 +214,14 @@ function TransactionsPageContent() {
         open={editRecurringDrawerOpen}
         onOpenChange={setEditRecurringDrawerOpen}
         payment={selectedRecurringPayment}
+      />
+
+      <TransactionDrawer
+        key={transferDrawerKey}
+        open={transferDrawerOpen}
+        onOpenChange={setTransferDrawerOpen}
+        initialValues={transferInitialValues ?? undefined}
+        onSubmit={handleTransferSubmit}
       />
     </>
   )

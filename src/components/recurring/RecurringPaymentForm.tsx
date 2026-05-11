@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useFormContext } from 'react-hook-form'
 import {
   FormControl,
@@ -16,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { DatePicker } from '@/components/transactions/DatePicker'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useLiveWallets } from '@/hooks/useLiveWallets'
 
 interface RecurringPaymentFormValues {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -25,6 +27,8 @@ interface RecurringPaymentFormValues {
   startDate: string
   hasEndDate: boolean
   endDate?: string
+  saveUp: boolean
+  savingsWalletId?: string
 }
 
 const DAY_OF_WEEK_OPTIONS = [
@@ -51,10 +55,26 @@ const DAY_OF_MONTH_OPTIONS = [
   { value: '-1', label: 'Last day' },
 ]
 
-export function RecurringPaymentForm() {
+interface RecurringPaymentFormProps {
+  rpCurrency: string
+}
+
+export function RecurringPaymentForm({ rpCurrency }: RecurringPaymentFormProps) {
   const form = useFormContext<RecurringPaymentFormValues>()
   const frequency = form.watch('frequency')
   const hasEndDate = form.watch('hasEndDate')
+  const saveUp = form.watch('saveUp')
+  const { wallets } = useLiveWallets()
+
+  const savingsWallets = wallets.filter(
+    (w) => w.isSavings === true && w.currency === rpCurrency
+  )
+
+  useEffect(() => {
+    if (!saveUp) {
+      form.setValue('savingsWalletId', undefined)
+    }
+  }, [saveUp, form])
 
   return (
     <div className="space-y-4">
@@ -205,6 +225,57 @@ export function RecurringPaymentForm() {
                   onChange={(date) => { if (date) field.onChange(date.toISOString()) }}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      <FormField
+        control={form.control}
+        name="saveUp"
+        render={({ field }) => (
+          <FormItem className="flex items-center gap-3 rounded-lg border p-3">
+            <FormControl>
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            </FormControl>
+            <FormLabel className="text-sm font-medium cursor-pointer">
+              Save up for this in a savings wallet
+            </FormLabel>
+          </FormItem>
+        )}
+      />
+
+      {saveUp && (
+        <FormField
+          control={form.control}
+          name="savingsWalletId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Savings wallet</FormLabel>
+              {savingsWallets.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No savings wallets match this currency
+                </p>
+              ) : (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select a savings wallet" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {savingsWallets.map((wallet) => (
+                      <SelectItem key={wallet._id} value={wallet._id}>
+                        {wallet.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}

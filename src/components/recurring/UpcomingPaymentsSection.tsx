@@ -4,9 +4,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button'
 import { UpcomingPaymentCard } from './UpcomingPaymentCard'
 import { RecurringPaymentsModal } from './RecurringPaymentsModal'
+import { SavingsSuggestionCard } from './SavingsSuggestionCard'
 import { useUpcomingPayments, type UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import type { Category } from '../../../shared/schemas/category.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
+import type { WalletSavingsSuggestion } from '@/lib/savings-suggestion'
 
 interface UpcomingPaymentsSectionProps {
   periodStart: Date
@@ -15,6 +17,9 @@ interface UpcomingPaymentsSectionProps {
   wallets: Wallet[]
   onLogPayment: (payment: UpcomingPayment) => void
   onSkipPayment: (payment: UpcomingPayment) => void
+  savingsSuggestions: WalletSavingsSuggestion[]
+  suggestionTotalsByCurrency: Map<string, number>
+  onLogTransfer: (suggestion: WalletSavingsSuggestion) => void
 }
 
 export function UpcomingPaymentsSection({
@@ -24,8 +29,12 @@ export function UpcomingPaymentsSection({
   wallets,
   onLogPayment,
   onSkipPayment,
+  savingsSuggestions,
+  suggestionTotalsByCurrency,
+  onLogTransfer,
 }: UpcomingPaymentsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const { payments, dueCount, upcomingCount, totalsByCurrency, isLoading } = useUpcomingPayments(periodStart, periodEnd)
 
@@ -42,7 +51,7 @@ export function UpcomingPaymentsSection({
 
   const totalCount = dueCount + upcomingCount
 
-  if (totalCount === 0) {
+  if (totalCount === 0 && savingsSuggestions.length === 0) {
     return null
   }
 
@@ -51,6 +60,14 @@ export function UpcomingPaymentsSection({
     totalsParts.push(`${amount.toFixed(2)} ${currency}`)
   })
 
+  const suggestionTotalsParts: string[] = []
+  suggestionTotalsByCurrency.forEach((amount, currency) => {
+    suggestionTotalsParts.push(`${amount.toFixed(2)} ${currency}`)
+  })
+
+  const hasTotals = totalsParts.length > 0
+  const hasSuggestionTotals = suggestionTotalsParts.length > 0
+
   return (
     <div className="px-4 mb-4 overflow-x-hidden">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -58,13 +75,17 @@ export function UpcomingPaymentsSection({
           <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
             <Repeat className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">Recurring Payments</span>
-            {totalsParts.length > 0 && (
+            {(hasTotals || hasSuggestionTotals) && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground flex-1">{totalsParts.join(', ')}</span>
+                <span className="text-xs text-muted-foreground flex-1">
+                  {hasTotals && <span>{totalsParts.join(', ')}</span>}
+                  {hasTotals && hasSuggestionTotals && <span> | </span>}
+                  {hasSuggestionTotals && <span>Suggested savings: {suggestionTotalsParts.join(', ')}</span>}
+                </span>
               </>
             )}
-            {totalsParts.length === 0 && <span className="flex-1" />}
+            {!hasTotals && !hasSuggestionTotals && <span className="flex-1" />}
             <Button
               variant="ghost"
               size="sm"
@@ -109,6 +130,28 @@ export function UpcomingPaymentsSection({
                 ))}
               </CollapsibleContent>
             </>
+          )}
+
+          {savingsSuggestions.length > 0 && (
+            <Collapsible open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+              <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors border-t">
+                <span>{savingsSuggestions.length} savings suggestion{savingsSuggestions.length === 1 ? '' : 's'}</span>
+                {isSuggestionsOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {savingsSuggestions.map((suggestion) => (
+                  <SavingsSuggestionCard
+                    key={suggestion.wallet._id}
+                    suggestion={suggestion}
+                    onLogTransfer={onLogTransfer}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </div>
       </Collapsible>

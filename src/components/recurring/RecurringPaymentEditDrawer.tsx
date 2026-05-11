@@ -16,15 +16,27 @@ import { buildRRule, parseRRuleToOptions, type Frequency } from '@/lib/recurring
 import { recurringPaymentService } from '@/services/recurringPaymentService'
 import type { RecurringPayment } from '../../../shared/schemas/recurring-payment.schema'
 
-const formSchema = z.object({
-  frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
-  interval: z.number().min(1).max(365),
-  dayOfWeek: z.number().min(0).max(6).optional(),
-  dayOfMonth: z.number().min(-1).max(31).optional(),
-  startDate: z.string(),
-  hasEndDate: z.boolean(),
-  endDate: z.string().optional(),
-})
+const formSchema = z
+  .object({
+    frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+    interval: z.number().min(1).max(365),
+    dayOfWeek: z.number().min(0).max(6).optional(),
+    dayOfMonth: z.number().min(-1).max(31).optional(),
+    startDate: z.string(),
+    hasEndDate: z.boolean(),
+    endDate: z.string().optional(),
+    saveUp: z.boolean(),
+    savingsWalletId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.saveUp && !data.savingsWalletId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please select a savings wallet',
+        path: ['savingsWalletId'],
+      })
+    }
+  })
 
 type FormValues = z.infer<typeof formSchema>
 
@@ -58,6 +70,8 @@ export function RecurringPaymentEditDrawer({
       startDate: new Date().toISOString(),
       hasEndDate: false,
       endDate: undefined,
+      saveUp: false,
+      savingsWalletId: undefined,
     },
   })
 
@@ -71,6 +85,8 @@ export function RecurringPaymentEditDrawer({
         startDate: payment.startDate,
         hasEndDate: !!parsedOptions.endDate,
         endDate: parsedOptions.endDate,
+        saveUp: !!payment.savingsWalletId,
+        savingsWalletId: payment.savingsWalletId,
       })
     }
   }, [open, payment, parsedOptions, form])
@@ -88,10 +104,14 @@ export function RecurringPaymentEditDrawer({
         endDate: data.hasEndDate && data.endDate ? new Date(data.endDate) : undefined,
       })
 
+      const savingsWalletId =
+        data.saveUp && data.savingsWalletId ? data.savingsWalletId : ''
+
       await recurringPaymentService.updateRecurringPaymentDetails(payment._id, {
         rrule,
         startDate: data.startDate,
         endDate: data.hasEndDate && data.endDate ? data.endDate : undefined,
+        savingsWalletId,
       })
 
       onOpenChange(false)
@@ -121,7 +141,7 @@ export function RecurringPaymentEditDrawer({
                     {payment.amount.toFixed(2)} {payment.currency}
                   </p>
                 </div>
-                <RecurringPaymentForm />
+                <RecurringPaymentForm rpCurrency={payment.currency} />
               </div>
             </form>
           </Form>

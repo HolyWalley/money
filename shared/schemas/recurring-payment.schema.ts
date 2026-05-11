@@ -16,6 +16,7 @@ export const recurringPaymentSchema = z.object({
   endDate: z.string().datetime().optional(),
   isActive: z.boolean(),
   sourceTransactionId: z.string(),
+  savingsWalletId: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -32,6 +33,7 @@ export const createRecurringPaymentSchema = recurringPaymentSchema.pick({
   startDate: true,
   endDate: true,
   sourceTransactionId: true,
+  savingsWalletId: true,
 })
 
 export const updateRecurringPaymentSchema = recurringPaymentSchema.pick({
@@ -46,6 +48,7 @@ export const updateRecurringPaymentSchema = recurringPaymentSchema.pick({
   startDate: true,
   endDate: true,
   isActive: true,
+  savingsWalletId: true,
 }).partial()
 
 export const recurringPaymentLogStatusSchema = z.enum(['logged', 'skipped'])

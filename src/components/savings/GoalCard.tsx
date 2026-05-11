@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreHorizontal, Pencil, Trash, Check, Undo } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash, Check, Undo, RotateCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,6 +53,9 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-1.5">
             {goal.name}
+            {goal.sourceRecurringPaymentId && !goal.achieved && (
+              <RotateCw className="size-3.5 text-muted-foreground" />
+            )}
             {goal.achieved && (
               <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded">
                 Achieved

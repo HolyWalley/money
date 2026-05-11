@@ -6,6 +6,7 @@ import { Overview } from '@/components/Overview'
 import { WalletsPage } from '@/components/wallets/WalletsPage'
 import { SavingsPage } from '@/components/savings/SavingsPage'
 import { SavingsNotificationListener } from '@/components/savings/SavingsNotificationListener'
+import { RecurringGoalLinkSubscriber } from '@/components/recurring/RecurringGoalLinkSubscriber'
 import { TransactionsPage } from '@/components/transactions/TransactionsPage'
 import { AppSidebar } from './AppSidebar'
 
@@ -32,6 +33,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className={`flex-1 min-h-[calc(100dvh)] ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
       <SavingsNotificationListener />
+      <RecurringGoalLinkSubscriber />
     </div>
   )
 }

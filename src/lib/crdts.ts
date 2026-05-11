@@ -373,6 +373,7 @@ export function addRecurringPayment({
   startDate,
   endDate,
   sourceTransactionId,
+  savingsWalletId,
 }: Omit<RecurringPayment, '_id' | 'isActive' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
@@ -390,6 +391,7 @@ export function addRecurringPayment({
       endDate,
       isActive: true,
       sourceTransactionId,
+      savingsWalletId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -413,6 +415,7 @@ export function updateRecurringPayment(id: string, updates: Partial<RecurringPay
     if (updates.startDate !== undefined) recurringPayment.set('startDate', updates.startDate)
     if (updates.endDate !== undefined) recurringPayment.set('endDate', updates.endDate)
     if (updates.isActive !== undefined) recurringPayment.set('isActive', updates.isActive)
+    if (updates.savingsWalletId !== undefined) recurringPayment.set('savingsWalletId', updates.savingsWalletId)
     recurringPayment.set('updatedAt', new Date().toISOString())
   })
 }
@@ -453,7 +456,7 @@ export function updateRecurringPaymentLog(id: string, updates: Partial<Recurring
   })
 }
 
-export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order, targetDate }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order, targetDate, sourceRecurringPaymentId }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     savingGoals.set(id, createSavingGoalMap({
@@ -465,6 +468,7 @@ export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, a
       achieved,
       order,
       targetDate,
+      sourceRecurringPaymentId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -484,6 +488,7 @@ export function updateSavingGoal(id: string, updates: Partial<SavingGoal>) {
     if (updates.achieved !== undefined) goal.set('achieved', updates.achieved)
     if (updates.order !== undefined) goal.set('order', updates.order)
     if (updates.targetDate !== undefined) goal.set('targetDate', updates.targetDate)
+    if (updates.sourceRecurringPaymentId !== undefined) goal.set('sourceRecurringPaymentId', updates.sourceRecurringPaymentId)
     goal.set('updatedAt', new Date().toISOString())
   })
 }
