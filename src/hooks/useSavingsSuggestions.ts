@@ -49,6 +49,8 @@ export function useSavingsSuggestions(periodStart: Date, periodEnd: Date) {
       transactions ?? [],
       periodStart,
       periodEnd,
+      undefined,
+      { debug: true },
     )
   }, [wallets, goals, transactions, periodStart, periodEnd, isLoading])
 

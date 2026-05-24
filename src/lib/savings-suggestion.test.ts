@@ -153,7 +153,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 0 })
+    expect(result.amount).toBe(0)
   })
 
   it('returns 0 when goal is achieved', () => {
@@ -166,7 +166,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 0 })
+    expect(result.amount).toBe(0)
   })
 
   it('returns 0 when remainingAmount is 0', () => {
@@ -179,7 +179,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 0 })
+    expect(result.amount).toBe(0)
   })
 
   it('returns 0 when the period is entirely before today', () => {
@@ -192,7 +192,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 0 })
+    expect(result.amount).toBe(0)
   })
 
   it('returns full remainingAmount for overdue goal when period covers today', () => {
@@ -205,7 +205,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 800 })
+    expect(result.amount).toBe(800)
   })
 
   it('returns 0 for overdue goal when period is entirely in the past', () => {
@@ -218,7 +218,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 0 })
+    expect(result.amount).toBe(0)
   })
 
   it('returns full remainingAmount when deadline falls within the period and is >= today', () => {
@@ -231,7 +231,7 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    expect(result).toEqual({ amount: 900 })
+    expect(result.amount).toBe(900)
   })
 
   it('returns pro-rata amount when deadline is 3 months out and period is the current month', () => {
@@ -247,7 +247,7 @@ describe('getPeriodSavingsSuggestion', () => {
     // effectiveStart = today Mar 15, activeDays = (Mar31 - Mar15) + 1 = 17
     // totalDays = diffInCalDays(Jun 15, Mar 15) = 92
     // amount = 1000 * 17/92 = 184.7826... rounded to 184.78
-    expect(result).toEqual({ amount: 184.78 })
+    expect(result.amount).toBe(184.78)
   })
 
   it('returns pro-rata amount for fully future period before deadline', () => {
@@ -263,7 +263,7 @@ describe('getPeriodSavingsSuggestion', () => {
     // effectiveStart = pStart May 1, activeDays = (May31 - May1) + 1 = 31
     // totalDays = 92
     // amount = 1000 * 31/92 = 336.9565... rounded to 336.96
-    expect(result).toEqual({ amount: 336.96 })
+    expect(result.amount).toBe(336.96)
   })
 })
 

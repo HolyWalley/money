@@ -52,16 +52,32 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+export interface PeriodSuggestionDetails {
+  amount: number
+  remainingAmount: number
+  path: 'achieved' | 'no-target' | 'no-remaining' | 'past-period' | 'overdue-pays-full' | 'in-period-pays-full' | 'pro-rata'
+  activeDays?: number
+  totalDays?: number
+  deadline?: Date
+  today?: Date
+}
+
 export function getPeriodSavingsSuggestion(
   goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved'>,
   periodStart: Date,
   periodEnd: Date,
   now?: Date,
-): { amount: number } {
+): PeriodSuggestionDetails {
   const remainingAmount = Math.max(goal.targetAmount - goal.allocatedAmount, 0)
 
-  if (goal.achieved || remainingAmount <= 0 || !goal.targetDate) {
-    return { amount: 0 }
+  if (goal.achieved) {
+    return { amount: 0, remainingAmount, path: 'achieved' }
+  }
+  if (remainingAmount <= 0) {
+    return { amount: 0, remainingAmount, path: 'no-remaining' }
+  }
+  if (!goal.targetDate) {
+    return { amount: 0, remainingAmount, path: 'no-target' }
   }
 
   const deadline = startOfDay(new Date(goal.targetDate))
@@ -71,24 +87,24 @@ export function getPeriodSavingsSuggestion(
 
   if (isBefore(deadline, today)) {
     if (isBefore(pEnd, today)) {
-      return { amount: 0 }
+      return { amount: 0, remainingAmount, path: 'past-period', deadline, today }
     }
-    return { amount: round2(remainingAmount) }
+    return { amount: round2(remainingAmount), remainingAmount, path: 'overdue-pays-full', deadline, today }
   }
 
   if (deadline.getTime() <= pEnd.getTime()) {
-    return { amount: round2(remainingAmount) }
+    return { amount: round2(remainingAmount), remainingAmount, path: 'in-period-pays-full', deadline, today }
   }
 
   if (isBefore(pEnd, today)) {
-    return { amount: 0 }
+    return { amount: 0, remainingAmount, path: 'past-period', deadline, today }
   }
 
   const effectiveStart = pStart.getTime() > today.getTime() ? pStart : today
   const activeDays = Math.max(0, differenceInCalendarDays(pEnd, effectiveStart) + 1)
   const totalDays = Math.max(1, differenceInCalendarDays(deadline, today))
   const amount = remainingAmount * (activeDays / totalDays)
-  return { amount: round2(amount) }
+  return { amount: round2(amount), remainingAmount, path: 'pro-rata', activeDays, totalDays, deadline, today }
 }
 
 export interface WalletSavingsSuggestion {
@@ -100,12 +116,14 @@ export interface WalletSavingsSuggestion {
 
 export function computeSavingsSuggestionsByWallet(
   wallets: Pick<Wallet, '_id' | 'name' | 'currency' | 'isSavings'>[],
-  goals: Pick<SavingGoal, '_id' | 'walletId' | 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved' | 'sourceRecurringPaymentId'>[],
+  goals: Pick<SavingGoal, '_id' | 'walletId' | 'name' | 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved' | 'sourceRecurringPaymentId'>[],
   transactions: Pick<Transaction, '_id' | 'transactionType' | 'walletId' | 'toWalletId' | 'amount' | 'currency' | 'date'>[],
   periodStart: Date,
   periodEnd: Date,
   now?: Date,
+  options?: { debug?: boolean },
 ): WalletSavingsSuggestion[] {
+  const debug = options?.debug === true
   const savingsWallets = new Map<string, Pick<Wallet, '_id' | 'name' | 'currency' | 'isSavings'>>()
   for (const wallet of wallets) {
     if (wallet.isSavings === true) {
@@ -113,7 +131,7 @@ export function computeSavingsSuggestionsByWallet(
     }
   }
 
-  const accumulators = new Map<string, { sum: number; count: number }>()
+  const accumulators = new Map<string, { sum: number; count: number; lines: string[] }>()
 
   for (const goal of goals) {
     if (!savingsWallets.has(goal.walletId)) continue
@@ -132,11 +150,29 @@ export function computeSavingsSuggestionsByWallet(
       continue
     }
 
-    const { amount } = getPeriodSavingsSuggestion(goal, periodStart, periodEnd, now)
-    if (amount > 0) {
-      const existing = accumulators.get(goal.walletId) ?? { sum: 0, count: 0 }
-      existing.sum += amount
+    const details = getPeriodSavingsSuggestion(goal, periodStart, periodEnd, now)
+    if (details.amount > 0) {
+      const existing = accumulators.get(goal.walletId) ?? { sum: 0, count: 0, lines: [] }
+      existing.sum += details.amount
       existing.count += 1
+      if (debug) {
+        const label = goal.name || goal._id
+        if (details.path === 'pro-rata') {
+          existing.lines.push(
+            `${label}: ${details.remainingAmount} × ${details.activeDays}/${details.totalDays} days = ${details.amount.toFixed(2)} (pro-rata)`,
+          )
+        } else if (details.path === 'in-period-pays-full') {
+          existing.lines.push(
+            `${label}: ${details.amount.toFixed(2)} (deadline ${details.deadline?.toISOString().slice(0, 10)} inside period → full remaining)`,
+          )
+        } else if (details.path === 'overdue-pays-full') {
+          existing.lines.push(
+            `${label}: ${details.amount.toFixed(2)} (overdue ${details.deadline?.toISOString().slice(0, 10)} → full remaining)`,
+          )
+        } else {
+          existing.lines.push(`${label}: ${details.amount.toFixed(2)} (${details.path})`)
+        }
+      }
       accumulators.set(goal.walletId, existing)
     }
   }
@@ -158,6 +194,20 @@ export function computeSavingsSuggestionsByWallet(
     }
 
     const net = round2(Math.max(accumulator.sum - alreadyTransferred, 0))
+
+    if (debug) {
+      console.groupCollapsed(
+        `[savings-suggestions] ${wallet.name} (${wallet.currency}) → ${net.toFixed(2)}`,
+      )
+      for (const line of accumulator.lines) {
+        console.log('  ' + line)
+      }
+      console.log(
+        `  Sum of goals: ${accumulator.sum.toFixed(2)} − already transferred ${alreadyTransferred.toFixed(2)} = ${net.toFixed(2)}`,
+      )
+      console.groupEnd()
+    }
+
     if (net > 0) {
       results.push({
         wallet: wallet as Wallet,
