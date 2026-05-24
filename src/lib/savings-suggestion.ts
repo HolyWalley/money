@@ -100,9 +100,8 @@ export function getPeriodSavingsSuggestion(
     return { amount: 0, remainingAmount, path: 'past-period', deadline, today }
   }
 
-  const effectiveStart = pStart.getTime() > today.getTime() ? pStart : today
-  const activeDays = Math.max(0, differenceInCalendarDays(pEnd, effectiveStart) + 1)
-  const totalDays = Math.max(1, differenceInCalendarDays(deadline, today))
+  const activeDays = Math.max(0, differenceInCalendarDays(pEnd, pStart) + 1)
+  const totalDays = Math.max(1, differenceInCalendarDays(deadline, pStart))
   const amount = remainingAmount * (activeDays / totalDays)
   return { amount: round2(amount), remainingAmount, path: 'pro-rata', activeDays, totalDays, deadline, today }
 }

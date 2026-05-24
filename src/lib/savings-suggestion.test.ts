@@ -244,10 +244,10 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    // effectiveStart = today Mar 15, activeDays = (Mar31 - Mar15) + 1 = 17
-    // totalDays = diffInCalDays(Jun 15, Mar 15) = 92
-    // amount = 1000 * 17/92 = 184.7826... rounded to 184.78
-    expect(result.amount).toBe(184.78)
+    // activeDays = full period (Mar 1 – Mar 31) = 31
+    // totalDays = diffInCalDays(Jun 15, Mar 1) = 106
+    // amount = 1000 * 31/106 = 292.4528... rounded to 292.45
+    expect(result.amount).toBe(292.45)
   })
 
   it('returns pro-rata amount for fully future period before deadline', () => {
@@ -260,10 +260,10 @@ describe('getPeriodSavingsSuggestion', () => {
       periodEnd,
       now,
     )
-    // effectiveStart = pStart May 1, activeDays = (May31 - May1) + 1 = 31
-    // totalDays = 92
-    // amount = 1000 * 31/92 = 336.9565... rounded to 336.96
-    expect(result.amount).toBe(336.96)
+    // activeDays = full period (May 1 – May 31) = 31
+    // totalDays = diffInCalDays(Jun 15, May 1) = 45
+    // amount = 1000 * 31/45 = 688.8888... rounded to 688.89
+    expect(result.amount).toBe(688.89)
   })
 })
 
