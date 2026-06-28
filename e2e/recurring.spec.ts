@@ -241,6 +241,39 @@ test.describe('Recurring Payments + Savings Link', () => {
     await expect(detached.locator('svg.lucide-rotate-cw')).toHaveCount(0)
   })
 
+  test('updates recurring payment details from the edit form', async ({ page }) => {
+    await page.goto('/transactions')
+    await createExpenseTransaction(page, 40, { note: 'Streaming' })
+    await openMakeRecurringFor(page, 'Streaming')
+    await page.getByRole('button', { name: 'Create Recurring Payment' }).click()
+    await expect(page.getByRole('heading', { name: 'Make Recurring' })).not.toBeVisible({ timeout: 5000 })
+
+    await page.goto('/transactions')
+    await page.getByRole('button', { name: 'Next period' }).click()
+    const recurringHeader = page.locator('div').filter({
+      has: page.getByText('Recurring Payments', { exact: true }),
+    }).last()
+    await recurringHeader.getByRole('button').click()
+    await expect(page.getByRole('heading', { name: 'Recurring Payments' })).toBeVisible()
+
+    const manageDialog = page.getByRole('dialog', { name: 'Recurring Payments' })
+    const streamingRow = manageDialog.locator('div.flex').filter({
+      has: page.getByText('Streaming', { exact: true }),
+    }).first()
+    await streamingRow.getByRole('button').last().click()
+    await page.getByRole('menuitem', { name: /Edit/i }).click()
+    await expect(page.getByRole('heading', { name: 'Edit Recurring Payment' })).toBeVisible()
+    await page.getByRole('button', { name: 'Payment details' }).click()
+
+    await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill('125')
+    await page.getByRole('textbox', { name: 'Note' }).fill('Updated streaming')
+    await page.getByRole('button', { name: 'Save Changes' }).click()
+    await expect(page.getByRole('heading', { name: 'Edit Recurring Payment' })).not.toBeVisible({ timeout: 5000 })
+
+    await expect(manageDialog.getByText('Updated streaming')).toBeVisible()
+    await expect(manageDialog.getByText('-125.00 USD')).toBeVisible()
+  })
+
   test('savings wallet dropdown filters by RP currency', async ({ page }) => {
     // Add an EUR savings wallet alongside the USD ones from beforeEach.
     await createWallet(page, 'Euro pot', 0, { isSavings: true, currency: 'EUR' })

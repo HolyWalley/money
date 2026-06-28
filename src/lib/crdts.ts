@@ -404,18 +404,30 @@ export function updateRecurringPayment(id: string, updates: Partial<RecurringPay
     const recurringPayment = recurringPayments.get(id)
     if (!recurringPayment) return
 
+    const setOptional = <K extends keyof RecurringPayment>(key: K) => {
+      if (Object.prototype.hasOwnProperty.call(updates, key)) {
+        const value = updates[key]
+        const mapKey = key as string
+        if (value === undefined) {
+          recurringPayment.delete(mapKey)
+        } else {
+          recurringPayment.set(mapKey, value)
+        }
+      }
+    }
+
     if (updates.amount !== undefined) recurringPayment.set('amount', updates.amount)
     if (updates.currency !== undefined) recurringPayment.set('currency', updates.currency)
     if (updates.categoryId !== undefined) recurringPayment.set('categoryId', updates.categoryId)
     if (updates.walletId !== undefined) recurringPayment.set('walletId', updates.walletId)
-    if (updates.toWalletId !== undefined) recurringPayment.set('toWalletId', updates.toWalletId)
+    setOptional('toWalletId')
     if (updates.transactionType !== undefined) recurringPayment.set('transactionType', updates.transactionType)
-    if (updates.description !== undefined) recurringPayment.set('description', updates.description)
+    setOptional('description')
     if (updates.rrule !== undefined) recurringPayment.set('rrule', updates.rrule)
     if (updates.startDate !== undefined) recurringPayment.set('startDate', updates.startDate)
-    if (updates.endDate !== undefined) recurringPayment.set('endDate', updates.endDate)
+    setOptional('endDate')
     if (updates.isActive !== undefined) recurringPayment.set('isActive', updates.isActive)
-    if (updates.savingsWalletId !== undefined) recurringPayment.set('savingsWalletId', updates.savingsWalletId)
+    setOptional('savingsWalletId')
     recurringPayment.set('updatedAt', new Date().toISOString())
   })
 }

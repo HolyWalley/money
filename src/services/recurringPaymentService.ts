@@ -144,11 +144,24 @@ class RecurringPaymentService {
       updateRecurringPayment(id, validatedUpdates)
 
       const updated: RecurringPayment = {
-        ...existing,
+        ...prev,
         ...validatedUpdates,
-        startDate: validatedUpdates.startDate || existing.startDate.toISOString(),
-        endDate: validatedUpdates.endDate || existing.endDate?.toISOString(),
-        createdAt: existing.createdAt.toISOString(),
+        startDate: Object.prototype.hasOwnProperty.call(validatedUpdates, 'startDate')
+          ? validatedUpdates.startDate!
+          : prev.startDate,
+        endDate: Object.prototype.hasOwnProperty.call(validatedUpdates, 'endDate')
+          ? validatedUpdates.endDate
+          : prev.endDate,
+        toWalletId: Object.prototype.hasOwnProperty.call(validatedUpdates, 'toWalletId')
+          ? validatedUpdates.toWalletId
+          : prev.toWalletId,
+        description: Object.prototype.hasOwnProperty.call(validatedUpdates, 'description')
+          ? validatedUpdates.description
+          : prev.description,
+        savingsWalletId: Object.prototype.hasOwnProperty.call(validatedUpdates, 'savingsWalletId')
+          ? validatedUpdates.savingsWalletId
+          : prev.savingsWalletId,
+        createdAt: prev.createdAt,
         updatedAt: new Date().toISOString()
       } as RecurringPayment
 

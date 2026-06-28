@@ -57,13 +57,15 @@ const DAY_OF_MONTH_OPTIONS = [
 
 interface RecurringPaymentFormProps {
   rpCurrency: string
+  section?: 'all' | 'schedule' | 'savings'
 }
 
-export function RecurringPaymentForm({ rpCurrency }: RecurringPaymentFormProps) {
+export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringPaymentFormProps) {
   const form = useFormContext<RecurringPaymentFormValues>()
   const frequency = form.watch('frequency')
   const hasEndDate = form.watch('hasEndDate')
   const saveUp = form.watch('saveUp')
+  const savingsWalletId = form.watch('savingsWalletId')
   const { wallets } = useLiveWallets()
 
   const savingsWallets = wallets.filter(
@@ -71,13 +73,25 @@ export function RecurringPaymentForm({ rpCurrency }: RecurringPaymentFormProps) 
   )
 
   useEffect(() => {
+    if (section === 'schedule') return
+
     if (!saveUp) {
+      if (savingsWalletId !== undefined) {
+        form.setValue('savingsWalletId', undefined)
+      }
+      return
+    }
+
+    if (
+      savingsWalletId &&
+      !wallets.some(w => w._id === savingsWalletId && w.isSavings === true && w.currency === rpCurrency)
+    ) {
       form.setValue('savingsWalletId', undefined)
     }
-  }, [saveUp, form])
+  }, [saveUp, savingsWalletId, wallets, rpCurrency, form, section])
 
-  return (
-    <div className="space-y-4">
+  const scheduleFields = (
+    <div className="flex flex-col gap-4">
       <div className="flex items-end gap-2">
         <FormField
           control={form.control}
@@ -230,7 +244,11 @@ export function RecurringPaymentForm({ rpCurrency }: RecurringPaymentFormProps) 
           )}
         />
       )}
+    </div>
+  )
 
+  const savingsFields = (
+    <div className="flex flex-col gap-4">
       <FormField
         control={form.control}
         name="saveUp"
@@ -281,6 +299,21 @@ export function RecurringPaymentForm({ rpCurrency }: RecurringPaymentFormProps) 
           )}
         />
       )}
+    </div>
+  )
+
+  if (section === 'schedule') {
+    return scheduleFields
+  }
+
+  if (section === 'savings') {
+    return savingsFields
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {scheduleFields}
+      {savingsFields}
     </div>
   )
 }

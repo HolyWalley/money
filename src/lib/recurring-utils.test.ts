@@ -553,6 +553,7 @@ describe('recurring-utils', () => {
       ])
     })
 
+
     it('detects change when description is set and note is undefined', () => {
       const changes = detectTemplateChanges(baseRecurring, { ...baseTransaction, note: undefined })
       expect(changes).toEqual([

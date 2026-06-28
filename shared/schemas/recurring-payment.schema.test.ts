@@ -48,6 +48,7 @@ describe('recurring-payment.schema', () => {
       })
       expect(result.success).toBe(false)
     })
+
   })
 
   describe('createRecurringPaymentSchema', () => {
@@ -74,6 +75,7 @@ describe('recurring-payment.schema', () => {
       const result = createRecurringPaymentSchema.safeParse(baseCreate)
       expect(result.success).toBe(true)
     })
+
   })
 
   describe('updateRecurringPaymentSchema', () => {
@@ -93,5 +95,6 @@ describe('recurring-payment.schema', () => {
       })
       expect(result.success).toBe(false)
     })
+
   })
 })
