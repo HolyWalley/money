@@ -9,22 +9,83 @@ import {
 } from '../lib/crdts'
 import { eventBus } from '../lib/event-bus'
 import { generateLogId } from '../lib/recurring-utils'
-import type { RecurringPayment, CreateRecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
+import type { DexieRecurringPayment } from '../lib/db-dexie'
+import type { RecurringPayment, CreateRecurringPayment, RecurringPaymentLog, UpdateRecurringPayment } from '../../shared/schemas/recurring-payment.schema'
 import type { Transaction, CreateTransaction } from '../../shared/schemas/transaction.schema'
 import { createRecurringPaymentSchema, updateRecurringPaymentSchema } from '../../shared/schemas/recurring-payment.schema'
+
+function hasOwn<T extends object>(obj: T, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key)
+}
+
+function toRecurringPayment(payment: DexieRecurringPayment): RecurringPayment {
+  return {
+    ...payment,
+    startDate: payment.startDate.toISOString(),
+    endDate: payment.endDate?.toISOString(),
+    createdAt: payment.createdAt.toISOString(),
+    updatedAt: payment.updatedAt.toISOString(),
+  } as RecurringPayment
+}
+
+function optionalValue<K extends keyof UpdateRecurringPayment>(
+  prev: RecurringPayment,
+  updates: UpdateRecurringPayment,
+  key: K
+): UpdateRecurringPayment[K] | RecurringPayment[K] {
+  return hasOwn(updates, key) ? updates[key] : prev[key]
+}
+
+function buildUpdatedRecurringPayment(
+  prev: RecurringPayment,
+  updates: UpdateRecurringPayment
+): RecurringPayment {
+  return {
+    ...prev,
+    ...updates,
+    startDate: hasOwn(updates, 'startDate') ? updates.startDate! : prev.startDate,
+    endDate: optionalValue(prev, updates, 'endDate') as RecurringPayment['endDate'],
+    toWalletId: optionalValue(prev, updates, 'toWalletId') as RecurringPayment['toWalletId'],
+    description: optionalValue(prev, updates, 'description') as RecurringPayment['description'],
+    savingsWalletId: optionalValue(prev, updates, 'savingsWalletId') as RecurringPayment['savingsWalletId'],
+    createdAt: prev.createdAt,
+    updatedAt: new Date().toISOString(),
+  } as RecurringPayment
+}
+
+function changesScheduleBasis(prev: RecurringPayment, updates: UpdateRecurringPayment): boolean {
+  return (
+    (hasOwn(updates, 'startDate') && updates.startDate !== prev.startDate) ||
+    (hasOwn(updates, 'rrule') && updates.rrule !== prev.rrule)
+  )
+}
+
+function buildReplacementData(
+  prev: RecurringPayment,
+  updates: UpdateRecurringPayment
+): CreateRecurringPayment {
+  return createRecurringPaymentSchema.parse({
+    amount: updates.amount ?? prev.amount,
+    currency: updates.currency ?? prev.currency,
+    categoryId: updates.categoryId ?? prev.categoryId,
+    walletId: updates.walletId ?? prev.walletId,
+    toWalletId: optionalValue(prev, updates, 'toWalletId'),
+    transactionType: updates.transactionType ?? prev.transactionType,
+    description: optionalValue(prev, updates, 'description'),
+    rrule: updates.rrule ?? prev.rrule,
+    startDate: updates.startDate ?? prev.startDate,
+    endDate: optionalValue(prev, updates, 'endDate'),
+    sourceTransactionId: prev.sourceTransactionId,
+    savingsWalletId: optionalValue(prev, updates, 'savingsWalletId'),
+  })
+}
 
 class RecurringPaymentService {
   async getRecurringPaymentById(id: string): Promise<RecurringPayment | null> {
     try {
       const payment = await db.recurringPayments.get(id)
       if (!payment) return null
-      return {
-        ...payment,
-        startDate: payment.startDate.toISOString(),
-        endDate: payment.endDate?.toISOString(),
-        createdAt: payment.createdAt.toISOString(),
-        updatedAt: payment.updatedAt.toISOString()
-      } as RecurringPayment
+      return toRecurringPayment(payment)
     } catch (error) {
       console.error('Error fetching recurring payment:', error)
       throw error
@@ -133,37 +194,42 @@ class RecurringPaymentService {
         throw new Error('Recurring payment not found')
       }
 
-      const prev: RecurringPayment = {
-        ...existing,
-        startDate: existing.startDate.toISOString(),
-        endDate: existing.endDate?.toISOString(),
-        createdAt: existing.createdAt.toISOString(),
-        updatedAt: existing.updatedAt.toISOString(),
-      } as RecurringPayment
+      const prev = toRecurringPayment(existing)
+      const scheduleBasisChanged = changesScheduleBasis(prev, validatedUpdates)
+
+      if (scheduleBasisChanged) {
+        const logCount = await db.recurringPaymentLogs
+          .where('recurringPaymentId')
+          .equals(id)
+          .count()
+
+        if (logCount > 0) {
+          updateRecurringPayment(id, { isActive: false })
+
+          const replacementData = buildReplacementData(prev, validatedUpdates)
+          const replacementId = addRecurringPayment(replacementData)
+          const now = new Date().toISOString()
+          const replacement: RecurringPayment = {
+            _id: replacementId,
+            ...replacementData,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now,
+          }
+
+          try {
+            eventBus.emit('recurringPayment:replaced', { prev, replacement })
+          } catch (emitError) {
+            console.error('Error emitting recurringPayment:replaced event:', emitError)
+          }
+
+          return replacement
+        }
+      }
 
       updateRecurringPayment(id, validatedUpdates)
 
-      const updated: RecurringPayment = {
-        ...prev,
-        ...validatedUpdates,
-        startDate: Object.prototype.hasOwnProperty.call(validatedUpdates, 'startDate')
-          ? validatedUpdates.startDate!
-          : prev.startDate,
-        endDate: Object.prototype.hasOwnProperty.call(validatedUpdates, 'endDate')
-          ? validatedUpdates.endDate
-          : prev.endDate,
-        toWalletId: Object.prototype.hasOwnProperty.call(validatedUpdates, 'toWalletId')
-          ? validatedUpdates.toWalletId
-          : prev.toWalletId,
-        description: Object.prototype.hasOwnProperty.call(validatedUpdates, 'description')
-          ? validatedUpdates.description
-          : prev.description,
-        savingsWalletId: Object.prototype.hasOwnProperty.call(validatedUpdates, 'savingsWalletId')
-          ? validatedUpdates.savingsWalletId
-          : prev.savingsWalletId,
-        createdAt: prev.createdAt,
-        updatedAt: new Date().toISOString()
-      } as RecurringPayment
+      const updated = buildUpdatedRecurringPayment(prev, validatedUpdates)
 
       try {
         eventBus.emit('recurringPayment:updated', { rp: updated, prev })

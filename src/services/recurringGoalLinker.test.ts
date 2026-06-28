@@ -45,6 +45,7 @@ import {
   syncLinkedGoal,
   onRecurringPaymentLogged,
   onRecurringPaymentSkipped,
+  onRecurringPaymentReplaced,
   detachLinkedGoals,
 } from './recurringGoalLinker'
 
@@ -272,6 +273,69 @@ describe('syncLinkedGoal', () => {
 
     expect(mockCreateGoal).not.toHaveBeenCalled()
     expect(mockUpdateGoal).not.toHaveBeenCalled()
+  })
+})
+
+describe('onRecurringPaymentReplaced', () => {
+  it('relinks active linked goal to replacement and preserves allocation', async () => {
+    const activeGoal = makeDexieGoal({
+      _id: 'goal-active',
+      allocatedAmount: 40,
+      sourceRecurringPaymentId: 'rp-old',
+    })
+    mockGoalsToArray.mockResolvedValue([activeGoal])
+    const next = new UTCDate(2026, 6, 1)
+    mockGetOccurrencesInPeriod.mockReturnValue([next])
+    mockLogsGet.mockResolvedValue(undefined)
+
+    const prev = makeRP({ _id: 'rp-old' })
+    const replacement = makeRP({
+      _id: 'rp-new',
+      amount: 150,
+      savingsWalletId: 'wallet-new-savings',
+    })
+
+    await onRecurringPaymentReplaced(prev, replacement)
+
+    expect(mockUpdateGoal).toHaveBeenCalledWith('goal-active', {
+      sourceRecurringPaymentId: 'rp-new',
+      targetAmount: 150,
+      targetDate: next.toISOString(),
+      walletId: 'wallet-new-savings',
+    })
+  })
+
+  it('detaches active linked goal when replacement has no savings wallet', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeDexieGoal({ _id: 'goal-active', sourceRecurringPaymentId: 'rp-old' }),
+    ])
+
+    const prev = makeRP({ _id: 'rp-old' })
+    const replacement = makeRP({ _id: 'rp-new', savingsWalletId: undefined })
+
+    await onRecurringPaymentReplaced(prev, replacement)
+
+    expect(mockUpdateGoal).toHaveBeenCalledWith('goal-active', {
+      sourceRecurringPaymentId: '',
+    })
+  })
+
+  it('syncs replacement when no active linked goal exists and savings is enabled', async () => {
+    mockGoalsToArray.mockResolvedValue([])
+    const next = new UTCDate(2026, 6, 1)
+    mockGetOccurrencesInPeriod.mockReturnValue([next])
+    mockLogsGet.mockResolvedValue(undefined)
+
+    const prev = makeRP({ _id: 'rp-old' })
+    const replacement = makeRP({ _id: 'rp-new', savingsWalletId: 'wallet-savings' })
+
+    await onRecurringPaymentReplaced(prev, replacement)
+
+    expect(mockCreateGoal).toHaveBeenCalledWith(expect.objectContaining({
+      sourceRecurringPaymentId: 'rp-new',
+      walletId: 'wallet-savings',
+      targetDate: next.toISOString(),
+    }))
   })
 })
 

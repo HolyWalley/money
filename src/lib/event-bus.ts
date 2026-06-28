@@ -6,6 +6,7 @@ export interface EventMap {
   'transaction:created': (tx: Transaction) => void
   'recurringPayment:created': (rp: RecurringPayment) => void
   'recurringPayment:updated': (payload: { rp: RecurringPayment; prev: RecurringPayment }) => void
+  'recurringPayment:replaced': (payload: { prev: RecurringPayment; replacement: RecurringPayment }) => void
   'recurringPayment:logged': (payload: { rp: RecurringPayment; scheduledDate: string }) => void
   'recurringPayment:skipped': (payload: { rp: RecurringPayment; scheduledDate: string }) => void
   'recurringPayment:deactivated': (rp: RecurringPayment) => void

@@ -3,6 +3,7 @@ import {
   syncLinkedGoal,
   onRecurringPaymentLogged,
   onRecurringPaymentSkipped,
+  onRecurringPaymentReplaced,
   detachLinkedGoals,
 } from '@/services/recurringGoalLinker'
 
@@ -26,6 +27,14 @@ export function RecurringGoalLinkSubscriber() {
       }
     } catch (e) {
       console.error('linker (updated) failed:', e)
+    }
+  })
+
+  useEventBus('recurringPayment:replaced', async ({ prev, replacement }) => {
+    try {
+      await onRecurringPaymentReplaced(prev, replacement)
+    } catch (e) {
+      console.error('linker (replaced) failed:', e)
     }
   })
 

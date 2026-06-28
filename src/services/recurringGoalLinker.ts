@@ -107,6 +107,33 @@ export async function onRecurringPaymentSkipped(
   await syncLinkedGoal(rp)
 }
 
+export async function onRecurringPaymentReplaced(
+  prev: RecurringPayment,
+  replacement: RecurringPayment
+): Promise<void> {
+  const active = await findActiveLinkedGoal(prev._id)
+
+  if (!active) {
+    if (replacement.savingsWalletId) {
+      await syncLinkedGoal(replacement)
+    }
+    return
+  }
+
+  if (!replacement.savingsWalletId || !replacement.isActive) {
+    await savingGoalService.updateGoal(active._id, { sourceRecurringPaymentId: '' })
+    return
+  }
+
+  const next = await findNextScheduledOccurrence(replacement)
+  await savingGoalService.updateGoal(active._id, {
+    sourceRecurringPaymentId: replacement._id,
+    targetAmount: replacement.amount,
+    targetDate: next?.toISOString(),
+    walletId: replacement.savingsWalletId,
+  })
+}
+
 export async function detachLinkedGoals(rpId: string): Promise<void> {
   const active = await findActiveLinkedGoal(rpId)
   if (active) {
@@ -120,5 +147,6 @@ export const recurringGoalLinker = {
   syncLinkedGoal,
   onRecurringPaymentLogged,
   onRecurringPaymentSkipped,
+  onRecurringPaymentReplaced,
   detachLinkedGoals,
 }
