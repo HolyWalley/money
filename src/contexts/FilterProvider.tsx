@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
-import { FilterContext, type QuickFilter } from './FilterContext'
+import { FilterContext, type QuickFilter, type QuickFilterType } from './FilterContext'
 import type { TransactionFilters } from '@/hooks/useLiveTransactions'
 import type { FilterPage } from '@/lib/filter-persistence'
 import { filterPersistence } from '@/lib/filter-persistence'
@@ -17,6 +17,11 @@ interface FilterProviderProps {
     categories: Category[]
     isLoading: boolean
   }
+}
+
+// A type/value pair can only be selected once, so it doubles as a stable key.
+function quickFilterId(type: QuickFilterType, value: string): string {
+  return `${type}-${value}`
 }
 
 function mergeFilters(base: TransactionFilters, quick: QuickFilter[]): TransactionFilters {
@@ -133,15 +138,6 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
     setBaseFilters(savedFilters)
   }, [savedFilters])
 
-  const addQuickFilter = useCallback((filter: Omit<QuickFilter, 'id'>) => {
-    const id = `${filter.type}-${filter.value}-${Date.now()}`
-    setQuickFilters(prev => [...prev, { ...filter, id }])
-  }, [])
-
-  const removeQuickFilter = useCallback((id: string) => {
-    setQuickFilters(prev => prev.filter(f => f.id !== id))
-  }, [])
-
   const clearQuickFilters = useCallback(() => {
     setQuickFilters([])
   }, [])
@@ -156,9 +152,20 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
         return prev.filter(f => f.id !== exists.id)
       }
 
-      const id = `${filter.type}-${filter.value}-${Date.now()}`
-      return [...prev, { ...filter, id }]
+      return [...prev, { ...filter, id: quickFilterId(filter.type, filter.value) }]
     })
+  }, [])
+
+  // Replaces every value of one type at once, which is what the chip's
+  // multiselect edits: the picker owns the whole selection, not one value.
+  const setQuickFiltersForType = useCallback((
+    type: QuickFilterType,
+    values: Omit<QuickFilter, 'id' | 'type'>[]
+  ) => {
+    setQuickFilters(prev => [
+      ...prev.filter(f => f.type !== type),
+      ...values.map(value => ({ ...value, type, id: quickFilterId(type, value.value) })),
+    ])
   }, [])
 
   const hasUnsavedChanges = useMemo(
@@ -179,10 +186,9 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
       updateBaseFilters,
       saveBaseFilters,
       resetBaseFilters,
-      addQuickFilter,
-      removeQuickFilter,
       clearQuickFilters,
       toggleQuickFilter,
+      setQuickFiltersForType,
       currentPage: page,
       isLoading,
     }),
@@ -196,10 +202,9 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
       updateBaseFilters,
       saveBaseFilters,
       resetBaseFilters,
-      addQuickFilter,
-      removeQuickFilter,
       clearQuickFilters,
       toggleQuickFilter,
+      setQuickFiltersForType,
       page,
       isLoading,
     ]

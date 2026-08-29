@@ -21,10 +21,12 @@ export interface FilterContextValue {
   updateBaseFilters: (filters: Partial<TransactionFilters>) => void
   saveBaseFilters: () => void
   resetBaseFilters: () => void
-  addQuickFilter: (filter: Omit<QuickFilter, 'id'>) => void
-  removeQuickFilter: (id: string) => void
   clearQuickFilters: () => void
   toggleQuickFilter: (filter: Omit<QuickFilter, 'id'>) => void
+  setQuickFiltersForType: (
+    type: QuickFilterType,
+    values: Omit<QuickFilter, 'id' | 'type'>[]
+  ) => void
   currentPage: FilterPage
   isLoading: boolean
 }

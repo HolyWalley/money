@@ -28,7 +28,7 @@ import type { CreateTransaction } from '../../../shared/schemas/transaction.sche
 import type { WalletSavingsSuggestion } from '@/lib/savings-suggestion'
 
 function TransactionsPageContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
@@ -179,7 +179,9 @@ function TransactionsPageContent() {
 
         <QuickFilterChips
           quickFilters={quickFilters}
-          onRemove={removeQuickFilter}
+          wallets={wallets.wallets}
+          categories={categories.categories}
+          onTypeChange={setQuickFiltersForType}
           onClearAll={clearQuickFilters}
         />
 

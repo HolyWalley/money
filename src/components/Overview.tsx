@@ -15,7 +15,7 @@ import { QuickFilterChips } from './transactions/QuickFilterChips'
 import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 
 function OverviewContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, removeQuickFilter, clearQuickFilters, toggleQuickFilter } = useFilterContext()
+  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType } = useFilterContext()
   const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
@@ -136,7 +136,9 @@ function OverviewContent() {
 
       <QuickFilterChips
         quickFilters={quickFilters}
-        onRemove={removeQuickFilter}
+        wallets={wallets.wallets}
+        categories={categories.categories}
+        onTypeChange={setQuickFiltersForType}
         onClearAll={clearQuickFilters}
       />
 
