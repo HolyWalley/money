@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Category } from 'shared/schemas/category.schema'
 import type { Wallet } from 'shared/schemas/wallet.schema'
+import { formatWalletName, getWalletNameById } from '@/lib/wallet-utils'
 
 interface TransactionMobileCardProps {
   transaction: Transaction
@@ -32,12 +33,7 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
       return categories.find(c => c._id === transaction.categoryId)
     }, [categories, transaction.categoryId])
 
-    const getWalletName = (walletId: string) => {
-      const wallet = wallets.find(w => w._id === walletId)
-      if (!wallet) return 'Unknown Wallet'
-
-      return `${wallet.name} (${wallet.currency})`
-    }
+    const getWalletName = (walletId: string) => getWalletNameById(wallets, walletId)
 
     const formatAmount = (amount: number, type: 'income' | 'expense' | 'transfer') => {
       const formatted = amount.toFixed(2)
@@ -93,7 +89,7 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
                   e.stopPropagation()
                   const wallet = wallets.find(w => w._id === transaction.walletId)
                   if (wallet) {
-                    onWalletClick?.(wallet._id, wallet.name)
+                    onWalletClick?.(wallet._id, formatWalletName(wallet))
                   }
                 }}
                 className="cursor-pointer"
@@ -108,7 +104,7 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
                       e.stopPropagation()
                       const wallet = wallets.find(w => w._id === transaction.toWalletId)
                       if (wallet) {
-                        onWalletClick?.(wallet._id, wallet.name)
+                        onWalletClick?.(wallet._id, formatWalletName(wallet))
                       }
                     }}
                     className="cursor-pointer"

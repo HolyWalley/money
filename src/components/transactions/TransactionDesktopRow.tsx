@@ -12,6 +12,7 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import type { Wallet } from 'shared/schemas/wallet.schema'
 import type { Category } from 'shared/schemas/category.schema'
 import type { DecoratedTransaction } from '@/hooks/useDecoratedTransactions'
+import { getWalletNameById } from '@/lib/wallet-utils'
 
 interface TransactionDesktopRowProps {
   transaction: DecoratedTransaction
@@ -30,10 +31,7 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
   ({ transaction, wallets, categories, onEdit, onDelete, onWalletClick, onCategoryClick, onMakeRecurring, isRecurring, style }, ref) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-    const getWalletName = (walletId: string) => {
-      const wallet = wallets.find(w => w._id === walletId)
-      return wallet?.name || 'Unknown Wallet'
-    }
+    const getWalletName = (walletId: string) => getWalletNameById(wallets, walletId)
 
     const getCategory = (categoryId?: string) => {
       if (!categoryId) return null
