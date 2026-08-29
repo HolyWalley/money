@@ -56,7 +56,7 @@ function TransactionsPageContent() {
     return map
   }, [recurringPayments])
 
-  const getRecurringForTransaction = (transaction: DecoratedTransaction): RecurringPayment | undefined => {
+  const getRecurringForTransaction = useCallback((transaction: DecoratedTransaction): RecurringPayment | undefined => {
     // Check if this is the source transaction
     for (const rp of recurringPayments) {
       if (rp.sourceTransactionId === transaction._id) {
@@ -70,7 +70,7 @@ function TransactionsPageContent() {
       return recurringPaymentsById.get(recurringPaymentId)
     }
     return undefined
-  }
+  }, [recurringPayments, recurringPaymentsById])
 
   const periodDates = useMemo(() => {
     if (!effectiveFilters.period) {
@@ -96,36 +96,34 @@ function TransactionsPageContent() {
     await transactionService.createTransaction(data)
   }, [])
 
-  if (!initiallyLoaded) {
-    return null
-  }
-
-  const handleFiltersChange = (newFilters: TransactionFilters) => {
+  // Every handler passed to a memoized child is a useCallback: a new identity
+  // would defeat the memo and re-render the whole list on filter changes.
+  const handleFiltersChange = useCallback((newFilters: TransactionFilters) => {
     updateBaseFilters(newFilters)
-  }
+  }, [updateBaseFilters])
 
-  const handleWalletClick = (walletId: string, walletName: string) => {
+  const handleWalletClick = useCallback((walletId: string, walletName: string) => {
     toggleQuickFilter({
       type: 'wallet',
       value: walletId,
       label: walletName,
     })
-  }
+  }, [toggleQuickFilter])
 
-  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+  const handleCategoryClick = useCallback((categoryId: string, categoryName: string) => {
     toggleQuickFilter({
       type: 'category',
       value: categoryId,
       label: categoryName,
     })
-  }
+  }, [toggleQuickFilter])
 
-  const handleLogPayment = (payment: UpcomingPayment) => {
+  const handleLogPayment = useCallback((payment: UpcomingPayment) => {
     setSelectedPayment(payment)
     setLogPaymentDrawerOpen(true)
-  }
+  }, [])
 
-  const handleSkipPayment = async (payment: UpcomingPayment) => {
+  const handleSkipPayment = useCallback(async (payment: UpcomingPayment) => {
     try {
       await recurringPaymentService.skipRecurringPayment(
         payment.recurring._id,
@@ -134,13 +132,13 @@ function TransactionsPageContent() {
     } catch (error) {
       console.error('Failed to skip payment:', error)
     }
-  }
+  }, [])
 
-  const handleExportCsv = () => {
+  const handleExportCsv = useCallback(() => {
     exportTransactionsToCsv(transactions, categories.categories, wallets.wallets, baseCurrency)
-  }
+  }, [transactions, categories.categories, wallets.wallets, baseCurrency])
 
-  const handleMakeRecurring = (transaction: DecoratedTransaction) => {
+  const handleMakeRecurring = useCallback((transaction: DecoratedTransaction) => {
     const existingRecurring = getRecurringForTransaction(transaction)
     if (existingRecurring) {
       setSelectedRecurringPayment(existingRecurring)
@@ -149,6 +147,10 @@ function TransactionsPageContent() {
       setSelectedTransaction(transaction)
       setMakeRecurringDrawerOpen(true)
     }
+  }, [getRecurringForTransaction])
+
+  if (!initiallyLoaded) {
+    return null
   }
 
   return (

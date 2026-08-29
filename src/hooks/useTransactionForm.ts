@@ -12,13 +12,14 @@ export function useTransactionForm(
 ) {
   const { user } = useAuth()
   const { wallets } = useLiveWallets()
+  const defaultCurrency = (user?.settings?.defaultCurrency || 'USD') as Currency
 
   const form = useForm<CreateTransaction>({
     resolver: zodResolver(createTransactionSchema),
     defaultValues: {
       transactionType: 'expense',
       amount: undefined as unknown as number,
-      currency: (user?.settings?.defaultCurrency || 'USD') as Currency,
+      currency: defaultCurrency,
       note: '',
       walletId: '',
       date: new Date().toISOString(),
@@ -31,13 +32,13 @@ export function useTransactionForm(
   const getDefaultValues = useCallback(() => ({
     transactionType: 'expense' as const,
     amount: undefined as unknown as number,
-    currency: (user?.settings?.defaultCurrency || 'USD') as Currency,
+    currency: defaultCurrency,
     note: '',
     walletId: wallets[0]?._id || '',
     date: new Date().toISOString(),
     split: false,
     parts: [],
-  }), [user, wallets])
+  }), [defaultCurrency, wallets])
 
   const resetToDefaults = useCallback(() => {
     form.reset(getDefaultValues())
@@ -66,7 +67,7 @@ export function useTransactionForm(
       form.reset({
         transactionType: 'expense',
         amount: undefined as unknown as number,
-        currency: wallets[0]?.currency || (user?.settings?.defaultCurrency || 'USD') as Currency,
+        currency: wallets[0]?.currency || defaultCurrency,
         note: '',
         walletId: wallets[0]?._id || '',
         date: new Date().toISOString(),
@@ -75,8 +76,10 @@ export function useTransactionForm(
         ...(initialValues ?? {}),
       })
     }
+    // Depends on the currency rather than the whole user: a new `user` object
+    // identity would reset the form, re-render, and reset it again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transaction, form, user, wallets, initialValuesKey])
+  }, [transaction, form, defaultCurrency, wallets, initialValuesKey])
 
   useEffect(() => {
     if (!transaction && wallets.length > 0) {

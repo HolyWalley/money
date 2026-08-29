@@ -1,20 +1,24 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db-dexie'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 
-export function useLiveWallets() {
-  const wallets = useLiveQuery(async () => {
-    const dexieWallets = await db.wallets.orderBy('order').toArray()
-    // Convert Date objects back to ISO strings for components
-    return dexieWallets.map(wallet => ({
-      ...wallet,
-      createdAt: wallet.createdAt.toISOString(),
-      updatedAt: wallet.updatedAt.toISOString()
-    })) as Wallet[]
-  }, [])
+const EMPTY_WALLETS: Wallet[] = []
 
-  return { 
-    wallets: wallets || [], 
-    isLoading: wallets === undefined 
+const useSharedWallets = createSharedLiveQuery(async () => {
+  const dexieWallets = await db.wallets.orderBy('order').toArray()
+  // Convert Date objects back to ISO strings for components
+  return dexieWallets.map(wallet => ({
+    ...wallet,
+    createdAt: wallet.createdAt.toISOString(),
+    updatedAt: wallet.updatedAt.toISOString()
+  })) as Wallet[]
+})
+
+export function useLiveWallets() {
+  const wallets = useSharedWallets()
+
+  return {
+    wallets: wallets || EMPTY_WALLETS,
+    isLoading: wallets === undefined
   }
 }

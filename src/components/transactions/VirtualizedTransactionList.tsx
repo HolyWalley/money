@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { List as VirtualizedList, AutoSizer, type ListRowProps } from 'react-virtualized'
 import { TransactionDesktopRow } from './TransactionDesktopRow'
 import { TransactionMobileCard } from './TransactionMobileCard'
@@ -23,7 +23,7 @@ interface VirtualizedTransactionListProps {
   getRecurringForTransaction?: (transaction: DecoratedTransaction) => RecurringPayment | undefined
 }
 
-export function VirtualizedTransactionList({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring, getRecurringForTransaction }: VirtualizedTransactionListProps) {
+function VirtualizedTransactionListComponent({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring, getRecurringForTransaction }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -142,3 +142,8 @@ export function VirtualizedTransactionList({ transactions, wallets, categories, 
     </>
   )
 }
+
+// The list is the most expensive part of the transactions page. A filter change
+// re-renders the page once before the new rows have loaded; memoizing lets that
+// pass skip the list entirely, since every prop it takes is identity-stable.
+export const VirtualizedTransactionList = memo(VirtualizedTransactionListComponent)

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight, Repeat, Settings } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ interface UpcomingPaymentsSectionProps {
   onLogTransfer: (suggestion: WalletSavingsSuggestion) => void
 }
 
-export function UpcomingPaymentsSection({
+function UpcomingPaymentsSectionComponent({
   periodStart,
   periodEnd,
   categories,
@@ -163,3 +163,5 @@ export function UpcomingPaymentsSection({
     </div>
   )
 }
+
+export const UpcomingPaymentsSection = memo(UpcomingPaymentsSectionComponent)

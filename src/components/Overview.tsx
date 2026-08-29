@@ -3,7 +3,7 @@ import { PeriodFilter } from './transactions/PeriodFilter'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
 import { getEffectiveAmount } from '@/lib/transaction-utils'
@@ -86,6 +86,26 @@ function OverviewContent() {
 
   const initiallyLoaded = useInitiallyLoaded(isLoading)
 
+  const handleFiltersChange = useCallback((newFilters: TransactionFilters) => {
+    updateBaseFilters(newFilters)
+  }, [updateBaseFilters])
+
+  const handleWalletClick = useCallback((walletId: string, walletName: string) => {
+    toggleQuickFilter({
+      type: 'wallet',
+      value: walletId,
+      label: walletName,
+    })
+  }, [toggleQuickFilter])
+
+  const handleCategoryClick = useCallback((categoryId: string, categoryName: string) => {
+    toggleQuickFilter({
+      type: 'category',
+      value: categoryId,
+      label: categoryName,
+    })
+  }, [toggleQuickFilter])
+
   if (!initiallyLoaded) {
     return null
   }
@@ -102,26 +122,6 @@ function OverviewContent() {
     if (amount > 0) return 'text-green-600'
     if (amount < 0) return 'text-red-600'
     return 'text-foreground'
-  }
-
-  const handleFiltersChange = (newFilters: TransactionFilters) => {
-    updateBaseFilters(newFilters)
-  }
-
-  const handleWalletClick = (walletId: string, walletName: string) => {
-    toggleQuickFilter({
-      type: 'wallet',
-      value: walletId,
-      label: walletName,
-    })
-  }
-
-  const handleCategoryClick = (categoryId: string, categoryName: string) => {
-    toggleQuickFilter({
-      type: 'category',
-      value: categoryId,
-      label: categoryName,
-    })
   }
 
   return (

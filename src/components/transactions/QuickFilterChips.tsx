@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,7 @@ const typeLabels: Record<string, string> = {
   transactionType: 'type',
 }
 
-export function QuickFilterChips({ quickFilters, onRemove, onClearAll }: QuickFilterChipsProps) {
+function QuickFilterChipsComponent({ quickFilters, onRemove, onClearAll }: QuickFilterChipsProps) {
   if (quickFilters.length === 0) return null
 
   return (
@@ -47,3 +48,5 @@ export function QuickFilterChips({ quickFilters, onRemove, onClearAll }: QuickFi
     </div>
   )
 }
+
+export const QuickFilterChips = memo(QuickFilterChipsComponent)

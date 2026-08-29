@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { Button } from '@/components/ui/button'
@@ -23,11 +23,49 @@ interface FiltersDrawerProps {
   onExportCsv?: () => void
 }
 
+// The drawer stays mounted while closed, so anything built in the component body
+// is rebuilt on every render of the page behind it. These lists never change.
+const TRANSACTION_TYPES = [
+  { _id: 'income', name: 'Income' },
+  { _id: 'expense', name: 'Expense' },
+  { _id: 'transfer', name: 'Transfer' },
+]
+
+const PERIOD_TYPES: { value: PeriodType; label: string }[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'last7days', label: 'Last 7 days' },
+  { value: 'last30days', label: 'Last 30 days' },
+  { value: 'last365days', label: 'Last 365 days' },
+  { value: 'custom', label: 'Custom Period' },
+]
+
+const WEEK_DAYS = [
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
+  { value: '0', label: 'Sunday' },
+]
+
+const MONTH_DAYS = Array.from({ length: 30 }, (_, i) => ({
+  value: (i + 1).toString(),
+  label: `Day ${i + 1}`,
+}))
+
+const YEAR_DAYS = Array.from({ length: 365 }, (_, i) => ({
+  value: (i + 1).toString(),
+  label: `Day ${i + 1}`,
+}))
+
 export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange, onExportCsv }: FiltersDrawerProps) {
   const { categories } = useLiveCategories()
   const { wallets } = useLiveWallets()
   const { quickFilters, clearQuickFilters, hasQuickFilters } = useFilterContext()
-  const transactionTypes = useMemo(() => [{ _id: 'income', name: 'Income' }, { _id: 'expense', name: 'Expense' }, { _id: 'transfer', name: 'Transfer' }], [])
+  const transactionTypes = TRANSACTION_TYPES
 
   // Period state
   const [selectedType, setSelectedType] = useState<PeriodType>(currentFilters.period?.type || 'monthly')
@@ -37,35 +75,10 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
   const [customFrom, setCustomFrom] = useState<Date | undefined>(currentFilters.period?.customFrom)
   const [customTo, setCustomTo] = useState<Date | undefined>(currentFilters.period?.customTo)
 
-  const periodTypes = [
-    { value: 'monthly' as PeriodType, label: 'Monthly' },
-    { value: 'weekly' as PeriodType, label: 'Weekly' },
-    { value: 'yearly' as PeriodType, label: 'Yearly' },
-    { value: 'last7days' as PeriodType, label: 'Last 7 days' },
-    { value: 'last30days' as PeriodType, label: 'Last 30 days' },
-    { value: 'last365days' as PeriodType, label: 'Last 365 days' },
-    { value: 'custom' as PeriodType, label: 'Custom Period' },
-  ]
-
-  const weekDays = [
-    { value: '1', label: 'Monday' },
-    { value: '2', label: 'Tuesday' },
-    { value: '3', label: 'Wednesday' },
-    { value: '4', label: 'Thursday' },
-    { value: '5', label: 'Friday' },
-    { value: '6', label: 'Saturday' },
-    { value: '0', label: 'Sunday' },
-  ]
-
-  const monthDays = Array.from({ length: 30 }, (_, i) => ({
-    value: (i + 1).toString(),
-    label: `Day ${i + 1}`
-  }))
-
-  const yearDays = Array.from({ length: 365 }, (_, i) => ({
-    value: (i + 1).toString(),
-    label: `Day ${i + 1}`
-  }))
+  const periodTypes = PERIOD_TYPES
+  const weekDays = WEEK_DAYS
+  const monthDays = MONTH_DAYS
+  const yearDays = YEAR_DAYS
 
   const handlePeriodTypeChange = (type: PeriodType) => {
     setSelectedType(type)
