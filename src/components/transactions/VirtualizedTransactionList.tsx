@@ -3,6 +3,7 @@ import { List as VirtualizedList, AutoSizer, type ListRowProps } from 'react-vir
 import { TransactionDesktopRow } from './TransactionDesktopRow'
 import { TransactionMobileCard } from './TransactionMobileCard'
 import { TransactionDrawer } from './TransactionDrawer'
+import { Button } from '@/components/ui/button'
 import { transactionService } from '@/services/transactionService'
 import { useAuth } from '@/contexts/AuthContext'
 import { type CreateTransaction } from '../../../shared/schemas/transaction.schema'
@@ -21,9 +22,11 @@ interface VirtualizedTransactionListProps {
   onCategoryClick?: (categoryId: string, categoryName: string) => void
   onMakeRecurring?: (transaction: DecoratedTransaction) => void
   getRecurringForTransaction?: (transaction: DecoratedTransaction) => RecurringPayment | undefined
+  searchTerm?: string
+  onSearchAllTime?: () => void
 }
 
-function VirtualizedTransactionListComponent({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring, getRecurringForTransaction }: VirtualizedTransactionListProps) {
+function VirtualizedTransactionListComponent({ transactions, wallets, categories, isMobile, baseCurrency, onWalletClick, onCategoryClick, onMakeRecurring, getRecurringForTransaction, searchTerm, onSearchAllTime }: VirtualizedTransactionListProps) {
   const [editingTransaction, setEditingTransaction] = useState<DecoratedTransaction | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { user } = useAuth()
@@ -92,8 +95,21 @@ function VirtualizedTransactionListComponent({ transactions, wallets, categories
 
   if (transactions.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64 text-muted-foreground">
-        No transactions found
+      <div className="flex flex-col justify-center items-center gap-3 h-64 text-muted-foreground">
+        {searchTerm ? (
+          <>
+            <p>Nothing in this period matches “{searchTerm}”</p>
+            {/* Offered only where it would widen anything: the period this
+                falls back to is already the widest one selectable. */}
+            {onSearchAllTime && (
+              <Button variant="outline" size="sm" onClick={onSearchAllTime}>
+                Search the last year
+              </Button>
+            )}
+          </>
+        ) : (
+          'No transactions found'
+        )}
       </div>
     )
   }

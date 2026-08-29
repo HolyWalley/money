@@ -1,4 +1,5 @@
 import { render, act, waitFor, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/lib/db-dexie'
 
@@ -23,12 +24,16 @@ vi.mock('@/components/transactions/VirtualizedTransactionList', async () => {
     VirtualizedTransactionList: memo((props: {
       transactions: { _id: string }[]
       onWalletClick?: (walletId: string, walletName: string) => void
+      onSearchAllTime?: () => void
     }) => {
       listRenders.count++
       return (
         <div>
           <span data-testid="transaction-count">{props.transactions.length}</span>
           <button onClick={() => props.onWalletClick?.('w1', 'Cash')}>filter by Cash</button>
+          {props.onSearchAllTime && (
+            <button onClick={props.onSearchAllTime}>search the last year</button>
+          )}
         </div>
       )
     }),
@@ -39,51 +44,52 @@ const { TransactionsPage } = await import('./TransactionsPage')
 
 const now = new Date()
 
-describe('TransactionsPage quick filters', () => {
-  beforeEach(async () => {
-    localStorage.clear()
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: (query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: () => {},
-        removeListener: () => {},
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        dispatchEvent: () => false,
-      }),
-    })
-
-    await db.transactions.clear()
-    await db.wallets.clear()
-    await db.categories.clear()
-
-    await db.wallets.bulkAdd([
-      { _id: 'w1', name: 'Cash', currency: 'USD', initialBalance: 0, order: 0, createdAt: now, updatedAt: now },
-      { _id: 'w2', name: 'Bank', currency: 'USD', initialBalance: 0, order: 1, createdAt: now, updatedAt: now },
-    ] as never)
-    await db.categories.bulkAdd([
-      { _id: 'c1', name: 'Food', type: 'expense', order: 0, createdAt: now, updatedAt: now },
-    ] as never)
-    await db.transactions.bulkAdd(
-      Array.from({ length: 20 }, (_, i) => ({
-        _id: `t${i}`,
-        walletId: i % 2 ? 'w1' : 'w2',
-        categoryId: 'c1',
-        transactionType: 'expense',
-        amount: 10 + i,
-        currency: 'USD',
-        date: now,
-        createdAt: now,
-        updatedAt: now,
-      })) as never
-    )
-
-    listRenders.count = 0
+beforeEach(async () => {
+  localStorage.clear()
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
   })
 
+  await db.transactions.clear()
+  await db.wallets.clear()
+  await db.categories.clear()
+
+  await db.wallets.bulkAdd([
+    { _id: 'w1', name: 'Cash', currency: 'USD', initialBalance: 0, order: 0, createdAt: now, updatedAt: now },
+    { _id: 'w2', name: 'Bank', currency: 'USD', initialBalance: 0, order: 1, createdAt: now, updatedAt: now },
+  ] as never)
+  await db.categories.bulkAdd([
+    { _id: 'c1', name: 'Food', type: 'expense', order: 0, createdAt: now, updatedAt: now },
+  ] as never)
+  await db.transactions.bulkAdd(
+    Array.from({ length: 20 }, (_, i) => ({
+      _id: `t${i}`,
+      walletId: i % 2 ? 'w1' : 'w2',
+      categoryId: 'c1',
+      transactionType: 'expense',
+      amount: 10 + i,
+      note: i % 2 ? 'Coffee' : 'Taxi',
+      currency: 'USD',
+      date: now,
+      createdAt: now,
+      updatedAt: now,
+    })) as never
+  )
+
+  listRenders.count = 0
+})
+
+describe('TransactionsPage quick filters', () => {
   it('renders the list once per quick filter change, with the filtered rows', async () => {
     const { getByText, getByTestId } = render(<TransactionsPage />)
 
@@ -149,5 +155,51 @@ describe('TransactionsPage quick filters', () => {
     } finally {
       restore.forEach(fn => fn())
     }
+  })
+})
+
+describe('TransactionsPage search', () => {
+  it('narrows the list to what matches and gives it back when closed', async () => {
+    const user = userEvent.setup()
+    const { getByTestId, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+
+    await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
+
+    await user.click(getByLabelText('Search transactions'))
+    await user.type(getByPlaceholderText('Search notes or amount'), 'coffee')
+
+    await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('10'))
+
+    await user.click(getByLabelText('Close search'))
+
+    await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
+  })
+
+  it('counts what the search left, not what the period holds', async () => {
+    const user = userEvent.setup()
+    const { getByText, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+
+    await waitFor(() => expect(getByText('20 transactions')).toBeInTheDocument())
+
+    await user.click(getByLabelText('Search transactions'))
+    await user.type(getByPlaceholderText('Search notes or amount'), '12')
+
+    await waitFor(() => expect(getByText('1 transaction')).toBeInTheDocument())
+  })
+
+  it('widens the period for a search that found nothing here', async () => {
+    const user = userEvent.setup()
+    const { getByText, getByTestId, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+
+    await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
+
+    await user.click(getByLabelText('Search transactions'))
+    await user.type(getByPlaceholderText('Search notes or amount'), 'sailboat')
+
+    await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('0'))
+
+    await user.click(getByText('search the last year'))
+
+    await waitFor(() => expect(getByText('Last 365 days')).toBeInTheDocument())
   })
 })

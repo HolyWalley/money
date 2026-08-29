@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { FilterProvider } from '@/contexts/FilterProvider'
@@ -10,6 +10,7 @@ import { type TransactionFilters, getPeriodDates } from '@/hooks/useLiveTransact
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useSavingsSuggestions } from '@/hooks/useSavingsSuggestions'
 import { exportTransactionsToCsv } from '@/lib/csv-export'
+import { searchTransactions } from '@/lib/transaction-search'
 import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
 import { TransactionDrawer } from './TransactionDrawer'
@@ -45,8 +46,18 @@ function TransactionsPageContent() {
   const [transferDrawerOpen, setTransferDrawerOpen] = useState(false)
   const [transferInitialValues, setTransferInitialValues] = useState<Partial<CreateTransaction> | null>(null)
   const [transferDrawerKey, setTransferDrawerKey] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const baseCurrency = user?.settings?.defaultCurrency
+
+  // Deferred so a keystroke paints on its own: the filtering behind it
+  // re-renders every row in the list.
+  const deferredSearchTerm = useDeferredValue(searchTerm)
+
+  const visibleTransactions = useMemo(
+    () => searchTransactions(transactions, deferredSearchTerm),
+    [transactions, deferredSearchTerm]
+  )
 
   const recurringPaymentsById = useMemo(() => {
     const map = new Map<string, RecurringPayment>()
@@ -135,8 +146,15 @@ function TransactionsPageContent() {
   }, [])
 
   const handleExportCsv = useCallback(() => {
-    exportTransactionsToCsv(transactions, categories.categories, wallets.wallets, baseCurrency)
-  }, [transactions, categories.categories, wallets.wallets, baseCurrency])
+    exportTransactionsToCsv(visibleTransactions, categories.categories, wallets.wallets, baseCurrency)
+  }, [visibleTransactions, categories.categories, wallets.wallets, baseCurrency])
+
+  // A search that finds nothing in this period is usually a search for
+  // something older, and widening is the same act as changing the period by
+  // hand, so it changes the period for real rather than overriding it.
+  const handleSearchAllTime = useCallback(() => {
+    updateBaseFilters({ period: { type: 'last365days' } })
+  }, [updateBaseFilters])
 
   const handleMakeRecurring = useCallback((transaction: DecoratedTransaction) => {
     const existingRecurring = getRecurringForTransaction(transaction)
@@ -161,7 +179,9 @@ function TransactionsPageContent() {
             filters={effectiveFilters}
             onFiltersChange={handleFiltersChange}
             onExportCsv={handleExportCsv}
-            subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+            subtitle={`${visibleTransactions.length} transaction${visibleTransactions.length !== 1 ? 's' : ''}`}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
           />
         </div>
 
@@ -189,13 +209,15 @@ function TransactionsPageContent() {
           <VirtualizedTransactionList
             wallets={wallets.wallets}
             categories={categories.categories}
-            transactions={transactions}
+            transactions={visibleTransactions}
             isMobile={isMobile}
             baseCurrency={baseCurrency}
             onWalletClick={handleWalletClick}
             onCategoryClick={handleCategoryClick}
             onMakeRecurring={handleMakeRecurring}
             getRecurringForTransaction={getRecurringForTransaction}
+            searchTerm={deferredSearchTerm}
+            onSearchAllTime={effectiveFilters.period?.type === 'last365days' ? undefined : handleSearchAllTime}
           />
         </div>
       </div>
