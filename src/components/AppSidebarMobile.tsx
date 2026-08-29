@@ -1,5 +1,5 @@
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
-import { ChartNoAxesCombined, Logs, PiggyBank, Wallet } from "lucide-react"
+import { ChartNoAxesCombined, Logs, PiggyBank } from "lucide-react"
 import { MenuItem } from './MenuItem'
 import { NewTransactionTrigger } from "./transactions/NewTransactionTrigger"
 
@@ -20,11 +20,6 @@ export function AppSidebarMobile() {
         <div className="flex flex-1 items-center justify-center">
           <NewTransactionTrigger />
         </div>
-
-        <MenuItem to="/wallets" className="flex-1">
-          <Wallet className="h-6 w-6" />
-          <span className="text-xs">Wallets</span>
-        </MenuItem>
 
         <MenuItem to="/savings" className="flex-1">
           <PiggyBank className="h-6 w-6" />

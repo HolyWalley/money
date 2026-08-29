@@ -1,7 +1,7 @@
 import Logo from '@/assets/logo.svg?react'
 import { UserDropdownMenu } from '@/components/UserDropdownMenu'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { ChartNoAxesCombined, Logs, PiggyBank, Wallet } from "lucide-react"
+import { ChartNoAxesCombined, Logs, PiggyBank } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AppSidebarMobile } from './AppSidebarMobile'
 import { MenuItem } from './MenuItem'
@@ -31,11 +31,6 @@ export function AppSidebar() {
         <MenuItem to="/transactions">
           <Logs className="h-5 w-5" />
           <span className="text-[10px]">Log</span>
-        </MenuItem>
-
-        <MenuItem to="/wallets">
-          <Wallet className="h-5 w-5" />
-          <span className="text-[10px]">Wallets</span>
         </MenuItem>
 
         <MenuItem to="/savings">
