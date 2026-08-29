@@ -87,10 +87,8 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           <div className="col-span-2 text-muted-foreground text-sm">
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="truncate cursor-help">
-                    {new Date(transaction.date).toLocaleDateString()}
-                  </div>
+                <TooltipTrigger render={<div className="truncate cursor-help" />}>
+                  {new Date(transaction.date).toLocaleDateString()}
                 </TooltipTrigger>
                 <TooltipContent side="top" align="start">
                   <p>{new Date(transaction.date).getTime()}</p>
@@ -128,10 +126,8 @@ export const TransactionDesktopRow = forwardRef<HTMLDivElement, TransactionDeskt
           <div className="col-span-2 font-medium">
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="truncate cursor-help">
-                    {transaction.note}
-                  </div>
+                <TooltipTrigger render={<div className="truncate cursor-help" />}>
+                  {transaction.note}
                 </TooltipTrigger>
                 <TooltipContent side="top" align="start">
                   <p>{transaction.note}</p>

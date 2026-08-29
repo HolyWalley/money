@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
-import { formatWalletBalance } from '@/lib/wallet-utils'
+import { formatWalletBalance, formatWalletName } from '@/lib/wallet-utils'
 
 interface WalletSelectorProps {
   wallets: Wallet[]
@@ -38,6 +38,12 @@ export function WalletSelector({
     ? wallets.filter(w => w._id !== excludeWalletId)
     : wallets
 
+  // Base UI renders the raw value in the trigger unless it can map it to a label.
+  const items = filteredWallets.map(wallet => ({
+    value: wallet._id,
+    label: formatWalletName(wallet),
+  }))
+
   return (
     <FormField
       control={form.control}
@@ -45,13 +51,14 @@ export function WalletSelector({
       render={({ field }) => (
         <FormItem className="flex-1">
           <Select
+            items={items}
             value={field.value}
             onValueChange={field.onChange}
             disabled={isSubmitting}
           >
             <FormControl>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={placeholder} />
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue className="min-w-0 truncate" placeholder={placeholder} />
                 {balance !== undefined && (
                   <span className="ml-auto shrink-0 text-sm text-muted-foreground tabular-nums">
                     {formatWalletBalance(balance)}

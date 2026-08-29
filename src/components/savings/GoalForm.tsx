@@ -2,6 +2,7 @@ import type { UseFormReturn } from 'react-hook-form'
 import { RotateCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatWalletName } from '@/lib/wallet-utils'
 import {
   Select,
   SelectContent,
@@ -30,8 +31,9 @@ export function GoalForm({ form, isSubmitting, savingsWallets, isEditMode, isLin
         <div className="space-y-2">
           <Label htmlFor="walletId">Wallet</Label>
           <Select
+            items={savingsWallets.map(wallet => ({ value: wallet._id, label: formatWalletName(wallet) }))}
             value={form.watch('walletId') as string || ''}
-            onValueChange={(value) => form.setValue('walletId', value)}
+            onValueChange={(value) => value && form.setValue('walletId', value)}
             disabled={isSubmitting}
           >
             <SelectTrigger id="walletId">

@@ -55,7 +55,7 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
         <CardTitle className="text-2xl text-center">Sign In</CardTitle>
       </CardHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-(--card-spacing)">
         <CardContent className="space-y-4">
           {errorMessage && (
             <Alert variant="destructive">

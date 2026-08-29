@@ -66,7 +66,7 @@ export function RecurringPaymentsModal({
             <DrawerHeader>
               <DrawerTitle>Recurring Payments</DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto overscroll-contain group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-8rem)]">
+            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto overscroll-contain group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-8rem)]">
               {isLoading ? (
                 <div className="py-8 text-center text-muted-foreground">
                   Loading...

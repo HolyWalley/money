@@ -65,27 +65,29 @@ export function MultiSelect({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            'justify-between',
-            className
-          )}
-        >
-          <span className="truncate">{displayText}</span>
-          <div className="flex items-center gap-1">
-            {selected.length > 0 && (
-              <X
-                className="h-4 w-4 opacity-50 hover:opacity-100"
-                onClick={handleClear}
-              />
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              'justify-between',
+              className
             )}
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </div>
-        </Button>
+          />
+        }
+      >
+        <span className="truncate">{displayText}</span>
+        <div className="flex items-center gap-1">
+          {selected.length > 0 && (
+            <X
+              className="h-4 w-4 opacity-50 hover:opacity-100"
+              onClick={handleClear}
+            />
+          )}
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </div>
       </PopoverTrigger>
       <PopoverContent className="p-0">
         <div className="max-h-60 overflow-auto">
@@ -98,7 +100,7 @@ export function MultiSelect({
                 <div className="relative">
                   <Checkbox
                     checked={isAllSelected}
-                    onChange={handleSelectAll}
+                    onCheckedChange={handleSelectAll}
                   />
                   {isIndeterminate && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -116,7 +118,7 @@ export function MultiSelect({
                 >
                   <Checkbox
                     checked={selected.includes(option.value)}
-                    onChange={() => handleSelect(option.value)}
+                    onCheckedChange={() => handleSelect(option.value)}
                   />
                   <span className="text-sm">{option.label}</span>
                 </div>

@@ -147,7 +147,7 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
+          <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
             {goals.map(goal => {
               const maxForGoal = mode === 'allocate'
                 ? Math.min(
@@ -177,7 +177,7 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
                       min={0}
                       max={Math.max(maxForGoal, 0)}
                       step={0.01}
-                      onValueChange={(value) => handleSliderChange(goal._id, value)}
+                      onValueChange={(value) => handleSliderChange(goal._id, Array.isArray(value) ? [...value] : [value])}
                       className="flex-1"
                     />
                     <span className="text-sm font-mono w-20 text-right">

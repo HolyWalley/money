@@ -23,13 +23,13 @@ export function TransactionTypeSwitch({ isSubmitting }: TransactionTypeSwitchPro
         <FormItem>
           <FormControl>
             <ToggleGroup
-              type="single"
-              value={field.value}
+              value={[field.value]}
               onValueChange={(value) => {
-                if (value) {
-                  field.onChange(value)
+                const next = value[0]
+                if (next) {
+                  field.onChange(next)
                   // Clear category/wallet fields when switching types
-                  if (value !== 'transfer') {
+                  if (next !== 'transfer') {
                     form.setValue('toWalletId', undefined)
                   }
                 }

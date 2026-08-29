@@ -84,21 +84,19 @@ export function UserDropdownMenu() {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="text-sm">
-                {getInitials(user?.username)}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 w-8 p-0" />}>
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-sm">
+              {getInitials(user?.username)}
+            </AvatarFallback>
+          </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="right" className="w-56">
           <div className="flex items-center gap-2 px-2 py-1.5">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <Select
               value={user?.settings?.defaultCurrency as Currency || 'USD'}
-              onValueChange={handleCurrencyChange}
+              onValueChange={(value) => value && handleCurrencyChange(value)}
             >
               <SelectTrigger className="flex-1 h-8">
                 <SelectValue />

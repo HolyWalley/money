@@ -60,7 +60,7 @@ export function SplitDrawer() {
     form.setValue('parts', newParts)
   }, [amount])
 
-  return <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
+  return <Drawer open={open} onOpenChange={setOpen}>
     <div className="flex items-center justify-between min-h-8">
       <FormField
         control={form.control}
@@ -86,10 +86,8 @@ export function SplitDrawer() {
       >
       </FormField>
       {split && (
-        <DrawerTrigger asChild>
-          <Button variant="outline" size="icon" className="size-8" onClick={() => setOpen(true)}>
-            <Split />
-          </Button>
+        <DrawerTrigger render={<Button variant="outline" size="icon" className="size-8" onClick={() => setOpen(true)} />}>
+          <Split />
         </DrawerTrigger>
       )}
     </div>
@@ -112,7 +110,7 @@ export function SplitDrawer() {
                     max={amount}
                     step={0.01}
                     onValueChange={(value) => {
-                      const newAmount = value[0]
+                      const newAmount = Array.isArray(value) ? value[0] : value
                       field.onChange(newAmount)
                       form.setValue('parts', [{ amount: newAmount }, { amount: parseFloat((amount - newAmount).toFixed(2)) }])
                     }}
@@ -146,8 +144,8 @@ export function SplitDrawer() {
         </div>
 
         <DrawerFooter>
-          <DrawerClose asChild>
-            <Button variant="outline">Back</Button>
+          <DrawerClose render={<Button variant="outline" />}>
+Back
           </DrawerClose>
         </DrawerFooter>
       </div>

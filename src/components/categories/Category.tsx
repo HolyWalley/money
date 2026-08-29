@@ -172,14 +172,16 @@ export function Category({ category, allCategories, startInEditMode = false, onE
     >
       <div className="flex items-center gap-3 flex-1">
         <Popover modal open={isIconPopoverOpen} onOpenChange={setIsIconPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              className="cursor-pointer transition-all hover:scale-110"
-              aria-label="Change icon and color"
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <CategoryIcon icon={category.icon} color={category.color} />
-            </button>
+          <PopoverTrigger
+            render={
+              <button
+                className="cursor-pointer transition-all hover:scale-110"
+                aria-label="Change icon and color"
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+            }
+          >
+            <CategoryIcon icon={category.icon} color={category.color} />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-auto p-4">
             <IconColorSelector
@@ -239,14 +241,16 @@ export function Category({ category, allCategories, startInEditMode = false, onE
       </div>
       {!isEditingName && onDelete && (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="p-2 hover:bg-accent rounded-md transition-colors"
-              aria-label="Category options"
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <MoreVertical className="w-4 h-4 text-muted-foreground" />
-            </button>
+          <DropdownMenuTrigger
+            render={
+              <button
+                className="p-2 hover:bg-accent rounded-md transition-colors"
+                aria-label="Category options"
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+            }
+          >
+            <MoreVertical className="w-4 h-4 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem

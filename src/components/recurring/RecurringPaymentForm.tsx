@@ -117,7 +117,7 @@ export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringP
           name="frequency"
           render={({ field }) => (
             <FormItem>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select items={{ daily: 'day(s)', weekly: 'week(s)', monthly: 'month(s)', yearly: 'year(s)' }} onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger className="w-auto h-9">
                     <SelectValue placeholder="Frequency" />
@@ -141,8 +141,8 @@ export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringP
             render={({ field }) => (
               <FormItem>
                 <FormLabel>on</FormLabel>
-                <Select
-                  onValueChange={(val) => field.onChange(parseInt(val))}
+                <Select items={DAY_OF_WEEK_OPTIONS}
+                  onValueChange={(val) => val && field.onChange(parseInt(val))}
                   value={field.value?.toString()}
                 >
                   <FormControl>
@@ -170,8 +170,8 @@ export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringP
             render={({ field }) => (
               <FormItem>
                 <FormLabel>on</FormLabel>
-                <Select
-                  onValueChange={(val) => field.onChange(parseInt(val))}
+                <Select items={DAY_OF_MONTH_OPTIONS}
+                  onValueChange={(val) => val && field.onChange(parseInt(val))}
                   value={field.value?.toString()}
                 >
                   <FormControl>
@@ -279,7 +279,7 @@ export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringP
                   No savings wallets match this currency
                 </p>
               ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select items={savingsWallets.map(w => ({ value: w._id, label: w.name }))} onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select a savings wallet" />

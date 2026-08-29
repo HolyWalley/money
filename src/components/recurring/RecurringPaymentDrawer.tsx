@@ -124,14 +124,14 @@ export function RecurringPaymentDrawer({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-sm">
           <DrawerHeader>
             <DrawerTitle>Make Recurring</DrawerTitle>
           </DrawerHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
               <div className="space-y-4 pb-6">
                 <div className="rounded-lg border bg-muted/50 p-3 text-sm">
                   <p className="font-medium">{transaction.note || 'Transaction'}</p>

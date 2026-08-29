@@ -88,37 +88,39 @@ export function CategorySelector({ categories, selectedCategoryId, onCategorySel
 
         {remainingCategories.length > 0 && (
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={disabled}
-                data-selected={isSelectedInMore}
-                className={cn(
-                  "flex items-center gap-2 border transition-colors",
-                  isSelectedInMore && selectedCategory
-                    ? colorClasses[selectedCategory.color]
-                    : "border-dashed border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
-                )}
-              >
-                {isSelectedInMore && selectedCategory ? (
-                  <>
-                    {(() => {
-                      const IconComponent = getCategoryIcon(selectedCategory.icon)
-                      return <IconComponent className="w-4 h-4" />
-                    })()}
-                    <span className="text-xs font-medium max-w-none" title={selectedCategory.name}>
-                      {selectedCategory.name}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <MoreHorizontal className="w-4 h-4" />
-                    <span className="text-xs font-medium">More</span>
-                  </>
-                )}
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  data-selected={isSelectedInMore}
+                  className={cn(
+                    "flex items-center gap-2 border transition-colors",
+                    isSelectedInMore && selectedCategory
+                      ? colorClasses[selectedCategory.color]
+                      : "border-dashed border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-700"
+                  )}
+                />
+              }
+            >
+              {isSelectedInMore && selectedCategory ? (
+                <>
+                  {(() => {
+                    const IconComponent = getCategoryIcon(selectedCategory.icon)
+                    return <IconComponent className="w-4 h-4" />
+                  })()}
+                  <span className="text-xs font-medium max-w-none" title={selectedCategory.name}>
+                    {selectedCategory.name}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <MoreHorizontal className="w-4 h-4" />
+                  <span className="text-xs font-medium">More</span>
+                </>
+              )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               {remainingCategories.map((category) => {

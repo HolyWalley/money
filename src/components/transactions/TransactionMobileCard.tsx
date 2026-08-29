@@ -123,15 +123,17 @@ export const TransactionMobileCard = forwardRef<HTMLDivElement, TransactionMobil
             </div>
             {onMakeRecurring && (
               <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className={`h-4 w-4 ${isRecurring ? 'text-blue-500' : ''}`} />
-                  </Button>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                >
+                  <MoreVertical className={`h-4 w-4 ${isRecurring ? 'text-blue-500' : ''}`} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => {

@@ -64,26 +64,27 @@ export function DatePicker({ value, onChange, disabled, className, clearable, pl
       </Button>
 
       <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={disabled}
-            className={cn(
-              "flex-1 justify-center font-medium hover:bg-accent",
-              !value && "text-muted-foreground"
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {getDateLabel(value)}
-          </Button>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={disabled}
+              className={cn(
+                "flex-1 justify-center font-medium hover:bg-accent",
+                !value && "text-muted-foreground"
+              )}
+            />
+          }
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {getDateLabel(value)}
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="center">
           <Calendar
             mode="single"
             selected={value}
             onSelect={handleCalendarSelect}
-            initialFocus
           />
         </PopoverContent>
       </Popover>

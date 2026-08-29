@@ -64,8 +64,9 @@ export function CategoryReassignmentDialog({
             </p>
             <p>Please select a category to reassign them to before deletion:</p>
             <Select
+              items={availableCategories.map(cat => ({ value: cat._id, label: cat.name }))}
               value={selectedCategoryId}
-              onValueChange={setSelectedCategoryId}
+              onValueChange={(value) => value && setSelectedCategoryId(value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a category" />

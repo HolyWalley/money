@@ -269,7 +269,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
             {selectedType === 'monthly' && (
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Month Start Day</Label>
-                <Select value={monthDay} onValueChange={handleMonthDayChange}>
+                <Select items={monthDays} value={monthDay} onValueChange={(value) => value && handleMonthDayChange(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select day" />
                   </SelectTrigger>
@@ -287,7 +287,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
             {selectedType === 'weekly' && (
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Week Start Day</Label>
-                <Select value={weekDay} onValueChange={handleWeekDayChange}>
+                <Select items={weekDays} value={weekDay} onValueChange={(value) => value && handleWeekDayChange(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select day" />
                   </SelectTrigger>
@@ -305,7 +305,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
             {selectedType === 'yearly' && (
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Year Start Day</Label>
-                <Select value={yearDay} onValueChange={handleYearDayChange}>
+                <Select items={yearDays} value={yearDay} onValueChange={(value) => value && handleYearDayChange(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select day" />
                   </SelectTrigger>

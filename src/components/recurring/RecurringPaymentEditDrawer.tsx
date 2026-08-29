@@ -218,15 +218,15 @@ export function RecurringPaymentEditDrawer({
   if (!payment) return null
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-sm">
           <DrawerHeader>
             <DrawerTitle>Edit Recurring Payment</DrawerTitle>
           </DrawerHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
-              <Accordion type="single" defaultValue="schedule" collapsible className="pb-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
+              <Accordion multiple={false} defaultValue={["schedule"]} className="pb-6">
                 <AccordionItem value="payment-details">
                   <AccordionTrigger>Payment details</AccordionTrigger>
                   <AccordionContent>
