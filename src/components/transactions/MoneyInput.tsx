@@ -7,12 +7,13 @@ interface MoneyInputProps {
   className?: string;
   onChange?: (value: number) => void;
   disabled?: boolean;
+  autoFocus?: boolean;
 }
 
 // Regexp that allows only gte 0, decimal numbers with either command or dot
 const REGEXP_MONEY = /^(0|[1-9]\d*)([.,]\d{0,2})?$/;
 
-export function MoneyInput({ defaultValue, disabled, className, overrideValue, onChange }: MoneyInputProps) {
+export function MoneyInput({ defaultValue, disabled, className, overrideValue, onChange, autoFocus }: MoneyInputProps) {
   const [value, setValue] = useState(defaultValue?.toString() || '');
 
   const change = (value: number) => {
@@ -57,6 +58,7 @@ export function MoneyInput({ defaultValue, disabled, className, overrideValue, o
       className,
     )}
     type="text"
+    autoFocus={autoFocus}
     value={value}
     placeholder="0"
     disabled={disabled}

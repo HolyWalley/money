@@ -24,9 +24,10 @@ import type { Transaction } from '../../../shared/schemas/transaction.schema'
 interface TransactionFormProps {
   isSubmitting: boolean
   transaction?: Transaction | null
+  autoFocusAmount?: boolean
 }
 
-export function TransactionForm({ isSubmitting, transaction }: TransactionFormProps) {
+export function TransactionForm({ isSubmitting, transaction, autoFocusAmount }: TransactionFormProps) {
   const form = useFormContext<CreateTransaction>()
   const transactionType = form.watch('transactionType')
   const walletId = form.watch('walletId')
@@ -70,6 +71,7 @@ export function TransactionForm({ isSubmitting, transaction }: TransactionFormPr
           variant="from"
           currency={fromWallet?.currency}
           afterBalance={showBalance && hasChange ? projected : undefined}
+          autoFocus={autoFocusAmount}
         />
 
         {

@@ -26,9 +26,10 @@ interface AmountInputProps {
   currency?: string
   autoFill?: boolean
   afterBalance?: number
+  autoFocus?: boolean
 }
 
-export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false, afterBalance }: AmountInputProps) {
+export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false, afterBalance, autoFocus }: AmountInputProps) {
   const form = useFormContext<CreateTransaction>()
   const fieldName: keyof CreateTransaction = variant === 'from' ? 'amount' : 'toAmount'
   const currencyFieldName: keyof CreateTransaction = variant === 'from' ? 'currency' : 'toCurrency'
@@ -83,6 +84,7 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
                   onChange={handleAmountChange}
                   disabled={isSubmitting || (autoFill && variant === 'to')}
                   overrideValue={autoFill ? fromAmount : undefined}
+                  autoFocus={autoFocus}
                 />
 
                 {overrideCurrency ? (
