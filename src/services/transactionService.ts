@@ -1,8 +1,30 @@
-import { db } from '../lib/db-dexie'
+import { db, type DexieTransaction } from '../lib/db-dexie'
 import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crdts'
 import { eventBus } from '../lib/event-bus'
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
 import { transactionSchema, createTransactionSchema, updateTransactionSchema } from '../../shared/schemas/transaction.schema'
+
+function getWalletBalanceDelta(transaction: DexieTransaction, walletId: string): number {
+  let delta = 0
+
+  if (transaction.walletId === walletId) {
+    if (transaction.transactionType === 'income') {
+      delta += transaction.amount
+    } else if (transaction.transactionType === 'expense' || transaction.transactionType === 'transfer') {
+      delta -= transaction.amount
+    }
+  }
+
+  if (transaction.toWalletId === walletId && transaction.transactionType === 'transfer') {
+    if (transaction.currency === transaction.toCurrency) {
+      delta += transaction.amount || 0
+    } else {
+      delta += transaction.toAmount || 0
+    }
+  }
+
+  return delta
+}
 
 class TransactionService {
 
@@ -35,25 +57,6 @@ class TransactionService {
       } as Transaction
     } catch (error) {
       console.error('Error fetching transaction:', error)
-      throw error
-    }
-  }
-
-  async getTransactionsByWallet(walletId: string): Promise<Transaction[]> {
-    try {
-      const transactions = await db.transactions
-        .filter(transaction => transaction.walletId === walletId || transaction.toWalletId === walletId)
-        .reverse()
-        .sortBy('createdAt')
-      // Convert Date objects back to ISO strings
-      return transactions.map(tx => ({
-        ...tx,
-        date: tx.date.toISOString(),
-        createdAt: tx.createdAt.toISOString(),
-        updatedAt: tx.updatedAt.toISOString()
-      })) as Transaction[]
-    } catch (error) {
-      console.error('Error fetching transactions by wallet:', error)
       throw error
     }
   }
@@ -174,27 +177,23 @@ class TransactionService {
         throw new Error('Wallet not found')
       }
 
-      const transactions = await this.getTransactionsByWallet(walletId)
+      // Two indexed lookups rather than an .or() union: .or() cannot use the
+      // bulk getAll() path and walks a cursor row by row instead.
+      const [outgoing, incoming] = await Promise.all([
+        db.transactions.where('walletId').equals(walletId).toArray(),
+        db.transactions.where('toWalletId').equals(walletId).toArray(),
+      ])
+
       let transactionBalance = 0
 
-      for (const transaction of transactions) {
-        if (transaction.walletId === walletId) {
-          if (transaction.transactionType === 'income') {
-            transactionBalance += transaction.amount
-          } else if (transaction.transactionType === 'expense') {
-            transactionBalance -= transaction.amount
-          } else if (transaction.transactionType === 'transfer') {
-            transactionBalance -= transaction.amount
-          }
-        }
+      for (const transaction of outgoing) {
+        transactionBalance += getWalletBalanceDelta(transaction, walletId)
+      }
 
-        if (transaction.toWalletId === walletId && transaction.transactionType === 'transfer') {
-          if (transaction.currency === transaction.toCurrency) {
-            transactionBalance += transaction.amount || 0
-          } else {
-            transactionBalance += transaction.toAmount || 0
-          }
-        }
+      for (const transaction of incoming) {
+        // Already counted above - the delta covers both sides of the transfer.
+        if (transaction.walletId === walletId) continue
+        transactionBalance += getWalletBalanceDelta(transaction, walletId)
       }
 
       // Return initial balance + transaction balance

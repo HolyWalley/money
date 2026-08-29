@@ -1,46 +1,25 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db-dexie'
-import { useState, useEffect } from 'react'
 import { transactionService } from '@/services/transactionService'
 
 export function useWalletBalance(walletId: string) {
-  const [balance, setBalance] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(true)
+  // Recomputes automatically when the wallet (initial balance) or any of its
+  // transactions change - Dexie tracks the queries made inside the callback.
+  const balance = useLiveQuery(
+    async () => {
+      if (!walletId) return undefined
 
-  // Watch for changes in transactions that affect this wallet
-  const transactions = useLiveQuery(
-    () => db.transactions
-      .where('walletId').equals(walletId)
-      .or('toWalletId').equals(walletId)
-      .toArray(),
-    [walletId]
-  )
-
-  // Watch for changes in the wallet itself (like initial balance changes)
-  const wallet = useLiveQuery(
-    () => db.wallets.get(walletId),
-    [walletId]
-  )
-
-  useEffect(() => {
-    async function calculateBalance() {
       try {
-        setIsLoading(true)
-        const currentBalance = await transactionService.getWalletBalance(walletId)
-        setBalance(currentBalance)
+        return await transactionService.getWalletBalance(walletId)
       } catch (error) {
         console.error('Error calculating wallet balance:', error)
-        setBalance(0)
-      } finally {
-        setIsLoading(false)
+        return 0
       }
-    }
+    },
+    [walletId]
+  )
 
-    // Recalculate when transactions or wallet changes
-    if (walletId) {
-      calculateBalance()
-    }
-  }, [walletId, transactions, wallet])
-
-  return { balance, isLoading }
+  return {
+    balance: balance ?? 0,
+    isLoading: balance === undefined,
+  }
 }
