@@ -1,12 +1,25 @@
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 
+// Project customization: drawers slide up from the bottom on mobile and in
+// from the right on desktop. Pass `direction` explicitly to opt out.
+// Re-running `shadcn add drawer` will overwrite this.
 function Drawer({
+  direction,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+  const isMobile = useIsMobile()
+
+  return (
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      direction={direction ?? (isMobile ? "bottom" : "right")}
+      {...props}
+    />
+  )
 }
 
 function DrawerTrigger({

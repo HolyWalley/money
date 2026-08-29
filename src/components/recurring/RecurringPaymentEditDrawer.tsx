@@ -225,7 +225,7 @@ export function RecurringPaymentEditDrawer({
             <DrawerTitle>Edit Recurring Payment</DrawerTitle>
           </DrawerHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
               <Accordion type="single" defaultValue="schedule" collapsible className="pb-6">
                 <AccordionItem value="payment-details">
                   <AccordionTrigger>Payment details</AccordionTrigger>

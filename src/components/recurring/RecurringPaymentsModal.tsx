@@ -1,5 +1,10 @@
 import { useState, useMemo } from 'react'
-import { ResponsiveModal } from '@/components/ui/responsive-modal'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { RecurringPaymentItem } from './RecurringPaymentItem'
 import { RecurringPaymentEditDrawer } from './RecurringPaymentEditDrawer'
@@ -55,34 +60,39 @@ export function RecurringPaymentsModal({
 
   return (
     <>
-      <ResponsiveModal
-        open={open}
-        onOpenChange={onOpenChange}
-        title="Recurring Payments"
-      >
-        {isLoading ? (
-          <div className="py-8 text-center text-muted-foreground">
-            Loading...
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent>
+          <div className="mx-auto w-full max-w-sm">
+            <DrawerHeader>
+              <DrawerTitle>Recurring Payments</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto overscroll-contain group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-8rem)]">
+              {isLoading ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Loading...
+                </div>
+              ) : recurringPayments.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No recurring payments set up yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {recurringPayments.map((payment) => (
+                    <RecurringPaymentItem
+                      key={payment._id}
+                      payment={payment}
+                      category={categoriesMap.get(payment.categoryId)}
+                      wallet={walletsMap.get(payment.walletId)}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        ) : recurringPayments.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            No recurring payments set up yet.
-          </div>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {recurringPayments.map((payment) => (
-              <RecurringPaymentItem
-                key={payment._id}
-                payment={payment}
-                category={categoriesMap.get(payment.categoryId)}
-                wallet={walletsMap.get(payment.walletId)}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
-      </ResponsiveModal>
+        </DrawerContent>
+      </Drawer>
 
       <RecurringPaymentEditDrawer
         open={!!editingPayment}

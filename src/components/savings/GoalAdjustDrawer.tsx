@@ -147,7 +147,7 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto">
+          <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
             {goals.map(goal => {
               const maxForGoal = mode === 'allocate'
                 ? Math.min(

@@ -172,7 +172,7 @@ export function LogPaymentDrawer({
               </DrawerDescription>
             </DrawerHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto group-data-[vaul-drawer-direction=right]/drawer-content:max-h-[calc(100dvh-14rem)]">
                 <div className="space-y-4 pb-6">
                   <TransactionForm isSubmitting={isSubmitting} />
                 </div>
