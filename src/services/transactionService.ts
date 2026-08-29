@@ -1,30 +1,9 @@
-import { db, type DexieTransaction } from '../lib/db-dexie'
+import { db } from '../lib/db-dexie'
+import { getWalletBalanceDelta } from '../lib/wallet-balance'
 import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crdts'
 import { eventBus } from '../lib/event-bus'
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
 import { transactionSchema, createTransactionSchema, updateTransactionSchema } from '../../shared/schemas/transaction.schema'
-
-function getWalletBalanceDelta(transaction: DexieTransaction, walletId: string): number {
-  let delta = 0
-
-  if (transaction.walletId === walletId) {
-    if (transaction.transactionType === 'income') {
-      delta += transaction.amount
-    } else if (transaction.transactionType === 'expense' || transaction.transactionType === 'transfer') {
-      delta -= transaction.amount
-    }
-  }
-
-  if (transaction.toWalletId === walletId && transaction.transactionType === 'transfer') {
-    if (transaction.currency === transaction.toCurrency) {
-      delta += transaction.amount || 0
-    } else {
-      delta += transaction.toAmount || 0
-    }
-  }
-
-  return delta
-}
 
 class TransactionService {
 

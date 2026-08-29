@@ -17,6 +17,7 @@ import {
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import { currencies } from '../../../shared/schemas/user_settings.schema'
 import { MoneyInput } from './MoneyInput'
+import { formatWalletBalance } from '@/lib/wallet-utils'
 
 interface AmountInputProps {
   isSubmitting: boolean
@@ -24,9 +25,10 @@ interface AmountInputProps {
   variant?: 'from' | 'to'
   currency?: string
   autoFill?: boolean
+  afterBalance?: number
 }
 
-export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false }: AmountInputProps) {
+export function AmountInput({ isSubmitting, size = 'full', variant = 'from', currency: overrideCurrency, autoFill = false, afterBalance }: AmountInputProps) {
   const form = useFormContext<CreateTransaction>()
   const fieldName: keyof CreateTransaction = variant === 'from' ? 'amount' : 'toAmount'
   const currencyFieldName: keyof CreateTransaction = variant === 'from' ? 'currency' : 'toCurrency'
@@ -65,7 +67,7 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
           <FormControl>
             <div
               className={cn(
-                "bg-muted/50 rounded-lg p-2",
+                "bg-muted/50 rounded-lg p-2 relative",
                 autoFill && variant === 'to' ? "opacity-60" : "cursor-text"
               )}
             >
@@ -113,6 +115,12 @@ export function AmountInput({ isSubmitting, size = 'full', variant = 'from', cur
                   />
                 )}
               </label>
+
+              {afterBalance !== undefined && (
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums">
+                  → {formatWalletBalance(afterBalance)}
+                </span>
+              )}
             </div>
           </FormControl>
           <FormMessage className="text-center" />

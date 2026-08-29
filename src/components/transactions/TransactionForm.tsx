@@ -18,17 +18,27 @@ import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { SplitDrawer } from './SplitDrawer'
 import { ArrowRight } from 'lucide-react'
 import { ReimbursementDrawer } from './ReimbursementDrawer'
+import { useProjectedBalance } from '@/hooks/useProjectedBalance'
+import type { Transaction } from '../../../shared/schemas/transaction.schema'
 
 interface TransactionFormProps {
   isSubmitting: boolean
+  transaction?: Transaction | null
 }
 
-export function TransactionForm({ isSubmitting }: TransactionFormProps) {
+export function TransactionForm({ isSubmitting, transaction }: TransactionFormProps) {
   const form = useFormContext<CreateTransaction>()
   const transactionType = form.watch('transactionType')
   const walletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
   const { wallets, isLoading } = useLiveWallets()
+
+  const isTransfer = transactionType === 'transfer'
+  const { current, projected, isLoading: balanceLoading, hasChange } = useProjectedBalance(
+    isTransfer ? undefined : walletId,
+    transaction
+  )
+  const showBalance = !isTransfer && !!walletId && !balanceLoading
 
   const fromWallet = wallets.find(w => w._id === walletId)
   const toWallet = wallets.find(w => w._id === toWalletId)
@@ -43,7 +53,7 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
       <TransactionTypeSwitch isSubmitting={isSubmitting} />
 
       <div className="flex items-center gap-2 mb-4">
-        <FromWalletSelector isSubmitting={isSubmitting} />
+        <FromWalletSelector isSubmitting={isSubmitting} balance={showBalance ? current : undefined} />
 
         {
           (transactionType === 'transfer') && <>
@@ -59,6 +69,7 @@ export function TransactionForm({ isSubmitting }: TransactionFormProps) {
           size={transactionType === 'transfer' ? 'sm' : 'full'}
           variant="from"
           currency={fromWallet?.currency}
+          afterBalance={showBalance && hasChange ? projected : undefined}
         />
 
         {

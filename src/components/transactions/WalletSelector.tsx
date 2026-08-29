@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/form'
 import type { CreateTransaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
+import { formatWalletBalance } from '@/lib/wallet-utils'
 
 interface WalletSelectorProps {
   wallets: Wallet[]
@@ -21,6 +22,7 @@ interface WalletSelectorProps {
   fieldName: 'walletId' | 'toWalletId'
   placeholder: string
   excludeWalletId?: string
+  balance?: number
 }
 
 export function WalletSelector({
@@ -29,6 +31,7 @@ export function WalletSelector({
   fieldName,
   placeholder,
   excludeWalletId,
+  balance,
 }: WalletSelectorProps) {
   const form = useFormContext<CreateTransaction>()
   const filteredWallets = excludeWalletId
@@ -49,6 +52,11 @@ export function WalletSelector({
             <FormControl>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={placeholder} />
+                {balance !== undefined && (
+                  <span className="ml-auto shrink-0 text-sm text-muted-foreground tabular-nums">
+                    {formatWalletBalance(balance)}
+                  </span>
+                )}
               </SelectTrigger>
             </FormControl>
             <SelectContent>

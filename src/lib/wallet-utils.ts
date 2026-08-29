@@ -13,3 +13,10 @@ export function getWalletNameById(wallets: IdentifiedWallet[], walletId: string)
   const wallet = wallets.find(w => w._id === walletId)
   return wallet ? formatWalletName(wallet) : UNKNOWN_WALLET_NAME
 }
+
+export function formatWalletBalance(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}

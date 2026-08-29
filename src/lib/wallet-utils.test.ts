@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatWalletName, getWalletNameById, UNKNOWN_WALLET_NAME } from './wallet-utils'
+import { formatWalletName, formatWalletBalance, getWalletNameById, UNKNOWN_WALLET_NAME } from './wallet-utils'
 
 const wallets = [
   { _id: 'wallet-1', name: 'Revolut', currency: 'USD' as const },
@@ -27,5 +27,20 @@ describe('getWalletNameById', () => {
 
   it('falls back for an empty wallet list', () => {
     expect(getWalletNameById([], 'wallet-1')).toBe(UNKNOWN_WALLET_NAME)
+  })
+})
+
+describe('formatWalletBalance', () => {
+  it('always shows two decimals', () => {
+    expect(formatWalletBalance(1151)).toBe('1,151.00')
+    expect(formatWalletBalance(1151.5)).toBe('1,151.50')
+  })
+
+  it('groups thousands', () => {
+    expect(formatWalletBalance(1234567.891)).toBe('1,234,567.89')
+  })
+
+  it('keeps negatives signed', () => {
+    expect(formatWalletBalance(-42.5)).toBe('-42.50')
   })
 })

@@ -51,7 +51,7 @@ export function TransactionDrawer({ open, onOpenChange, transaction, initialValu
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="px-4 max-h-[50vh] overflow-y-auto">
               <div className="space-y-4 pb-6">
-                <TransactionForm isSubmitting={isSubmitting} />
+                <TransactionForm isSubmitting={isSubmitting} transaction={transaction} />
               </div>
             </form>
           </Form>
