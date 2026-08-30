@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { UTCDate } from '@date-fns/utc'
+import { startOfDay, endOfDay } from 'date-fns'
 import {
   getOccurrencesInPeriod,
   generateLogId,
@@ -11,9 +11,15 @@ import {
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
 import type { CreateTransaction } from '../../shared/schemas/transaction.schema'
 
+// getOccurrencesInPeriod is a local-calendar API: it builds occurrences with
+// `new Date(y, m, d, 12, 0, 0)` and compares them against the caller's bounds,
+// which production always supplies in the local basis (date-fns startOfDay/endOfDay).
+// A UTCDate bound would make that comparison mixed-basis and silently drop an
+// occurrence landing on the period-end day at negative UTC offsets. Local noon is the
+// matching basis and is equally timezone-stable — DST shifts never occur at midday.
 function date(str: string): Date {
   const [year, month, day] = str.split('-').map(Number)
-  return new UTCDate(year, month - 1, day, 12, 0, 0)
+  return new Date(year, month - 1, day, 12, 0, 0)
 }
 
 function formatDate(d: Date): string {
@@ -294,6 +300,58 @@ describe('recurring-utils', () => {
 
         const occurrences = getOccurrencesInPeriod(rrule, startDate, periodStart, periodEnd)
         expectDates(occurrences, ['2026-01-05', '2026-01-12', '2026-01-19'])
+      })
+    })
+
+    // Mirrors exactly how production calls this: startDate round-trips through an ISO
+    // string (recurringPaymentService stores `.toISOString()`), and the period bounds
+    // arrive from date-fns startOfDay/endOfDay via getPeriodContainingDate. These pin
+    // the boundary contract that the month-end fallback path depends on.
+    describe('production-shaped inputs', () => {
+      function storedStart(str: string): Date {
+        const [year, month, day] = str.split('-').map(Number)
+        return new Date(new Date(year, month - 1, day).toISOString())
+      }
+
+      function occurrencesFor(rrule: string, start: string, from: string, to: string): string[] {
+        const [fromYear, fromMonth, fromDay] = from.split('-').map(Number)
+        const [toYear, toMonth, toDay] = to.split('-').map(Number)
+        return getOccurrencesInPeriod(
+          rrule,
+          storedStart(start),
+          startOfDay(new Date(fromYear, fromMonth - 1, fromDay)),
+          endOfDay(new Date(toYear, toMonth - 1, toDay))
+        ).map(formatDate)
+      }
+
+      it('includes a day-31 occurrence landing on the final day of the period', () => {
+        expect(occurrencesFor('FREQ=MONTHLY;BYMONTHDAY=31', '2026-01-31', '2026-01-01', '2026-06-30'))
+          .toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30'])
+      })
+
+      it('includes a day-30 occurrence landing on the final day of the period', () => {
+        expect(occurrencesFor('FREQ=MONTHLY;BYMONTHDAY=30', '2026-01-30', '2026-01-01', '2026-04-30'))
+          .toEqual(['2026-01-30', '2026-02-28', '2026-03-30', '2026-04-30'])
+      })
+
+      it('includes a last-day-of-month occurrence landing on the final day of the period', () => {
+        expect(occurrencesFor('FREQ=MONTHLY;BYMONTHDAY=-1', '2026-01-31', '2026-01-01', '2026-04-30'))
+          .toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
+      })
+
+      it('keeps a day-1 monthly start in its own calendar month', () => {
+        expect(occurrencesFor('FREQ=MONTHLY;BYMONTHDAY=1', '2026-01-01', '2026-01-01', '2026-04-30'))
+          .toEqual(['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01'])
+      })
+
+      it('includes a daily occurrence on the final day of the period', () => {
+        expect(occurrencesFor('FREQ=DAILY', '2026-01-01', '2026-01-01', '2026-01-05'))
+          .toEqual(['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05'])
+      })
+
+      it('includes a yearly Feb-29 fallback landing on the final day of the period', () => {
+        expect(occurrencesFor('FREQ=YEARLY', '2024-02-29', '2024-01-01', '2026-02-28'))
+          .toEqual(['2024-02-29', '2025-02-28', '2026-02-28'])
       })
     })
   })
