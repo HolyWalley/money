@@ -8,6 +8,7 @@ import {
   updateTransaction,
 } from '../lib/crdts'
 import { eventBus } from '../lib/event-bus'
+import { detachLinkedGoals } from './recurringGoalLinker'
 import { generateLogId } from '../lib/recurring-utils'
 import type { DexieRecurringPayment } from '../lib/db-dexie'
 import type { RecurringPayment, CreateRecurringPayment, RecurringPaymentLog, UpdateRecurringPayment } from '../../shared/schemas/recurring-payment.schema'
@@ -249,6 +250,12 @@ class RecurringPaymentService {
       const existing = await db.recurringPayments.get(id)
       updateRecurringPayment(id, { isActive: false })
 
+      // Detaching inline as well as on the event: the subscriber is a mounted
+      // component reacting to an in-memory bus, so a tab that closes in between
+      // would leave the goal linked to a payment that no longer applies.
+      // detachLinkedGoals is a no-op the second time.
+      await detachLinkedGoals(id)
+
       if (existing) {
         const deactivated: RecurringPayment = {
           ...existing,
@@ -273,6 +280,11 @@ class RecurringPaymentService {
 
   async deleteRecurringPaymentById(id: string): Promise<void> {
     try {
+      // Before the delete rather than after: if detaching throws, nothing has
+      // been removed yet and the caller can retry, instead of being left with a
+      // goal pointing at a payment that no longer exists.
+      await detachLinkedGoals(id)
+
       deleteRecurringPayment(id)
 
       try {

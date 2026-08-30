@@ -48,7 +48,12 @@ function createSavingGoalMap(data: Omit<SavingGoal, '_id'> & { _id: string }): Y
 }
 
 const ydoc = new Y.Doc()
-new IndexeddbPersistence('money', ydoc)
+const persistence = new IndexeddbPersistence('money', ydoc)
+
+// Anything that reads the whole document at startup must await this. Before it
+// resolves the doc is empty, which is indistinguishable from a document that
+// genuinely has nothing in it.
+const crdtReady: Promise<unknown> = persistence.whenSynced
 
 const categories = ydoc.getMap<Y.Map<unknown>>('categories')
 const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
@@ -513,6 +518,7 @@ export function deleteSavingGoal(id: string) {
 
 export {
   ydoc,
+  crdtReady,
   categories,
   wallets,
   transactions,

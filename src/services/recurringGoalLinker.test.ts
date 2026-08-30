@@ -27,6 +27,21 @@ vi.mock('../lib/recurring-utils', () => ({
   generateLogId: (...args: unknown[]) => mockGenerateLogId(...(args as [string, Date])),
 }))
 
+// reconcileLinkedGoals reads the Yjs maps directly. It only ever calls
+// .entries() on the outer map and .get() on an entry, so plain Maps stand in
+// without dragging Yjs into the test.
+const { yGoals, yPayments, mockUpdateSavingGoalCRDT } = vi.hoisted(() => ({
+  yGoals: new Map<string, Map<string, unknown>>(),
+  yPayments: new Map<string, Map<string, unknown>>(),
+  mockUpdateSavingGoalCRDT: vi.fn(),
+}))
+
+vi.mock('../lib/crdts', () => ({
+  savingGoals: yGoals,
+  recurringPayments: yPayments,
+  updateSavingGoal: (...args: unknown[]) => mockUpdateSavingGoalCRDT(...args),
+}))
+
 const mockCreateGoal = vi.fn()
 const mockUpdateGoal = vi.fn()
 const mockDeleteGoal = vi.fn()
@@ -47,6 +62,7 @@ import {
   onRecurringPaymentSkipped,
   onRecurringPaymentReplaced,
   detachLinkedGoals,
+  reconcileLinkedGoals,
 } from './recurringGoalLinker'
 
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
@@ -488,5 +504,102 @@ describe('findActiveLinkedGoal', () => {
     expect(result?.targetDate).toBe(new UTCDate(2026, 5, 1).toISOString())
     expect(typeof result?.createdAt).toBe('string')
     expect(typeof result?.updatedAt).toBe('string')
+  })
+})
+
+describe('reconcileLinkedGoals', () => {
+  function seedGoal(id: string, fields: Record<string, unknown>) {
+    yGoals.set(id, new Map(Object.entries(fields)))
+  }
+
+  function seedPayment(id: string, fields: Record<string, unknown>) {
+    yPayments.set(id, new Map(Object.entries(fields)))
+  }
+
+  function livePayment(id: string) {
+    seedPayment(id, { isActive: true, savingsWalletId: 'pot-1' })
+  }
+
+  beforeEach(() => {
+    yGoals.clear()
+    yPayments.clear()
+    mockUpdateSavingGoalCRDT.mockReset()
+    // Apply the write so the second run of an idempotency test sees the result.
+    mockUpdateSavingGoalCRDT.mockImplementation((id: string, updates: Record<string, unknown>) => {
+      const goal = yGoals.get(id)
+      if (!goal) return
+      for (const [key, value] of Object.entries(updates)) goal.set(key, value)
+    })
+  })
+
+  it('detaches a goal whose recurring payment no longer exists', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-gone', achieved: false })
+
+    expect(reconcileLinkedGoals()).toBe(1)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-1', { sourceRecurringPaymentId: '' })
+  })
+
+  it('detaches a goal whose recurring payment was deactivated', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-1', achieved: false })
+    seedPayment('rp-1', { isActive: false, savingsWalletId: 'pot-1' })
+
+    expect(reconcileLinkedGoals()).toBe(1)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-1', { sourceRecurringPaymentId: '' })
+  })
+
+  it('detaches a goal whose recurring payment stopped saving up', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-1', achieved: false })
+    seedPayment('rp-1', { isActive: true, savingsWalletId: undefined })
+
+    expect(reconcileLinkedGoals()).toBe(1)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-1', { sourceRecurringPaymentId: '' })
+  })
+
+  it('leaves a goal linked to a live recurring payment alone', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-1', achieved: false })
+    livePayment('rp-1')
+
+    expect(reconcileLinkedGoals()).toBe(0)
+    expect(mockUpdateSavingGoalCRDT).not.toHaveBeenCalled()
+  })
+
+  it('leaves achieved goals linked, since they record where they came from', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-gone', achieved: true })
+
+    expect(reconcileLinkedGoals()).toBe(0)
+    expect(mockUpdateSavingGoalCRDT).not.toHaveBeenCalled()
+  })
+
+  it('ignores goals that were never linked', () => {
+    seedGoal('goal-1', { achieved: false })
+    seedGoal('goal-2', { sourceRecurringPaymentId: '', achieved: false })
+
+    expect(reconcileLinkedGoals()).toBe(0)
+    expect(mockUpdateSavingGoalCRDT).not.toHaveBeenCalled()
+  })
+
+  it('detaches only the orphaned goals and reports how many', () => {
+    seedGoal('goal-live', { sourceRecurringPaymentId: 'rp-1', achieved: false })
+    seedGoal('goal-orphan-a', { sourceRecurringPaymentId: 'rp-gone', achieved: false })
+    seedGoal('goal-orphan-b', { sourceRecurringPaymentId: 'rp-off', achieved: false })
+    livePayment('rp-1')
+    seedPayment('rp-off', { isActive: false, savingsWalletId: 'pot-1' })
+
+    expect(reconcileLinkedGoals()).toBe(2)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledTimes(2)
+    expect(mockUpdateSavingGoalCRDT).not.toHaveBeenCalledWith('goal-live', expect.anything())
+  })
+
+  it('is idempotent, so running it on every start is free', () => {
+    seedGoal('goal-1', { sourceRecurringPaymentId: 'rp-gone', achieved: false })
+
+    expect(reconcileLinkedGoals()).toBe(1)
+    expect(reconcileLinkedGoals()).toBe(0)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledTimes(1)
+  })
+
+  it('detaches nothing when there are no goals at all', () => {
+    expect(reconcileLinkedGoals()).toBe(0)
+    expect(mockUpdateSavingGoalCRDT).not.toHaveBeenCalled()
   })
 })

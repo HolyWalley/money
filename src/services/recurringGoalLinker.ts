@@ -1,5 +1,10 @@
 import { addYears, isSameDay, startOfDay } from 'date-fns'
 import { db } from '../lib/db-dexie'
+import {
+  recurringPayments as yRecurringPayments,
+  savingGoals as ySavingGoals,
+  updateSavingGoal as updateSavingGoalCRDT,
+} from '../lib/crdts'
 import { generateLogId, getOccurrencesInPeriod } from '../lib/recurring-utils'
 import { savingGoalService } from './savingGoalService'
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
@@ -141,6 +146,42 @@ export async function detachLinkedGoals(rpId: string): Promise<void> {
   }
 }
 
+/**
+ * A goal's link is otherwise maintained only by RecurringGoalLinkSubscriber
+ * reacting to an in-memory event. If the tab dies between the payment changing
+ * and that handler running, the event is gone and nothing ever clears the link,
+ * so a goal keeps pointing at a payment that no longer applies — which silently
+ * drops it out of savings suggestions. The invariant is re-derivable, so it is
+ * checked at startup rather than made durable.
+ *
+ * Reads the Yjs maps rather than the Dexie mirror on purpose. The mirror is
+ * written asynchronously by observers, so shortly after load it can hold the
+ * goals without yet holding the payments — which would look exactly like every
+ * goal being orphaned. The caller must still await crdtReady.
+ *
+ * Achieved goals keep their link: detachLinkedGoals only ever detaches the
+ * active one, and the link is that goal's record of where it came from.
+ */
+export function reconcileLinkedGoals(): number {
+  let detached = 0
+
+  for (const [goalId, goal] of ySavingGoals.entries()) {
+    const sourceId = goal.get('sourceRecurringPaymentId')
+    if (typeof sourceId !== 'string' || sourceId === '') continue
+    if (goal.get('achieved') === true) continue
+
+    const rp = yRecurringPayments.get(sourceId)
+    // The three conditions the subscriber detaches on: deleted, deactivated,
+    // and savings switched off on a payment that still exists.
+    if (rp && rp.get('isActive') === true && rp.get('savingsWalletId')) continue
+
+    updateSavingGoalCRDT(goalId, { sourceRecurringPaymentId: '' })
+    detached++
+  }
+
+  return detached
+}
+
 export const recurringGoalLinker = {
   findNextScheduledOccurrence,
   findActiveLinkedGoal,
@@ -149,4 +190,5 @@ export const recurringGoalLinker = {
   onRecurringPaymentSkipped,
   onRecurringPaymentReplaced,
   detachLinkedGoals,
+  reconcileLinkedGoals,
 }
