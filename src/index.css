@@ -140,6 +140,15 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
+  /*
+   * The manifest asks for display: standalone and the viewport for
+   * viewport-fit=cover, so on a notched iPhone the app owns the status bar strip
+   * and anything at the top of a page renders underneath it.
+   */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
   /* pb-20 + safe area, using the Tailwind spacing token */
   .pb-safe-20 {
     padding-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0));

@@ -32,7 +32,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-background text-foreground flex">
       <AppSidebar />
-      <div className={`flex-1 min-h-[calc(100dvh)] ${isMobile ? 'pb-20' : 'pl-24'}`}>{children}</div>
+      {/* pb-safe-20 rather than pb-20: AppSidebarMobile grows itself by the home
+          indicator inset, so a flat 5rem leaves the last row under the nav. */}
+      <div className={`flex-1 min-h-[calc(100dvh)] pt-safe ${isMobile ? 'pb-safe-20' : 'pl-24'}`}>{children}</div>
       <SavingsNotificationListener />
       <RecurringGoalLinkSubscriber />
       <SyncNotificationListener status={sync.status} />
