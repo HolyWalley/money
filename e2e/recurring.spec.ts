@@ -52,9 +52,24 @@ async function createWallet(
 }
 
 async function openNewTransaction(page: Page) {
-  const plusButton = page.locator('button[class*="size-8"]')
+  // The sidebar's new-transaction button has no accessible name (icon only), so
+  // it is identified by its Plus icon; matching on size alone collides with the
+  // icon-sized dropdown triggers rendered on the page behind the sidebar.
+  const plusButton = page.locator('button[class*="size-8"]:has(svg.lucide-plus)')
   await plusButton.click()
   await page.getByRole('dialog').waitFor()
+}
+
+// The type switch items are told apart from the same-named category buttons by
+// their aria-label; the category buttons carry title instead.
+function transactionTypeOption(page: Page, type: 'Expense' | 'Income' | 'Transfer') {
+  return page.getByLabel(type, { exact: true })
+}
+
+// The drawer's save control is a split button: "Save" plus a "Save options"
+// dropdown trigger, so the name has to match exactly.
+function saveButton(page: Page) {
+  return page.getByRole('button', { name: 'Save', exact: true })
 }
 
 // Create an expense transaction with an optional note. Uses the default
@@ -65,13 +80,13 @@ async function createExpenseTransaction(
   options: { note?: string } = {}
 ) {
   await openNewTransaction(page)
-  await page.getByRole('radio', { name: 'Expense' }).click()
+  await transactionTypeOption(page, 'Expense').click()
   await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill(String(amount))
   await page.getByRole('button', { name: 'Food & Drink' }).click()
   if (options.note) {
     await page.getByRole('textbox', { name: 'Note' }).fill(options.note)
   }
-  await page.getByRole('button', { name: 'Save' }).click()
+  await saveButton(page).click()
   await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 }
 
@@ -234,6 +249,10 @@ test.describe('Recurring Payments + Savings Link', () => {
     // Confirmation dialog
     await page.getByRole('button', { name: 'Delete' }).click()
 
+    // Wait for the deletion to land before navigating away: page.goto is a full
+    // reload, and reloading while the delete is still in flight drops it.
+    await expect(manageDialog.getByText('Gym', { exact: true })).toHaveCount(0, { timeout: 5000 })
+
     // Goal still exists, but the recurring icon is gone (detached).
     await page.goto('/savings')
     const detached = page.locator('[data-slot="card"]').filter({ hasText: 'Gym' })
@@ -284,14 +303,14 @@ test.describe('Recurring Payments + Savings Link', () => {
     // transaction dialog before filling amount.
     await page.goto('/transactions')
     await openNewTransaction(page)
-    await page.getByRole('radio', { name: 'Expense' }).click()
+    await transactionTypeOption(page, 'Expense').click()
     // Switch the from-wallet to the Euro Checking wallet (renders as combobox).
     await page.getByRole('combobox').first().click()
     await page.getByRole('option', { name: /Euro Checking/ }).click()
     await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill('20')
     await page.getByRole('button', { name: 'Food & Drink' }).click()
     await page.getByRole('textbox', { name: 'Note' }).fill('Croissants')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await saveButton(page).click()
     await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 
     await openMakeRecurringFor(page, 'Croissants')

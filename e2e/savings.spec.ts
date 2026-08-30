@@ -78,27 +78,47 @@ async function setDeadlineInOpenForm(page: Page, target: Date) {
 }
 
 async function openNewTransaction(page: Page) {
-  // The new transaction button is the small icon-only button in the sidebar
-  const plusButton = page.locator('button[class*="size-8"]')
+  // The sidebar's new-transaction button has no accessible name (icon only), so
+  // it is identified by its Plus icon; matching on size alone collides with the
+  // icon-sized dropdown triggers rendered on the page behind the sidebar.
+  const plusButton = page.locator('button[class*="size-8"]:has(svg.lucide-plus)')
   await plusButton.click()
   await page.getByRole('dialog').waitFor()
 }
 
+// The transaction type switch and the category grid both expose plain buttons,
+// and in income mode both carry the accessible name "Income". They are told
+// apart by the attribute each one actually sets: the type switch items have
+// aria-label, the category buttons have title.
+function transactionTypeOption(page: Page, type: 'Expense' | 'Income' | 'Transfer') {
+  return page.getByLabel(type, { exact: true })
+}
+
+function categoryOption(page: Page, name: string) {
+  return page.getByTitle(name, { exact: true })
+}
+
+// The drawer's save control is a split button: "Save" plus a "Save options"
+// dropdown trigger, so the name has to match exactly.
+function saveButton(page: Page) {
+  return page.getByRole('button', { name: 'Save', exact: true })
+}
+
 async function createIncomeTransaction(page: Page, amount: number) {
   await openNewTransaction(page)
-  await page.getByRole('radio', { name: 'Income' }).click()
+  await transactionTypeOption(page, 'Income').click()
   await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill(String(amount))
-  await page.getByRole('button', { name: 'Income' }).click()
-  await page.getByRole('button', { name: 'Save' }).click()
+  await categoryOption(page, 'Income').click()
+  await saveButton(page).click()
   await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 }
 
 async function createExpenseTransaction(page: Page, amount: number) {
   await openNewTransaction(page)
-  await page.getByRole('radio', { name: 'Expense' }).click()
+  await transactionTypeOption(page, 'Expense').click()
   await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill(String(amount))
-  await page.getByRole('button', { name: 'Food & Drink' }).click()
-  await page.getByRole('button', { name: 'Save' }).click()
+  await categoryOption(page, 'Food & Drink').click()
+  await saveButton(page).click()
   await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 }
 
@@ -137,7 +157,9 @@ test.describe('Savings Feature', () => {
 
     // First allocate $500 to the goal via the drawer
     await page.getByRole('button', { name: 'Allocate' }).click()
-    const slider = page.locator('[role="slider"]')
+    // Base UI's slider thumb is a visually-hidden <input type="range">: it has
+    // the implicit "slider" role but no literal role attribute.
+    const slider = page.getByRole('slider')
     await slider.focus()
     await page.keyboard.press('End')
     await page.getByRole('button', { name: 'Allocate', exact: true }).click()
