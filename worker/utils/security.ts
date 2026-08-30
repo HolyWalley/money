@@ -85,7 +85,7 @@ export class SecurityUtils {
     }))
     
     // Import secret key for HMAC
-    const secret = encoder.encode(env.JWT_SECRET)
+    const secret = encoder.encode(env.JWT_ACCESS_SECRET)
     const key = await crypto.subtle.importKey(
       'raw',
       secret,
@@ -141,7 +141,7 @@ export class SecurityUtils {
       
       // Verify signature
       const encoder = new TextEncoder()
-      const secret = encoder.encode(env.JWT_SECRET)
+      const secret = encoder.encode(env.JWT_ACCESS_SECRET)
       const key = await crypto.subtle.importKey(
         'raw',
         secret,

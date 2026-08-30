@@ -2,7 +2,7 @@ import type { CloudflareEnv, UserInfo } from '../types/cloudflare'
 import { ResponseUtils } from '../utils/response'
 
 export async function onRequestGet(
-  request: Request,
+  _request: Request,
   env: CloudflareEnv,
   userInfo: UserInfo
 ): Promise<Response> {

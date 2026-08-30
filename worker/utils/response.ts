@@ -28,7 +28,7 @@ export class ResponseUtils {
     })
   }
 
-  static error(error: string, status = 400, errors?: string[]): Response {
+  static error(error: string, status = 400, errors?: string[], headers?: Record<string, string>): Response {
     const response: ApiResponse = {
       success: false,
       error,
@@ -38,7 +38,8 @@ export class ResponseUtils {
     return new Response(JSON.stringify(response), {
       status,
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...headers
       }
     })
   }
@@ -69,6 +70,10 @@ export class ResponseUtils {
 
   static internalError(error = 'Internal server error'): Response {
     return this.error(error, 500)
+  }
+
+  static serviceUnavailable(error = 'Service temporarily unavailable'): Response {
+    return this.error(error, 503)
   }
 
   static setCookies(response: Response, cookies: Array<{ name: string; value: string; options: CookieOptions }>): Response {

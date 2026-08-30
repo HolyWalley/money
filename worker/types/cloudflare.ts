@@ -1,6 +1,6 @@
-import { UserSettings } from "../../shared/types/userSettings"
-import { MoneyObject } from "../durable-objects/MoneyObject.ts"
-import { IPremium } from "../utils/storage"
+import type { UserSettings } from "../../shared/types/userSettings"
+import type { MoneyObject } from "../durable-objects/MoneyObject"
+import type { IPremium } from "../utils/storage"
 
 export interface UserInfo {
   userId: string

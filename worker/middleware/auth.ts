@@ -1,6 +1,6 @@
 import type { CloudflareEnv } from '../types/cloudflare'
 import type { AuthenticatedRequest } from './security'
-import { JWTUtils } from '../utils/jwt'
+import { isJWTConfigurationError, JWTUtils } from '../utils/jwt'
 import { StorageUtils } from '../utils/storage'
 import { ResponseUtils } from '../utils/response'
 import { SecurityUtils } from '../utils/security'
@@ -33,7 +33,16 @@ export const withAuth = async (request: AuthenticatedRequest, env: CloudflareEnv
   }
 
   // Verify access token
-  const payload = await JWTUtils.verifyAccessToken(accessToken, env)
+  let payload
+  try {
+    payload = await JWTUtils.verifyAccessToken(accessToken, env)
+  } catch (error) {
+    // A misconfigured secret means we cannot evaluate any token, which is an outage,
+    // not a rejection. Falling through to the 401 below would log every user out.
+    if (!isJWTConfigurationError(error)) throw error
+    console.error('Access token verification unavailable:', error)
+    return SecurityUtils.addSecurityHeaders(ResponseUtils.serviceUnavailable())
+  }
   if (!payload) {
     SecurityUtils.logSecurityEvent('invalid_access_token', { pathname }, request as unknown as Request)
     return SecurityUtils.addSecurityHeaders(
@@ -42,8 +51,16 @@ export const withAuth = async (request: AuthenticatedRequest, env: CloudflareEnv
   }
 
   // Verify user still exists and is active
-  const user = await StorageUtils.getUserByUsername(payload.username, env)
-  if (!user || !user.isActive) {
+  const read = await StorageUtils.readUserByUsername(payload.username, env)
+  if (read.status === 'error') {
+    // A KV read failure is infrastructure, not a verdict. Returning 401 here is
+    // what makes a transient blip indistinguishable from a deleted account, and
+    // the client is entitled to treat a 401 as a definitive logout.
+    return SecurityUtils.addSecurityHeaders(
+      ResponseUtils.serviceUnavailable()
+    )
+  }
+  if (read.status === 'not-found' || !read.value.isActive) {
     SecurityUtils.logSecurityEvent('inactive_user_access', {
       username: payload.username,
       pathname
@@ -52,6 +69,7 @@ export const withAuth = async (request: AuthenticatedRequest, env: CloudflareEnv
       ResponseUtils.unauthorized('User not found or inactive')
     )
   }
+  const user = read.value
 
   // Add user to request for use in handlers
   request.user = {

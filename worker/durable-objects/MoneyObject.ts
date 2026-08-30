@@ -1,11 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
 import * as Y from 'yjs';
+import { planPull } from "../lib/sync-cursor";
+import { BinaryUtils } from "../utils/binary";
 
 interface Update {
   update: Uint8Array;
   timestamp: number;
   deviceId: string;
   created_at?: number;
+  id?: number;
 }
 
 interface CompiledState {
@@ -68,35 +71,60 @@ export class MoneyObject extends DurableObject {
     }
   }
 
-  async getUpdates(since?: number): Promise<Update[]> {
-    // If no 'since' parameter, return the compiled state as a single update
-    if (!since) {
-      const compiledState = await this.getCompiledState();
-      if (compiledState) {
-        return [{
+  async getUpdates(query: { sinceId?: number; since?: number } = {}): Promise<{ updates: Update[]; latestId: number | null }> {
+    const boundsArray = Array.from(this.storage.sql.exec('SELECT MIN(id) AS min_id, MAX(id) AS max_id FROM updates'));
+    const minUpdateId = boundsArray.length > 0 ? (boundsArray[0].min_id as number | null) : null;
+    const maxUpdateId = boundsArray.length > 0 ? (boundsArray[0].max_id as number | null) : null;
+
+    const compiledState = await this.getCompiledState();
+
+    const plan = planPull({
+      sinceId: query.sinceId,
+      since: query.since,
+      compiledLastUpdateId: compiledState ? compiledState.last_update_id : null,
+      minUpdateId,
+      maxUpdateId,
+      hasCompiledState: compiledState !== null
+    });
+
+    if (plan.mode === 'compiled' && compiledState) {
+      return {
+        updates: [{
           update: compiledState.state,
           timestamp: compiledState.last_update_timestamp,
           deviceId: 'compiled-state',
           created_at: compiledState.created_at
-        }];
-      }
-      // Fallback to all updates if no compiled state exists
+        }],
+        latestId: compiledState.last_update_id
+      };
     }
 
-    const query = since
-      ? 'SELECT "update", timestamp, deviceId, created_at FROM updates WHERE created_at > ? ORDER BY created_at'
-      : 'SELECT "update", timestamp, deviceId, created_at FROM updates ORDER BY created_at';
+    let sql: string;
+    let params: number[];
 
-    const params = since ? [since] : [];
+    if (plan.mode === 'delta-by-id') {
+      // created_at has one-second resolution (strftime('%s','now') * 1000) and was
+      // filtered with '>', so a row inserted in the same wall-clock second as a
+      // client's cursor but after its SELECT was skipped permanently. The row id is
+      // monotonic.
+      sql = 'SELECT id, "update", timestamp, deviceId, created_at FROM updates WHERE id > ? ORDER BY id';
+      params = [plan.sinceId];
+    } else if (plan.mode === 'delta-by-time') {
+      sql = 'SELECT id, "update", timestamp, deviceId, created_at FROM updates WHERE created_at > ? ORDER BY created_at';
+      params = [plan.since];
+    } else {
+      sql = 'SELECT id, "update", timestamp, deviceId, created_at FROM updates ORDER BY id';
+      params = [];
+    }
 
-    const results = this.storage.sql.exec(query, ...params);
+    const results = this.storage.sql.exec(sql, ...params);
 
     const resultsArray = Array.from(results);
 
     const mappedResults = resultsArray.map(row => {
-      const rawUpdate = row.update;
-      const update = rawUpdate instanceof ArrayBuffer ? new Uint8Array(rawUpdate) : rawUpdate as Uint8Array;
+      const update = BinaryUtils.fromSqlBlob(row.update, 'update');
       return {
+        id: row.id as number,
         update: update,
         timestamp: row.timestamp as number,
         deviceId: row.deviceId as string,
@@ -104,7 +132,7 @@ export class MoneyObject extends DurableObject {
       };
     });
 
-    return mappedResults;
+    return { updates: mappedResults, latestId: maxUpdateId };
   }
 
   private async getCompiledState(): Promise<CompiledState | null> {
@@ -118,8 +146,7 @@ export class MoneyObject extends DurableObject {
     }
 
     const row = resultsArray[0];
-    const rawState = row.state;
-    const state = rawState instanceof ArrayBuffer ? new Uint8Array(rawState) : rawState as Uint8Array;
+    const state = BinaryUtils.fromSqlBlob(row.state, 'state');
 
     return {
       state: state,
@@ -161,7 +188,9 @@ export class MoneyObject extends DurableObject {
       const newCompiledState = Y.encodeStateAsUpdate(doc);
 
       const latestTimestamp = Math.max(...newUpdates.map(u => u.timestamp));
-      const maxUpdateId = Math.max(...newUpdateIds);
+      // reduce rather than Math.max(...ids) so this stays safe as a push batch grows;
+      // spreading an unbounded array into a call is a stack-overflow waiting to happen.
+      const maxUpdateId = newUpdateIds.reduce((max, id) => (id > max ? id : max), newUpdateIds[0]);
 
       // Save or update the compiled state
       this.storage.sql.exec(
@@ -192,8 +221,7 @@ export class MoneyObject extends DurableObject {
     const resultsArray = Array.from(results);
 
     return resultsArray.map(row => {
-      const rawUpdate = row.update;
-      const update = rawUpdate instanceof ArrayBuffer ? new Uint8Array(rawUpdate) : rawUpdate as Uint8Array;
+      const update = BinaryUtils.fromSqlBlob(row.update, 'update');
 
       return {
         update,
@@ -334,8 +362,7 @@ export class MoneyObject extends DurableObject {
     const rows = Array.from(results);
     
     for (const row of rows) {
-      const rawUpdate = row.update;
-      const update = rawUpdate instanceof ArrayBuffer ? new Uint8Array(rawUpdate) : rawUpdate as Uint8Array;
+      const update = BinaryUtils.fromSqlBlob(row.update, 'update');
       
       lines.push(JSON.stringify({
         type: 'update',

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@/contexts/AuthContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { describeAuthConnection } from '@/lib/auth-connection-copy'
 import { signupSchema, type SignupFormData } from '@/lib/auth-schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +18,7 @@ interface SignUpFormProps {
 
 export function SignUpForm({ onSignInClick }: SignUpFormProps) {
   const { signup } = useAuth()
+  const connectionNotice = describeAuthConnection(useNetworkStatus())
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -46,19 +49,15 @@ export function SignUpForm({ onSignInClick }: SignUpFormProps) {
     setIsSubmitting(true)
     setErrorMessage('')
 
-    try {
-      const result = await signup(data.username, data.password)
-      
-      if (!result.success) {
-        setErrorMessage(result.error || 'Sign up failed')
-      } else {
-        reset()
-      }
-    } catch {
-      setErrorMessage('An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+    const result = await signup(data.username, data.password)
+
+    if (!result.success) {
+      setErrorMessage(result.error || 'Sign up failed')
+    } else {
+      reset()
     }
+
+    setIsSubmitting(false)
   }
 
   const PasswordCheck = ({ passed, text }: { passed: boolean; text: string }) => (
@@ -189,6 +188,10 @@ export function SignUpForm({ onSignInClick }: SignUpFormProps) {
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Creating Account...' : 'Sign Up'}
           </Button>
+
+          {connectionNotice && (
+            <p className="text-xs text-muted-foreground">{connectionNotice.note}</p>
+          )}
 
           {onSignInClick && (
             <div className="text-center text-sm">

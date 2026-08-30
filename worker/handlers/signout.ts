@@ -10,7 +10,7 @@ interface UserInfo {
   settings: UserSettings
 }
 
-export async function onRequestPost(request: Request, env: CloudflareEnv, user: UserInfo): Promise<Response> {
+export async function onRequestPost(request: Request, _env: CloudflareEnv, user: UserInfo): Promise<Response> {
   try {
     // Log the signout event
     SecurityUtils.logSecurityEvent('user_signout', {

@@ -23,6 +23,7 @@ import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 import { RecurringPaymentsModal } from '@/components/recurring/RecurringPaymentsModal'
 import { useTheme } from '@/contexts/ThemeContext'
 import { DebugModal } from '@/components/DebugModal'
+import { SyncStatusConnector } from '@/components/sync/SyncStatusConnector'
 
 export function UserDropdownMenu() {
   const { user, signout, setUser } = useAuth()
@@ -85,13 +86,18 @@ export function UserDropdownMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 w-8 p-0" />}>
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-sm">
-              {getInitials(user?.username)}
-            </AvatarFallback>
-          </Avatar>
+          <span className="relative inline-flex">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-sm">
+                {getInitials(user?.username)}
+              </AvatarFallback>
+            </Avatar>
+            <SyncStatusConnector variant="dot" />
+          </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="right" className="w-56">
+          <SyncStatusConnector variant="menu" />
+          <DropdownMenuSeparator />
           <div className="flex items-center gap-2 px-2 py-1.5">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <Select

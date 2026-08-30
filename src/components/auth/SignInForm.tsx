@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@/contexts/AuthContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { describeAuthConnection } from '@/lib/auth-connection-copy'
 import { signinSchema, type SigninFormData } from '@/lib/auth-schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +18,7 @@ interface SignInFormProps {
 
 export function SignInForm({ onSignUpClick }: SignInFormProps) {
   const { signin } = useAuth()
+  const connectionNotice = describeAuthConnection(useNetworkStatus())
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -34,19 +37,15 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
     setIsSubmitting(true)
     setErrorMessage('')
 
-    try {
-      const result = await signin(data.username, data.password)
+    const result = await signin(data.username, data.password)
 
-      if (!result.success) {
-        setErrorMessage(result.error || 'Sign in failed')
-      } else {
-        reset()
-      }
-    } catch {
-      setErrorMessage('An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
+    if (!result.success) {
+      setErrorMessage(result.error || 'Sign in failed')
+    } else {
+      reset()
     }
+
+    setIsSubmitting(false)
   }
 
   return (
@@ -122,6 +121,10 @@ export function SignInForm({ onSignUpClick }: SignInFormProps) {
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Signing In...' : 'Sign In'}
           </Button>
+
+          {connectionNotice && (
+            <p className="text-xs text-muted-foreground">{connectionNotice.note}</p>
+          )}
 
           {onSignUpClick && (
             <div className="text-center text-sm">

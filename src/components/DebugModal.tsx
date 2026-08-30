@@ -9,11 +9,22 @@ import {
 import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/api-client'
 import { Loader2, Download, Upload } from 'lucide-react'
-import Dexie from 'dexie'
 import { db as moneyDb } from '@/lib/db-dexie'
+import { SYNC_META_KEYS, updatesDb } from '@/lib/updates-db'
 import { categories, transactions as yjsTransactions, ydoc } from '@/lib/crdts'
 import { getDeviceId } from '@/components/AppRoutes'
 import * as Y from 'yjs'
+
+// Chunked so a large document state does not blow the argument limit of
+// String.fromCharCode the way an unchunked spread does.
+function toBase64(data: Uint8Array): string {
+  let binaryString = ''
+  const chunkSize = 8192
+  for (let i = 0; i < data.length; i += chunkSize) {
+    binaryString += String.fromCharCode(...data.subarray(i, i + chunkSize))
+  }
+  return btoa(binaryString)
+}
 
 interface DebugModalProps {
   open: boolean
@@ -137,15 +148,10 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
       setDebugMessage(null)
       setError(null)
 
-      const syncDb = new Dexie('UpdatesDB')
-      syncDb.version(1).stores({
-        updates: '++id, timestamp, synced, deviceId',
-        syncMetadata: 'key'
-      })
-
-      await syncDb.open()
-      const deleted = await syncDb.table('syncMetadata').where('key').equals('lastPremiumSyncTimestamp').delete()
-      syncDb.close()
+      const deleted = await updatesDb.syncMetadata
+        .where('key')
+        .equals(SYNC_META_KEYS.lastPremiumSync)
+        .delete()
 
       if (deleted > 0) {
         setDebugMessage('✓ Deleted lastPremiumSyncTimestamp. Next sync will trigger initial sync (100KB upload). Make any change to trigger sync.')
@@ -211,17 +217,10 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           (response.data.hasCompiledState ? ' and compiled state' : '')
         )
 
-        // Clear local sync metadata to force a fresh pull
-        const syncDb = new Dexie('UpdatesDB')
-        syncDb.version(1).stores({
-          updates: '++id, timestamp, synced, deviceId',
-          syncMetadata: 'key'
-        })
-
         try {
-          // Clear all local updates and metadata
-          await syncDb.table('updates').clear()
-          await syncDb.table('syncMetadata').clear()
+          // Clear local sync metadata to force a fresh pull
+          await updatesDb.updates.clear()
+          await updatesDb.syncMetadata.clear()
 
           // Clear all MoneyDB tables
           await moneyDb.categories.clear()
@@ -235,8 +234,6 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           }, 2000)
         } catch (err) {
           console.error('Failed to clear local data:', err)
-        } finally {
-          syncDb.close()
         }
 
         // Refresh debug info
@@ -361,7 +358,7 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
       console.log(`State update size: ${stateUpdate.length} bytes`)
 
       // Convert to base64 for transmission
-      const base64Update = btoa(String.fromCharCode(...stateUpdate))
+      const base64Update = toBase64(stateUpdate)
 
       // Push to server
       const response = await apiClient.pushSync([{

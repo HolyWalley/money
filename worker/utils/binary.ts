@@ -5,6 +5,20 @@
 
 export class BinaryUtils {
   /**
+   * Durable Object SQLite returns BLOB columns as ArrayBuffer. Any other runtime
+   * type means the row was not written as a blob, so its bytes cannot be trusted --
+   * surface that loudly instead of reinterpreting a string/number as CRDT bytes.
+   */
+  static fromSqlBlob(value: SqlStorageValue, column: string): Uint8Array {
+    if (value instanceof ArrayBuffer) {
+      return new Uint8Array(value);
+    }
+    throw new Error(
+      `Expected BLOB for column "${column}", received ${value === null ? 'null' : typeof value}`
+    );
+  }
+
+  /**
    * Convert Uint8Array to base64 string for JSON serialization
    */
   static toBase64(data: Uint8Array): string {

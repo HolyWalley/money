@@ -146,8 +146,18 @@
   }
 }
 
+/*
+ * Keeps bottom toasts clear of AppSidebarMobile's fixed bottom nav (pb-20 = 5rem).
+ *
+ * sonner positions the toaster from --offset-bottom, and from --mobile-offset-bottom
+ * below its own 600px breakpoint; the bare --offset it also exposes is the per-toast
+ * stack lift, written inline on each toast, so setting that one moved nothing. Both
+ * variables are needed because sonner switches at 600px while useIsMobile() and the
+ * nav switch at 768px. !important is required: sonner writes these inline.
+ */
 @media (max-width: 768px) {
   [data-sonner-toaster] {
-    --offset: calc(theme(spacing.16) + env(safe-area-inset-bottom, 0)) !important;
+    --offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0)) !important;
+    --mobile-offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0)) !important;
   }
 }

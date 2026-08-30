@@ -1,13 +1,28 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "target": "ES2022",
     "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"]
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* workerd only: no DOM, no Node. Globals come from worker-configuration.d.ts. */
+    "types": [],
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
   },
-  "include": [
-    "worker/**/*",
-    "functions/**/*",
-    "shared/**/*",
-    "worker-configuration.d.ts"
-  ]
+  "include": ["worker", "shared", "worker-configuration.d.ts"],
+  "exclude": ["worker/**/*.test.ts", "shared/**/*.test.ts"]
 }

@@ -1,72 +1,56 @@
-import React from 'react';
-import { Sync } from '../lib/sync';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCallback, useEffect, useRef } from 'react'
+import { Sync } from '@/lib/sync'
+import { useAuth } from '@/contexts/AuthContext'
+import { resetSyncAttempts, resetSyncStatus, setSyncEnabled, type SyncStatus } from '@/lib/sync-status'
+import { useSyncStatus } from './useSyncStatus'
 
-export function useSync(
-  deviceId: string
-) {
+export interface UseSyncResult {
+  status: SyncStatus
+  retry: () => Promise<void>
+}
+
+export function useSync(deviceId: string): UseSyncResult {
   const { user, isPremium } = useAuth()
-  const [syncStatus, setSyncStatus] = React.useState<'idle' | 'syncing' | 'error'>('idle');
-  const syncRef = React.useRef<Sync | null>(null);
+  const activatedAt = user?.premium?.activatedAt
+  const syncRef = useRef<Sync | null>(null)
+  const activatedAtRef = useRef<string | undefined>(activatedAt)
 
-  React.useEffect(() => {
-    if (!isPremium) {
-      // Clean up sync instance if user is no longer premium
-      if (syncRef.current) {
-        syncRef.current.destroy();
-        syncRef.current = null;
-      }
-      return;
-    }
+  useEffect(() => {
+    setSyncEnabled(isPremium)
+    if (!isPremium) resetSyncStatus()
+  }, [isPremium])
 
-    // Don't create a new instance if we already have one with the same deviceId
-    if (syncRef.current) {
-      return;
-    }
+  useEffect(() => {
+    if (!isPremium) return
 
-    const initializeSync = async () => {
-      try {
-        setSyncStatus('syncing');
-        syncRef.current = new Sync(deviceId);
+    const instance = new Sync(deviceId)
+    syncRef.current = instance
+    // Pushes as well as pulls: this is what finally flushes a previous session's
+    // unsynced updates without waiting for the user to make a local edit.
+    void instance.syncNow(activatedAtRef.current)
 
-        // Initial pull sync on app load (pass premium activation timestamp)
-        await syncRef.current.pull(user?.premium?.activatedAt);
-
-        setSyncStatus('idle');
-      } catch (error) {
-        console.error('Initial sync failed:', error);
-        setSyncStatus('error');
-      }
-    };
-
-    initializeSync();
-
-    // Cleanup function
     return () => {
-      if (syncRef.current) {
-        syncRef.current.destroy();
-        syncRef.current = null;
-      }
-    };
-  }, [deviceId, isPremium]);
-
-  const manualSync = React.useCallback(async () => {
-    if (!isPremium) {
-      console.warn('Manual sync is only available for premium users.');
-      return;
+      instance.destroy()
+      syncRef.current = null
     }
+  }, [deviceId, isPremium])
 
-    if (syncRef.current && syncStatus !== 'syncing') {
-      setSyncStatus('syncing');
-      try {
-        await syncRef.current.pull(user?.premium?.activatedAt);
-        setSyncStatus('idle');
-      } catch (error) {
-        console.error('Manual sync failed:', error);
-        setSyncStatus('error');
-      }
+  // Kept out of the construction effect on purpose: React runs the cleanup before
+  // the effect body, so adding activatedAt to those deps would tear down the Sync
+  // instance and its window listeners every time the value changed.
+  useEffect(() => {
+    activatedAtRef.current = activatedAt
+    syncRef.current?.setPremiumActivatedAt(activatedAt)
+  }, [activatedAt])
+
+  const retry = useCallback(async () => {
+    resetSyncAttempts()
+    try {
+      await syncRef.current?.syncNow(activatedAtRef.current)
+    } catch (error) {
+      console.error('Manual sync failed:', error)
     }
-  }, [syncStatus, isPremium, user?.premium?.activatedAt]);
+  }, [])
 
-  return { syncStatus, manualSync };
+  return { status: useSyncStatus(), retry }
 }

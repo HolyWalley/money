@@ -1,7 +1,7 @@
 import type { CloudflareEnv, UserInfo } from '../types/cloudflare'
 import { SecurityUtils } from '../utils/security'
 import { ResponseUtils } from '../utils/response'
-import { IRequest } from 'itty-router'
+import type { IRequest } from 'itty-router'
 
 export interface AuthenticatedRequest extends IRequest {
   user?: UserInfo
@@ -29,10 +29,14 @@ export const withSecurity = async (request: AuthenticatedRequest, env: Cloudflar
       pathname
     }, request as unknown as Request)
 
-    // Block requests with multiple security issues
+    // Block requests with multiple security issues.
+    // Not a credential failure. /api/v1/refresh is in PUBLIC_ROUTES so it skips
+    // withAuth but not withSecurity, and a 401 from here is indistinguishable from a
+    // rejected refresh token - it would end a valid session for a stripped
+    // User-Agent from an in-app webview or a privacy browser.
     if (suspiciousActivity.length >= 2) {
       return SecurityUtils.addSecurityHeaders(
-        ResponseUtils.unauthorized('Request blocked for security reasons')
+        ResponseUtils.forbidden('Request blocked for security reasons')
       )
     }
   }
@@ -47,8 +51,8 @@ export const withSecurity = async (request: AuthenticatedRequest, env: Cloudflar
       resetTime: rateLimitResult.resetTime
     }, request as unknown as Request)
 
-    const response = ResponseUtils.error('Too many requests', 429, {
-      'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+    const response = ResponseUtils.error('Too many requests', 429, undefined, {
+      'Retry-After': String(Math.max(1, Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000))),
       'X-RateLimit-Limit': String(rateLimitConfig.maxRequests),
       'X-RateLimit-Remaining': '0',
       'X-RateLimit-Reset': String(rateLimitResult.resetTime)

@@ -1,4 +1,4 @@
-import { CloudflareEnv } from "../types/cloudflare";
+import type { CloudflareEnv } from "../types/cloudflare";
 import { ResponseUtils } from "../utils/response";
 import { StorageUtils } from "../utils/storage";
 
@@ -37,11 +37,12 @@ export async function updateUserPremium(request: Request & { params?: Record<str
     }
 
     const body = await request.json();
-    const { active } = body;
 
-    if (typeof active !== 'boolean') {
+    if (typeof body !== 'object' || body === null || !('active' in body) || typeof body.active !== 'boolean') {
       return ResponseUtils.validationError(['Active must be a boolean']);
     }
+
+    const { active } = body;
 
     const user = await StorageUtils.getUserByUsername(username, env);
     if (!user) {

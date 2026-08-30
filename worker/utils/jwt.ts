@@ -13,13 +13,28 @@ export interface TokenPair {
   refreshToken: string
 }
 
+// "We cannot evaluate tokens right now" is not "this token is invalid". Callers
+// must never launder this into a 401: the client is entitled to treat a 401 on
+// /refresh as a definitive logout, so a single mis-bound secret would sign every
+// user out and erase their cached offline identity.
+export class JWTConfigurationError extends Error {
+  constructor(message = 'JWT secrets not configured') {
+    super(message)
+    this.name = 'JWTConfigurationError'
+  }
+}
+
+export function isJWTConfigurationError(error: unknown): error is JWTConfigurationError {
+  return error instanceof JWTConfigurationError
+}
+
 export class JWTUtils {
   private static getSecrets(env: CloudflareEnv) {
     const accessSecret = env.JWT_ACCESS_SECRET
     const refreshSecret = env.JWT_REFRESH_SECRET
 
     if (!accessSecret || !refreshSecret) {
-      throw new Error('JWT secrets not configured')
+      throw new JWTConfigurationError()
     }
 
     return { accessSecret, refreshSecret }
@@ -53,8 +68,11 @@ export class JWTUtils {
   }
 
   static async verifyAccessToken(token: string, env: CloudflareEnv): Promise<JWTPayload | null> {
+    // Read the secret OUTSIDE the try: null means "this token is not valid", and a
+    // configuration failure must not be able to say that.
+    const { accessSecret } = this.getSecrets(env)
+
     try {
-      const { accessSecret } = this.getSecrets(env)
       const isValid = await jwt.verify(token, accessSecret)
 
       if (!isValid) {
@@ -69,8 +87,11 @@ export class JWTUtils {
   }
 
   static async verifyRefreshToken(token: string, env: CloudflareEnv): Promise<JWTPayload | null> {
+    // Read the secret OUTSIDE the try: null means "this token is not valid", and a
+    // configuration failure must not be able to say that.
+    const { refreshSecret } = this.getSecrets(env)
+
     try {
-      const { refreshSecret } = this.getSecrets(env)
       const isValid = await jwt.verify(token, refreshSecret)
 
       if (!isValid) {

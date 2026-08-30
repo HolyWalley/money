@@ -1,4 +1,35 @@
 /**
+ * Rates are keyed by the UTC calendar date of the instant they belong to, because that is
+ * how consumers look them up (`new Date(transaction.date).toISOString().split('T')[0]`).
+ * Providers derive their day keys from the *local* components of the dates they are handed,
+ * so hand them an instant whose local and UTC calendar dates are both that UTC day. Without
+ * this the two disagree by a day for any instant whose local and UTC dates differ, and the
+ * range's boundary rate is never requested at all — the transaction then silently drops out
+ * of the totals.
+ */
+function utcDayInstant(instant: Date): Date {
+  const year = instant.getUTCFullYear();
+  const month = instant.getUTCMonth();
+  const day = instant.getUTCDate();
+  const candidate = new Date(year, month, day);
+
+  // East of UTC (and on a DST fall-back night) local midnight is still the previous UTC day;
+  // step forward until both calendar dates agree. Bounded by the widest UTC offset, +14.
+  for (let hour = 0; hour < 24; hour++) {
+    if (
+      candidate.getUTCFullYear() === year &&
+      candidate.getUTCMonth() === month &&
+      candidate.getUTCDate() === day
+    ) {
+      break;
+    }
+    candidate.setHours(candidate.getHours() + 1);
+  }
+
+  return candidate;
+}
+
+/**
  * Service for managing exchange rates with pluggable provider and cache
  */
 export class ExchangeRateService {
@@ -24,7 +55,7 @@ export class ExchangeRateService {
     }
 
     // Fetch from provider
-    const rateValue = await this.provider.getRate(from, to, date);
+    const rateValue = await this.provider.getRate(from, to, utcDayInstant(date));
 
     // Store in cache with expiration
     await this.cache.set(from, to, dateStr, rateValue.rate, rateValue.expiresAt);
@@ -35,7 +66,10 @@ export class ExchangeRateService {
   /**
    * Get exchange rates for base currency to multiple target currencies across a date range
    * Checks cache first - if all entries are cached and valid, returns from cache
-   * Otherwise fetches fresh data from provider
+   * Otherwise fetches fresh data from provider and merges it over the cached entries
+   * If the provider fails, falls back to whatever was cached; only rethrows when
+   * nothing at all was cached
+   * The range is enumerated by UTC calendar day, matching the keys consumers look up
    * @returns Map with cache key (from:to:date) as key and rate as value
    */
   async getRates(
@@ -46,8 +80,10 @@ export class ExchangeRateService {
   ): Promise<Map<string, number>> {
     // Generate all cache keys for the requested range
     const keys: string[] = [];
-    const current = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
-    const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()));
+    const rangeStart = utcDayInstant(startDate);
+    const rangeEnd = utcDayInstant(endDate);
+    const current = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+    const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
 
     while (current <= end) {
       const dateStr = this.formatDate(current);
@@ -66,7 +102,17 @@ export class ExchangeRateService {
     }
 
     // Otherwise, fetch fresh data from provider
-    const rates = await this.provider.getRates(baseCurrency, targetCurrencies, startDate, endDate);
+    let rates: Map<string, ExchangeRateValue>;
+    try {
+      rates = await this.provider.getRates(baseCurrency, targetCurrencies, rangeStart, rangeEnd);
+    } catch (error) {
+      // A stale rate beats no rate: callers render financial totals, and a dropped
+      // rate silently removes a transaction from them rather than flagging it.
+      if (cached.size > 0) {
+        return cached;
+      }
+      throw error;
+    }
 
     // Store all in cache with expiration
     const cacheEntries = Array.from(rates.entries()).map((entry) => {
@@ -77,8 +123,8 @@ export class ExchangeRateService {
 
     await this.cache.setMany(cacheEntries);
 
-    // Return just the rates (without expiration info)
-    const ratesMap = new Map<string, number>();
+    // Fresh values win; cached values fill the gaps the provider did not return
+    const ratesMap = new Map<string, number>(cached);
     for (const [key, rateValue] of rates.entries()) {
       ratesMap.set(key, rateValue.rate);
     }

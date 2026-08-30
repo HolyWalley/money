@@ -11,18 +11,23 @@ interface FrankfurterTimeSeriesResponse {
 
 export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
   private baseUrl: string;
+  private timeoutMs: number;
 
-  constructor(baseUrl: string = 'https://api.frankfurter.dev/v1') {
+  constructor(baseUrl: string = 'https://api.frankfurter.dev/v1', timeoutMs: number = 8000) {
     this.baseUrl = baseUrl;
+    this.timeoutMs = timeoutMs;
   }
 
   /**
    * Generate array of all dates between start and end (inclusive)
    */
   private getDateRange(start: Date, end: Date): Date[] {
+    // UTC components, because formatDate() derives every emitted key from
+    // toISOString(). Reading local components here made the enumerated days and the
+    // key strings disagree by one in any non-UTC zone.
     const dates: Date[] = [];
-    const current = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
-    const endDate = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+    const current = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    const endDate = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
 
     while (current <= endDate) {
       dates.push(new Date(current));
@@ -124,14 +129,14 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     // Fetch extra 7 days backwards to ensure we have a seed rate for forward-filling
     // This handles cases where the start date falls on a weekend/holiday
     const fetchStartDate = new Date(startDate);
-    fetchStartDate.setDate(fetchStartDate.getDate() - 7);
+    fetchStartDate.setUTCDate(fetchStartDate.getUTCDate() - 7);
 
     const fetchStartDateStr = this.formatDate(fetchStartDate);
     const endDateStr = this.formatDate(endDate);
     const symbols = targetCurrencies.join(',');
     const url = `${this.baseUrl}/${fetchStartDateStr}..${endDateStr}?base=${baseCurrency}&symbols=${symbols}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(this.timeoutMs) });
     if (!response.ok) {
       throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
     }

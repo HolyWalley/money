@@ -40,7 +40,8 @@ describe('FrankfurterExchangeRateProvider', () => {
       expect(rateValue.expiresAt).toBeDefined();
       // Should fetch 7 days before to ensure seed rate
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-15?base=USD&symbols=EUR'
+        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-15?base=USD&symbols=EUR',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -96,7 +97,8 @@ describe('FrankfurterExchangeRateProvider', () => {
 
       // Should fetch 7 days before to ensure seed rate
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-15?base=USD&symbols=EUR'
+        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-15?base=USD&symbols=EUR',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
   });
@@ -146,7 +148,8 @@ describe('FrankfurterExchangeRateProvider', () => {
 
       // Should fetch 7 days before to ensure seed rate
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-17?base=USD&symbols=EUR,GBP'
+        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-17?base=USD&symbols=EUR,GBP',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -184,7 +187,8 @@ describe('FrankfurterExchangeRateProvider', () => {
 
       // Should fetch 7 days before to ensure seed rate
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-16?base=USD&symbols=EUR'
+        'https://api.frankfurter.dev/v1/2024-01-08..2024-01-16?base=USD&symbols=EUR',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
 
@@ -264,8 +268,49 @@ describe('FrankfurterExchangeRateProvider', () => {
 
       // Should have fetched 7 days before
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.frankfurter.dev/v1/2024-01-13..2024-01-24?base=USD&symbols=EUR'
+        'https://api.frankfurter.dev/v1/2024-01-13..2024-01-24?base=USD&symbols=EUR',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
+    });
+  });
+
+  describe('request timeout', () => {
+    it('should pass an unaborted AbortSignal to fetch', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          amount: 1.0,
+          base: 'USD',
+          start_date: '2024-01-15',
+          end_date: '2024-01-15',
+          rates: { '2024-01-15': { EUR: 1.25 } },
+        }),
+      });
+
+      await provider.getRates('USD', ['EUR'], new Date('2024-01-15'), new Date('2024-01-15'));
+
+      const init = fetchMock.mock.calls[0][1] as RequestInit;
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      expect(init.signal!.aborted).toBe(false);
+    });
+
+    it('should honour the constructor timeoutMs and reject when it elapses', async () => {
+      const impatientProvider = new FrankfurterExchangeRateProvider(
+        'https://api.frankfurter.dev/v1',
+        1
+      );
+
+      // Stand in for a stalled connection: resolve nothing, fail only when aborted
+      fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+        const signal = init.signal!;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason));
+        });
+      });
+
+      await expect(
+        impatientProvider.getRates('USD', ['EUR'], new Date('2024-01-15'), new Date('2024-01-16'))
+      ).rejects.toMatchObject({ name: 'TimeoutError' });
     });
   });
 
@@ -294,9 +339,59 @@ describe('FrankfurterExchangeRateProvider', () => {
 
       // Should fetch 7 days before to ensure seed rate
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://custom.api.com/2024-01-08..2024-01-15?base=USD&symbols=EUR'
+        'https://custom.api.com/2024-01-08..2024-01-15?base=USD&symbols=EUR',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
+  });
+
+  // Every key this provider emits comes from toISOString(), i.e. the UTC day. The
+  // enumeration and the 7-day lookback used to read LOCAL components, so in any
+  // non-UTC zone the days it asked for and the keys it returned were off by one --
+  // invisible on a UTC CI machine, so these pin the zone themselves.
+  describe('timezone independence', () => {
+    const originalTZ = process.env.TZ;
+
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+    });
+
+    for (const tz of ['UTC', 'America/New_York', 'Europe/Warsaw', 'Pacific/Auckland']) {
+      it(`keys rates by UTC day and requests the UTC range under ${tz}`, async () => {
+        process.env.TZ = tz;
+
+        fetchMock.mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            amount: 1.0,
+            base: 'USD',
+            start_date: '2024-01-15',
+            end_date: '2024-01-16',
+            rates: {
+              '2024-01-15': { EUR: 1.25 },
+              '2024-01-16': { EUR: 1.3 },
+            },
+          }),
+        });
+
+        // 23:30Z on the 15th and 02:30Z on the 16th: two instants that straddle local
+        // midnight in both directions, so a local-component reading picks the wrong day.
+        const rates = await provider.getRates(
+          'USD',
+          ['EUR'],
+          new Date('2024-01-15T23:30:00.000Z'),
+          new Date('2024-01-16T02:30:00.000Z')
+        );
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          'https://api.frankfurter.dev/v1/2024-01-08..2024-01-16?base=USD&symbols=EUR',
+          expect.objectContaining({ signal: expect.any(AbortSignal) })
+        );
+        expect(rates.get('USD:EUR:2024-01-15')?.rate).toBe(1.25);
+        expect(rates.get('USD:EUR:2024-01-16')?.rate).toBe(1.3);
+        expect(rates.size).toBe(2);
+      });
+    }
   });
 });
 

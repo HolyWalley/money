@@ -2,6 +2,7 @@ import { BrowserRouter as Router } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AppRoutes } from '@/components/AppRoutes'
 import { Toaster } from '@/components/ui/sonner'
+import { ServiceWorkerUpdatePrompt } from '@/components/ServiceWorkerUpdatePrompt'
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <AppRoutes />
       </Router>
       <Toaster position="bottom-right" />
+      <ServiceWorkerUpdatePrompt />
     </ThemeProvider>
   )
 }

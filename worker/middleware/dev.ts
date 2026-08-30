@@ -4,7 +4,7 @@ import type { CloudflareEnv } from '../types/cloudflare'
 
 // Development-only middleware - only allows requests from localhost
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const withDevOnly = async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+export const withDevOnly = async (request: AuthenticatedRequest, _env: CloudflareEnv) => {
   const url = new URL(request.url)
 
   // Only allow localhost and 127.0.0.1 in development
