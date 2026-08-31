@@ -98,3 +98,39 @@ describe('anchored popups', () => {
     expect(file.source).toMatch(/useSafeAreaCollisionPadding/)
   })
 })
+
+/**
+ * The service worker update prompt is a sonner toast pinned top-center, so it is
+ * positioned by neither the layout's padding nor a Positioner's collisionPadding.
+ * Its offset variables are the only thing standing between the Reload button and
+ * the status bar.
+ */
+describe('toast offsets', () => {
+  const css = readFileSync(join(SRC, 'index.css'), 'utf8')
+
+  it.each(['--offset-top', '--mobile-offset-top'])('adds the top inset to %s', variable => {
+    // Both are needed: sonner picks the mobile one below its own 600px breakpoint.
+    expect(css).toMatch(
+      new RegExp(`${variable}:\\s*calc\\([^)]*\\+\\s*env\\(safe-area-inset-top`)
+    )
+  })
+
+  it('overrides sonner, which writes these offsets inline', () => {
+    const rule = css.slice(css.indexOf('--offset-top:'))
+    expect(rule.slice(0, rule.indexOf(';'))).toContain('!important')
+  })
+
+  /**
+   * calc() rejects a bare 0 added to a length - number + length is a type error -
+   * and the whole declaration is dropped, silently taking the safe-area handling
+   * with it on any engine old enough to actually need the fallback.
+   */
+  it('gives every env() fallback inside calc() a unit', () => {
+    const offenders = css
+      .split('\n')
+      .filter(line => line.includes('calc(') && /env\(\s*safe-area-inset-\w+\s*,\s*0\s*\)/.test(line))
+      .map(line => line.trim())
+
+    expect(offenders).toEqual([])
+  })
+})

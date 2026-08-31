@@ -151,7 +151,7 @@
 
   /* pb-20 + safe area, using the Tailwind spacing token */
   .pb-safe-20 {
-    padding-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0));
+    padding-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -166,7 +166,20 @@
  */
 @media (max-width: 768px) {
   [data-sonner-toaster] {
-    --offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0)) !important;
-    --mobile-offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0)) !important;
+    --offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0px)) !important;
+    --mobile-offset-bottom: calc(theme(spacing.20) + env(safe-area-inset-bottom, 0px)) !important;
   }
+}
+
+/*
+ * The service worker update prompt is a duration-Infinity toast anchored
+ * top-center, so on a notched iPhone it renders behind the status bar and its
+ * Reload button lands under the clock. Sonner's defaults are 24px, and 16px
+ * below its own 600px breakpoint; both are restated here because the safe area
+ * has to be added to whichever one applies. No media query: env() is 0px on a
+ * device without insets, which leaves both at exactly the stock offset.
+ */
+[data-sonner-toaster] {
+  --offset-top: calc(24px + env(safe-area-inset-top, 0px)) !important;
+  --mobile-offset-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
 }
