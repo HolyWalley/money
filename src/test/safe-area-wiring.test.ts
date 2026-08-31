@@ -61,3 +61,40 @@ describe('safe-area utilities', () => {
     expect(css).toMatch(/\.pt-safe\s*\{\s*padding-top:\s*env\(safe-area-inset-top/)
   })
 })
+
+/**
+ * Anchored popups portal to the body, so the layout's own .pt-safe padding never
+ * reaches them: a tall one expands to the physical top of the screen and its first
+ * rows render behind the status bar. collisionPadding is the only prop that moves
+ * both the placement and the --available-height the popup sizes itself from, and
+ * it defaults to a flat 5px, so a Positioner that does not pass it is broken on a
+ * notched phone. These files are shadcn output and get regenerated wholesale.
+ */
+describe('anchored popups', () => {
+  const UI = join(SRC, 'components', 'ui')
+
+  const positioners = readdirSync(UI)
+    .filter(entry => /\.tsx$/.test(entry) && !/\.test\.tsx$/.test(entry))
+    .map(entry => ({
+      name: entry,
+      source: readFileSync(join(UI, entry), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1 '),
+    }))
+    .filter(file => /<\w+Primitive\.Positioner/.test(file.source))
+
+  it('finds the components that position against an anchor', () => {
+    expect(positioners.map(f => f.name).sort()).toEqual([
+      'dropdown-menu.tsx',
+      'popover.tsx',
+      'select.tsx',
+      'tooltip.tsx',
+    ])
+  })
+
+  it.each(positioners.map(f => f.name))('%s keeps its popup out of the safe area', name => {
+    const file = positioners.find(f => f.name === name)!
+    expect(file.source).toMatch(/collisionPadding=\{/)
+    expect(file.source).toMatch(/useSafeAreaCollisionPadding/)
+  })
+})

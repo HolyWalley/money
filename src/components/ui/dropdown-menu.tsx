@@ -2,6 +2,7 @@ import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
+import { useSafeAreaCollisionPadding } from "@/hooks/useSafeAreaInsets"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -21,13 +22,16 @@ function DropdownMenuContent({
   alignOffset = 0,
   side = "bottom",
   sideOffset = 4,
+  collisionPadding,
   className,
   ...props
 }: MenuPrimitive.Popup.Props &
   Pick<
     MenuPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "side" | "sideOffset" | "collisionPadding"
   >) {
+  const safeAreaPadding = useSafeAreaCollisionPadding()
+
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Positioner
@@ -36,6 +40,7 @@ function DropdownMenuContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding ?? safeAreaPadding}
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"

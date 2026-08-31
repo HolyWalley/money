@@ -4,6 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
+import { useSafeAreaCollisionPadding } from "@/hooks/useSafeAreaInsets"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 const Select = SelectPrimitive.Root
@@ -64,12 +65,20 @@ function SelectContent({
   align = "center",
   alignOffset = 0,
   alignItemWithTrigger = true,
+  collisionPadding,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
     SelectPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
+    | "align"
+    | "alignOffset"
+    | "side"
+    | "sideOffset"
+    | "alignItemWithTrigger"
+    | "collisionPadding"
   >) {
+  const safeAreaPadding = useSafeAreaCollisionPadding()
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -78,6 +87,7 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
+        collisionPadding={collisionPadding ?? safeAreaPadding}
         className="isolate z-50"
       >
         <SelectPrimitive.Popup
