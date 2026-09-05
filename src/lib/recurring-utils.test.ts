@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { startOfDay, endOfDay } from 'date-fns'
+import { startOfDay, endOfDay, subMonths } from 'date-fns'
 import {
   getOccurrencesInPeriod,
   generateLogId,
   parseRRule,
   buildRRule,
   detectTemplateChanges,
+  arrearsWindowStart,
+  ARREARS_LOOKBACK_MONTHS,
   type RRuleOptions,
 } from './recurring-utils'
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
@@ -618,5 +620,28 @@ describe('recurring-utils', () => {
         { field: 'description', label: 'Note', from: 'Netflix', to: undefined },
       ])
     })
+  })
+})
+
+describe('arrearsWindowStart', () => {
+  const periodStart = new Date(2026, 9, 1)
+  const periodEnd = new Date(2026, 9, 31, 23, 59, 59)
+
+  it('reaches back a fixed span when the period holds today', () => {
+    const start = arrearsWindowStart(periodStart, periodEnd, new Date(2026, 9, 15))
+
+    expect(start).toEqual(subMonths(periodStart, ARREARS_LOOKBACK_MONTHS))
+  })
+
+  it('reaches back on the first instant of the period', () => {
+    expect(arrearsWindowStart(periodStart, periodEnd, periodStart)).not.toBeNull()
+  })
+
+  it('sweeps nothing while browsing a later period', () => {
+    expect(arrearsWindowStart(periodStart, periodEnd, new Date(2026, 10, 15))).toBeNull()
+  })
+
+  it('sweeps nothing while browsing an earlier period', () => {
+    expect(arrearsWindowStart(periodStart, periodEnd, new Date(2026, 8, 15))).toBeNull()
   })
 })

@@ -2,7 +2,12 @@ import { useMemo } from 'react'
 import { useLiveRecurringPayments } from './useLiveRecurringPayments'
 import { useLiveRecurringPaymentLogs } from './useLiveRecurringPaymentLogs'
 import { useLiveSavingGoals } from './useLiveSavingGoals'
-import { getOccurrencesInPeriod, generateLogId } from '@/lib/recurring-utils'
+import {
+  getOccurrencesInPeriod,
+  generateLogId,
+  arrearsWindowStart,
+  MAX_CARRIED_OVER_OCCURRENCES,
+} from '@/lib/recurring-utils'
 import {
   buildLinkedGoalFunding,
   savedForOccurrence,
@@ -19,9 +24,23 @@ export interface UpcomingPayment {
 }
 
 export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
+  const periodStartTime = periodStart.getTime()
+  const periodEndTime = periodEnd.getTime()
+
+  // Rebuilt from the period's timestamps rather than its Date objects: reading
+  // the clock on every render would hand the log query a new window each time
+  // and never let it settle.
+  const searchStart = useMemo(() => {
+    const start = new Date(periodStartTime)
+    return arrearsWindowStart(start, new Date(periodEndTime), new Date()) ?? start
+  }, [periodStartTime, periodEndTime])
+
   const { recurringPayments, isLoading: isLoadingPayments } = useLiveRecurringPayments(true)
+  // The logs have to span the same reach as the occurrences. Sweeping further
+  // back for occurrences than for the logs that settle them would resurrect
+  // every payment already logged before this period.
   const { logs, isLoading: isLoadingLogs } = useLiveRecurringPaymentLogs({
-    periodStart,
+    periodStart: searchStart,
     periodEnd
   })
   const { goals, isLoading: isLoadingGoals } = useLiveSavingGoals()
@@ -52,19 +71,24 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
       const occurrences = getOccurrencesInPeriod(
         recurring.rrule,
         startDate,
-        periodStart,
+        searchStart,
         effectiveEnd
       )
 
       const loggedDates = loggedDatesByPaymentId.get(recurring._id) || new Set()
 
-      for (const occurrence of occurrences) {
+      const unlogged = occurrences.filter(
+        occurrence => !loggedDates.has(generateLogId(recurring._id, occurrence))
+      )
+
+      // Occurrences are ascending, so the tail is the most recent arrears.
+      const carriedOver = unlogged
+        .filter(occurrence => occurrence < periodStart)
+        .slice(-MAX_CARRIED_OVER_OCCURRENCES)
+      const inPeriod = unlogged.filter(occurrence => occurrence >= periodStart)
+
+      for (const occurrence of [...carriedOver, ...inPeriod]) {
         const logId = generateLogId(recurring._id, occurrence)
-
-        if (loggedDates.has(logId)) {
-          continue
-        }
-
         const status: 'due' | 'upcoming' = occurrence <= now ? 'due' : 'upcoming'
 
         payments.push({
@@ -80,7 +104,7 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     payments.sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime())
 
     return payments
-  }, [recurringPayments, loggedDatesByPaymentId, fundingByPaymentId, periodStart, periodEnd])
+  }, [recurringPayments, loggedDatesByPaymentId, fundingByPaymentId, searchStart, periodStart, periodEnd])
 
   const dueCount = useMemo(() => {
     return upcomingPayments.filter(p => p.status === 'due').length

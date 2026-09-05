@@ -1,5 +1,5 @@
 import { RRule } from 'rrule'
-import { format, getDaysInMonth } from 'date-fns'
+import { format, getDaysInMonth, subMonths } from 'date-fns'
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
 import type { CreateTransaction } from '../../shared/schemas/transaction.schema'
 
@@ -35,6 +35,31 @@ const FREQ_REVERSE_MAP: Record<number, Frequency> = {
 
 const DAY_ABBR_JS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
 const DAY_NAMES_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+// How far back the arrears sweep reaches, and how many of a single payment's
+// arrears it will surface. The cap is what keeps an abandoned daily payment from
+// putting a year of rows in front of the current month; the most recent ones are
+// kept because they are the ones still worth acting on.
+export const ARREARS_LOOKBACK_MONTHS = 12
+export const MAX_CARRIED_OVER_OCCURRENCES = 3
+
+/**
+ * Where to start looking for payments that were never logged.
+ *
+ * An occurrence is owed until a log says otherwise, and nothing about the
+ * calendar page turning settles it — so the period that contains today reaches
+ * back past its own start. Every other period stays a plain window on itself:
+ * pulling today's arrears into a future month would count them twice, and into
+ * an already-settled month would be noise.
+ *
+ * Returns null when the period does not contain today, meaning "no sweep".
+ */
+export function arrearsWindowStart(periodStart: Date, periodEnd: Date, now: Date): Date | null {
+  if (now < periodStart || now > periodEnd) {
+    return null
+  }
+  return subMonths(periodStart, ARREARS_LOOKBACK_MONTHS)
+}
 
 export function getOccurrencesInPeriod(
   rruleString: string,

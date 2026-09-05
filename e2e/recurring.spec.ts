@@ -90,6 +90,19 @@ async function createExpenseTransaction(
   await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 }
 
+// Picks a date in the currently-open DatePicker popover by walking the
+// react-day-picker calendar from today to the target month.
+async function pickDateInOpenPicker(page: Page, target: Date) {
+  const today = new Date()
+  const monthDelta = (target.getFullYear() - today.getFullYear()) * 12
+    + (target.getMonth() - today.getMonth())
+  const navButton = page.getByRole('button', { name: monthDelta >= 0 ? /next month/i : /previous month/i })
+  for (let i = 0; i < Math.abs(monthDelta); i++) {
+    await navButton.click()
+  }
+  await page.locator(`button[data-day="${target.toLocaleDateString()}"]`).click()
+}
+
 // Click the "Make recurring" button on the row matching the given note text.
 async function openMakeRecurringFor(page: Page, note: string) {
   const row = page.locator('div.grid').filter({ hasText: note }).first()
@@ -354,6 +367,50 @@ test.describe('Recurring Payments + Savings Link', () => {
     await expect(card).toContainText('-100.00 USD')
     await expect(card).toContainText('40.00 saved')
     // $100 due, less the $40 already put aside.
+    await expect(page.getByText('60.00 USD')).toBeVisible()
+  })
+
+  test('carries an unlogged payment from a past month into the current one', async ({ page }) => {
+    // An expense dated two months back: making it recurring auto-logs that first
+    // occurrence, which leaves last month's unlogged and still owed.
+    const twoMonthsAgo = new Date()
+    twoMonthsAgo.setDate(1)
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+
+    await page.goto('/transactions')
+    await openNewTransaction(page)
+    await transactionTypeOption(page, 'Expense').click()
+    await page.getByRole('textbox', { name: /USD|EUR|PLN/ }).fill('30')
+    await page.getByRole('button', { name: 'Food & Drink' }).click()
+    await page.getByRole('textbox', { name: 'Note' }).fill('Internet')
+    await page.getByRole('button', { name: /^Today$|^Yesterday$|^[A-Z][a-z]{2} \d{1,2}, \d{4}$/ }).click()
+    await pickDateInOpenPicker(page, twoMonthsAgo)
+    await saveButton(page).click()
+    await expect(page.getByRole('dialog', { name: 'New Transaction' })).not.toBeVisible({ timeout: 5000 })
+
+    // The transaction landed two periods back, so page there to reach it.
+    await page.getByRole('button', { name: 'Previous period' }).click()
+    await page.getByRole('button', { name: 'Previous period' }).click()
+    await openMakeRecurringFor(page, 'Internet')
+    await page.getByRole('button', { name: 'Create Recurring Payment' }).click()
+    await expect(page.getByRole('heading', { name: 'Make Recurring' })).not.toBeVisible({ timeout: 5000 })
+
+    // Scoped to the recurring section: the transaction list carries the same
+    // note and the same border class.
+    const dueRows = page
+      .locator('div.border.rounded-lg')
+      .filter({ hasText: 'Recurring Payments' })
+      .locator('div.border-b')
+      .filter({ hasText: 'Internet' })
+
+    // Nothing is owed in the period that was already logged.
+    await expect(dueRows).toHaveCount(0)
+
+    // Back in the current period, last month's occurrence is here beside this
+    // month's, and both count towards the total.
+    await page.getByRole('button', { name: 'Next period' }).click()
+    await page.getByRole('button', { name: 'Next period' }).click()
+    await expect(dueRows).toHaveCount(2)
     await expect(page.getByText('60.00 USD')).toBeVisible()
   })
 })
