@@ -1,4 +1,4 @@
-import { type TransactionFilters } from '@/hooks/useLiveTransactions'
+import { getPeriodDates, type TransactionFilters } from '@/hooks/useLiveTransactions'
 import { PeriodFilter } from './transactions/PeriodFilter'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
@@ -6,13 +6,22 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useDecoratedTransactions } from '@/hooks/useDecoratedTransactions'
 import { ExpensesByCategoryChart } from './ExpensesByCategoryChart'
-import { getEffectiveAmount } from '@/lib/transaction-utils'
 import { VirtualizedTransactionList } from './transactions/VirtualizedTransactionList'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { QuickFilterChips } from './transactions/QuickFilterChips'
 import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
+import { useNetWorth } from '@/hooks/useNetWorth'
+import { usePeriodCommitments } from '@/hooks/usePeriodCommitments'
+import { usePreviousPeriodCashflow } from '@/hooks/usePeriodComparison'
+import { usePeriodTrend } from '@/hooks/usePeriodTrend'
+import { summarizeCashflow } from '@/lib/cashflow'
+import { formatMoney } from '@/lib/format-money'
+import { isDateInPeriod } from '@/lib/period-utils'
+import { BalanceSummaryCard } from './overview/BalanceSummaryCard'
+import { CashflowTrendChart } from './overview/CashflowTrendChart'
+import { StatDelta } from './overview/StatDelta'
 
 function OverviewContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType } = useFilterContext()
@@ -26,39 +35,51 @@ function OverviewContent() {
   const baseCurrency = user?.settings?.defaultCurrency
 
   const { totalIncome, totalExpense, cashFlow, expensesByCategory } = useMemo(() => {
-    let income = 0
-    let expense = 0
-    const categoryExpenses = new Map<string, number>()
-
-    transactions.forEach(t => {
-      if (t.amountInBaseCurrency === null) return
-
-      if (t.transactionType === 'income') {
-        // Skip reimbursement income - it's not real income
-        if (t.reimbursement) return
-        income += t.amountInBaseCurrency
-      } else if (t.transactionType === 'expense') {
-        const effectiveAmount = getEffectiveAmount(t)
-        if (effectiveAmount === null) return
-
-        expense += effectiveAmount
-
-        // Track expenses by category
-        if (t.categoryId) {
-          const current = categoryExpenses.get(t.categoryId) || 0
-          categoryExpenses.set(t.categoryId, current + effectiveAmount)
-        }
-      }
-      // Skip transfers - they don't affect total income/expense
-    })
-
+    const summary = summarizeCashflow(transactions)
     return {
-      totalIncome: income,
-      totalExpense: expense,
-      cashFlow: income - expense,
-      expensesByCategory: categoryExpenses,
+      totalIncome: summary.income,
+      totalExpense: summary.expense,
+      cashFlow: summary.cashFlow,
+      expensesByCategory: summary.expensesByCategory,
     }
   }, [transactions])
+
+  const periodDates = useMemo(() => {
+    if (!effectiveFilters.period) {
+      return { start: new Date(), end: new Date() }
+    }
+    return getPeriodDates(effectiveFilters.period)
+  }, [effectiveFilters.period])
+
+  const netWorth = useNetWorth()
+  const commitments = usePeriodCommitments(periodDates.start, periodDates.end)
+  const comparison = usePreviousPeriodCashflow(effectiveFilters)
+  const trend = usePeriodTrend(effectiveFilters)
+
+  // Today's balance answers for today. Setting it against a period we are not
+  // living in would subtract commitments that were settled months ago.
+  const isCurrentPeriod = useMemo(() => isDateInPeriod(new Date(), periodDates), [periodDates])
+
+  const committed = useMemo(() => {
+    if (!isCurrentPeriod || commitments.isLoading) return null
+    return {
+      recurring: commitments.recurring,
+      savings: commitments.savings,
+      total: commitments.total,
+    }
+  }, [isCurrentPeriod, commitments])
+
+  const unconvertedCurrencies = useMemo(() => {
+    const currencies = new Set(netWorth.missingCurrencies)
+    if (committed) {
+      for (const currency of commitments.missingCurrencies) {
+        currencies.add(currency)
+      }
+    }
+    return [...currencies].sort()
+  }, [netWorth.missingCurrencies, committed, commitments.missingCurrencies])
+
+  const showDeltas = comparison.available && !comparison.isLoading
 
   const filteredTransactions = useMemo(() => {
     if (!selectedCategoryId) return []
@@ -114,10 +135,6 @@ function OverviewContent() {
     return null
   }
 
-  const formatAmount = (amount: number) => {
-    return amount.toFixed(2)
-  }
-
   const getAmountColor = (amount: number) => {
     if (amount > 0) return 'text-green-600'
     if (amount < 0) return 'text-red-600'
@@ -143,33 +160,80 @@ function OverviewContent() {
       />
 
       <div className="px-4 pb-4 space-y-4">
+        <BalanceSummaryCard
+          total={netWorth.total}
+          spendable={netWorth.spendable}
+          savings={netWorth.savings}
+          baseCurrency={baseCurrency}
+          commitments={committed}
+          missingCurrencies={unconvertedCurrencies}
+        />
+
         <div className="border rounded-lg p-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <div className="text-xs text-muted-foreground mb-1">Total Income</div>
               <div className="text-lg font-bold text-green-600">
-                +{formatAmount(totalIncome)}
+                +{formatMoney(totalIncome)}
               </div>
-              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span>{baseCurrency}</span>
+                {showDeltas && (
+                  <StatDelta
+                    current={totalIncome}
+                    previous={comparison.summary.income}
+                    goodDirection="up"
+                    baseCurrency={baseCurrency}
+                  />
+                )}
+              </div>
             </div>
 
             <div>
               <div className="text-xs text-muted-foreground mb-1">Total Expense</div>
               <div className="text-lg font-bold text-red-600">
-                -{formatAmount(totalExpense)}
+                -{formatMoney(totalExpense)}
               </div>
-              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span>{baseCurrency}</span>
+                {showDeltas && (
+                  <StatDelta
+                    current={totalExpense}
+                    previous={comparison.summary.expense}
+                    goodDirection="down"
+                    baseCurrency={baseCurrency}
+                  />
+                )}
+              </div>
             </div>
 
             <div>
               <div className="text-xs text-muted-foreground mb-1">Cash Flow</div>
               <div className={`text-lg font-bold ${getAmountColor(cashFlow)}`}>
-                {cashFlow >= 0 ? '+' : ''}{formatAmount(cashFlow)}
+                {cashFlow >= 0 ? '+' : ''}{formatMoney(cashFlow)}
               </div>
-              <div className="text-xs text-muted-foreground">{baseCurrency}</div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span>{baseCurrency}</span>
+                {showDeltas && (
+                  <StatDelta
+                    current={cashFlow}
+                    previous={comparison.summary.cashFlow}
+                    goodDirection="up"
+                    baseCurrency={baseCurrency}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        {trend.available && effectiveFilters.period && (
+          <CashflowTrendChart
+            points={trend.points}
+            periodType={effectiveFilters.period.type}
+            baseCurrency={baseCurrency}
+          />
+        )}
 
         {expensesByCategory.size > 0 && (
           <ExpensesByCategoryChart
