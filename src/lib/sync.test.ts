@@ -22,6 +22,12 @@ import { Sync } from './sync'
 import { SYNC_META_KEYS, updatesDb } from './updates-db'
 import { derivePhase, getSyncStatusSnapshot, resetSyncStatus, setSyncEnabled } from './sync-status'
 import { getConnectionState, reportRequestOutcome, resetNetworkStatus } from './network-status'
+import {
+  awaitRestoredData,
+  beginRestore,
+  endRestore,
+  isRestorePending,
+} from './pending-restore'
 
 const OK_PUSH = { ok: true, status: 200, data: { message: 'ok' } }
 
@@ -711,6 +717,97 @@ describe('Sync', () => {
       await sync!.pull()
       await settle()
       expect(pushSync).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('a restore in progress', () => {
+    beforeEach(() => {
+      endRestore()
+      ydoc.getMap('t').set('state', 'present')
+    })
+
+    afterEach(() => {
+      endRestore()
+    })
+
+    // The window that made importing a dump merge two accounts instead of
+    // replacing one: sync fires while the dump is still uploading, and the
+    // document about to be discarded goes back to the server it is replacing.
+    it('does not upload the document it is about to discard', async () => {
+      beginRestore()
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(pushSync).not.toHaveBeenCalled()
+    })
+
+    // A pull cannot settle a restore whose data has not been thrown away yet -
+    // the old document is still loaded, and clearing the way would upload it.
+    it('is not ended by a pull that lands before the data is gone', async () => {
+      beginRestore()
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(isRestorePending()).toBe(true)
+    })
+
+    it('is ended by the pull that brings the replacement', async () => {
+      awaitRestoredData()
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(isRestorePending()).toBe(false)
+    })
+
+    // An account that turns out to hold nothing is still an answer, and leaving
+    // the flag up would block seeding and uploading forever.
+    it('is ended even by a pull that brings nothing', async () => {
+      awaitRestoredData()
+      pullSync.mockResolvedValue(okPull({ updates: [] }))
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(isRestorePending()).toBe(false)
+    })
+
+    // 'client' rather than a retryable failure so the pull gives up at once
+    // instead of sleeping through a backoff the fake clock never advances.
+    it('stays up when the pull fails', async () => {
+      awaitRestoredData()
+      pullSync.mockResolvedValue(failed('client', 400))
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(isRestorePending()).toBe(true)
+    })
+
+    // Left unsettled rather than skipped for good, so the document that
+    // replaces it does reach the server.
+    it('uploads the replacement once the restore has ended', async () => {
+      awaitRestoredData()
+
+      newSync()
+      await settle()
+      await sync!.pull('2024-01-01T00:00:00.000Z')
+      await settle()
+
+      expect(pushSync).toHaveBeenCalledTimes(1)
+      expect(pushSync.mock.calls[0][1]).toEqual({ timeoutMs: API_TIMEOUTS.syncInitialPush })
     })
   })
 

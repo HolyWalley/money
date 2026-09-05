@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/api-client'
 import { Loader2, Download, Upload } from 'lucide-react'
 import { db as moneyDb } from '@/lib/db-dexie'
+import { clearLocalData } from '@/lib/local-reset'
+import { awaitRestoredData, beginRestore, endRestore } from '@/lib/pending-restore'
 import { SYNC_META_KEYS, updatesDb } from '@/lib/updates-db'
 import { categories, transactions as yjsTransactions, ydoc } from '@/lib/crdts'
 import { getDeviceId } from '@/components/AppRoutes'
@@ -204,10 +206,22 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
     const file = event.target.files?.[0]
     if (!file) return
 
+    if (!confirm('Importing replaces everything on this device and on the server with the contents of the dump. This cannot be undone. Continue?')) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+
     setLoading(true)
     setError(null)
     setUploadResult(null)
     setDebugMessage(null)
+
+    // Raised before the upload, not after: sync can fire at any moment during
+    // it, and an initial-sync upload would push the document we are replacing
+    // back to the server it is being replaced from.
+    beginRestore()
 
     try {
       const response = await apiClient.importDatabaseDump(file)
@@ -217,34 +231,22 @@ export function DebugModal({ open, onOpenChange }: DebugModalProps) {
           (response.data.hasCompiledState ? ' and compiled state' : '')
         )
 
-        try {
-          // Clear local sync metadata to force a fresh pull
-          await updatesDb.updates.clear()
-          await updatesDb.syncMetadata.clear()
-
-          // Clear all MoneyDB tables
-          await moneyDb.categories.clear()
-          await moneyDb.wallets.clear()
-          await moneyDb.transactions.clear()
-
-          // Force a page reload to trigger fresh sync
-          setUploadResult(prev => prev + '\nCleared local data. Reloading page to sync imported data...')
-          setTimeout(() => {
-            window.location.reload()
-          }, 2000)
-        } catch (err) {
-          console.error('Failed to clear local data:', err)
-        }
-
-        // Refresh debug info
-        const debugResponse = await apiClient.getDebugInfo()
-        if (debugResponse.ok && debugResponse.data) {
-          setDebugInfo(debugResponse.data)
-        }
-      } else {
-        setError(response.error || 'Failed to import database')
+        // Reloaded immediately rather than after a readable pause: until it
+        // happens the in-memory document still holds the replaced data, and a
+        // sync landing in the gap would upload it.
+        await clearLocalData()
+        // Raised only once the data is actually gone: this is the phase a pull
+        // is allowed to end, and ending it while the old document was still
+        // loaded is what it exists to prevent.
+        awaitRestoredData()
+        window.location.reload()
+        return
       }
+
+      endRestore()
+      setError(response.error || 'Failed to import database')
     } catch (err) {
+      endRestore()
       console.error('Failed to import database:', err)
       setError('Failed to import database')
     } finally {

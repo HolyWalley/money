@@ -48,12 +48,46 @@ function createSavingGoalMap(data: Omit<SavingGoal, '_id'> & { _id: string }): Y
 }
 
 const ydoc = new Y.Doc()
-const persistence = new IndexeddbPersistence('money', ydoc)
+const DOC_STORE_NAME = 'money'
+const persistence = new IndexeddbPersistence(DOC_STORE_NAME, ydoc)
 
 // Anything that reads the whole document at startup must await this. Before it
 // resolves the doc is empty, which is indistinguishable from a document that
 // genuinely has nothing in it.
 const crdtReady: Promise<unknown> = persistence.whenSynced
+
+/**
+ * Deletes the stored document.
+ *
+ * The Dexie tables are a projection of this document, not a second copy of the
+ * data, so emptying them alone leaves the document itself intact - and the next
+ * pull then merges the server's data into it rather than replacing it. A CRDT
+ * union of two accounts is exactly what "replace my data" is not.
+ *
+ * The caller must reload straight afterwards: the in-memory document still
+ * holds the old data and no longer has anywhere to persist it.
+ */
+async function clearPersistedDocument(): Promise<void> {
+  // clearData() closes the connection and then deletes without awaiting, so the
+  // delete is repeated here to be sure it finished before the page reloads on
+  // top of it.
+  await persistence.clearData()
+  await deleteStoredDocument()
+}
+
+function deleteStoredDocument(): Promise<void> {
+  return new Promise(resolve => {
+    const request = indexedDB.deleteDatabase(DOC_STORE_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => resolve()
+    // Another tab holding the database open. Nothing here can close it, and
+    // hanging would leave the user staring at a spinner.
+    request.onblocked = () => {
+      console.warn('Document store deletion is blocked by another open tab')
+      resolve()
+    }
+  })
+}
 
 const categories = ydoc.getMap<Y.Map<unknown>>('categories')
 const wallets = ydoc.getMap<Y.Map<unknown>>('wallets')
@@ -547,6 +581,7 @@ export function deleteSavingGoal(id: string) {
 export {
   ydoc,
   crdtReady,
+  clearPersistedDocument,
   categories,
   wallets,
   transactions,

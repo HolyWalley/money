@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Sync } from '@/lib/sync'
 import { useAuth } from '@/contexts/AuthContext'
 import { resetSyncAttempts, resetSyncStatus, setSyncEnabled, type SyncStatus } from '@/lib/sync-status'
+import { endRestore } from '@/lib/pending-restore'
 import { useSyncStatus } from './useSyncStatus'
 
 export interface UseSyncResult {
@@ -17,7 +18,12 @@ export function useSync(deviceId: string): UseSyncResult {
 
   useEffect(() => {
     setSyncEnabled(isPremium)
-    if (!isPremium) resetSyncStatus()
+    if (!isPremium) {
+      resetSyncStatus()
+      // No pull is coming, so nothing is waiting to arrive. Leaving the flag up
+      // would block initialization forever on data that will never land.
+      endRestore()
+    }
   }, [isPremium])
 
   useEffect(() => {

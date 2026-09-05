@@ -11,6 +11,7 @@ import {
 import { SYNC_META_KEYS, updatesDb, type YjsUpdate } from './updates-db'
 import { backoffDelayMs, SYNC_TIMING } from './backoff'
 import { getConnectionState } from './network-status'
+import { endRestore, isAwaitingRestoredData, isRestorePending } from './pending-restore'
 import {
   beginSyncOperation,
   endSyncOperation,
@@ -467,6 +468,12 @@ export class Sync {
 
       if (res.ok) {
         await this.applyPulledUpdates(res.data)
+        // The server's copy is in hand, so whatever was waiting on it - seeding
+        // defaults, uploading state - may go ahead. Ended on any successful
+        // pull, including an empty one: an account with nothing in it is still
+        // an answer. Only this phase, though; a pull that lands while the old
+        // document is still loaded settles nothing.
+        if (isAwaitingRestoredData()) endRestore()
         this.reportCycleSucceeded()
         return
       }
@@ -536,6 +543,12 @@ export class Sync {
   private async performInitialSyncIfNeeded(): Promise<void> {
     const premiumActivatedAt = this.premiumActivatedAt
     if (!premiumActivatedAt) return
+
+    // The document is about to be replaced. Uploading it now would push the
+    // very data the import is discarding straight back to the server, where the
+    // next pull would hand it back again. Left unsettled so a later pull, once
+    // the replacement has landed, uploads the right document instead.
+    if (isRestorePending()) return
 
     try {
       const premiumActivatedTimestamp = new Date(premiumActivatedAt).getTime()
