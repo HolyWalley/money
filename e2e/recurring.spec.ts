@@ -321,4 +321,39 @@ test.describe('Recurring Payments + Savings Link', () => {
     await expect(page.getByRole('option', { name: 'Euro pot' })).toBeVisible()
     await expect(page.getByRole('option', { name: 'Holiday' })).toHaveCount(0)
   })
+
+  test('shows what is already saved and drops it from the outstanding total', async ({ page }) => {
+    // A savings wallet with money in it: the goal can only hold what the wallet
+    // actually has, so the slider's ceiling is $40.
+    await createWallet(page, 'Vault', 40, { isSavings: true, currency: 'USD' })
+
+    await page.goto('/transactions')
+    await createExpenseTransaction(page, 100, { note: 'Concert tickets' })
+    await openMakeRecurringFor(page, 'Concert tickets')
+    await enableSaveUp(page, 'Vault')
+    await page.getByRole('button', { name: 'Create Recurring Payment' }).click()
+    await expect(page.getByRole('heading', { name: 'Make Recurring' })).not.toBeVisible({ timeout: 5000 })
+
+    // Put the whole $40 behind the $100 goal. End drives the slider to its max.
+    await page.goto('/savings')
+    await page.getByRole('button', { name: 'Allocate' }).click()
+    await expect(page.getByRole('heading', { name: 'Allocate to Goals' })).toBeVisible()
+    await page.getByRole('slider').first().focus()
+    await page.keyboard.press('End')
+    await page.getByRole('button', { name: 'Allocate', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Allocate to Goals' })).not.toBeVisible({ timeout: 5000 })
+
+    // The current occurrence was auto-logged with the source transaction, so
+    // the goal is saving for next period's.
+    await page.goto('/transactions')
+    await page.getByRole('button', { name: 'Next period' }).click()
+    await page.getByRole('button', { name: /\d+ upcoming/ }).click()
+
+    const card = page.locator('div.border-b').filter({ hasText: 'Concert tickets' }).first()
+    // The full amount stays on the row: logging the payment prefills it.
+    await expect(card).toContainText('-100.00 USD')
+    await expect(card).toContainText('40.00 saved')
+    // $100 due, less the $40 already put aside.
+    await expect(page.getByText('60.00 USD')).toBeVisible()
+  })
 })

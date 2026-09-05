@@ -22,7 +22,7 @@ export function UpcomingPaymentCard({
   onLog,
   onSkip,
 }: UpcomingPaymentCardProps) {
-  const { recurring, scheduledDate, status } = payment
+  const { recurring, scheduledDate, status, savedAmount } = payment
 
   const category = useMemo(() => {
     return categories.find(c => c._id === recurring.categoryId)
@@ -72,10 +72,15 @@ export function UpcomingPaymentCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
         <span className={`font-semibold text-sm sm:text-base ${getAmountColor(recurring.transactionType)}`}>
           {formatAmount(recurring.amount, recurring.transactionType)} {recurring.currency}
         </span>
+        {savedAmount > 0 && (
+          <span className="text-xs text-green-600 whitespace-nowrap">
+            {savedAmount.toFixed(2)} saved
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">

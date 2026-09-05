@@ -1,7 +1,13 @@
 import { useMemo } from 'react'
 import { useLiveRecurringPayments } from './useLiveRecurringPayments'
 import { useLiveRecurringPaymentLogs } from './useLiveRecurringPaymentLogs'
+import { useLiveSavingGoals } from './useLiveSavingGoals'
 import { getOccurrencesInPeriod, generateLogId } from '@/lib/recurring-utils'
+import {
+  buildLinkedGoalFunding,
+  savedForOccurrence,
+  outstandingAmount,
+} from '@/lib/recurring-savings'
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
 
 export interface UpcomingPayment {
@@ -9,6 +15,7 @@ export interface UpcomingPayment {
   scheduledDate: Date
   logId: string
   status: 'due' | 'upcoming'
+  savedAmount: number
 }
 
 export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
@@ -17,6 +24,9 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     periodStart,
     periodEnd
   })
+  const { goals, isLoading: isLoadingGoals } = useLiveSavingGoals()
+
+  const fundingByPaymentId = useMemo(() => buildLinkedGoalFunding(goals), [goals])
 
   const loggedDatesByPaymentId = useMemo(() => {
     const map = new Map<string, Set<string>>()
@@ -61,7 +71,8 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
           recurring,
           scheduledDate: occurrence,
           logId,
-          status
+          status,
+          savedAmount: savedForOccurrence(fundingByPaymentId.get(recurring._id), occurrence)
         })
       }
     }
@@ -69,7 +80,7 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     payments.sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime())
 
     return payments
-  }, [recurringPayments, loggedDatesByPaymentId, periodStart, periodEnd])
+  }, [recurringPayments, loggedDatesByPaymentId, fundingByPaymentId, periodStart, periodEnd])
 
   const dueCount = useMemo(() => {
     return upcomingPayments.filter(p => p.status === 'due').length
@@ -82,10 +93,12 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
   const totalsByCurrency = useMemo(() => {
     const totals = new Map<string, number>()
 
+    // Money already sitting in a savings wallet is not money you still have to
+    // find, so the total is what the period will actually cost from here.
     for (const payment of upcomingPayments) {
-      const { recurring } = payment
+      const { recurring, savedAmount } = payment
       const current = totals.get(recurring.currency) || 0
-      totals.set(recurring.currency, current + recurring.amount)
+      totals.set(recurring.currency, current + outstandingAmount(recurring.amount, savedAmount))
     }
 
     return totals
@@ -96,6 +109,6 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     dueCount,
     upcomingCount,
     totalsByCurrency,
-    isLoading: isLoadingPayments || isLoadingLogs
+    isLoading: isLoadingPayments || isLoadingLogs || isLoadingGoals
   }
 }
