@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLiveCategories } from '@/hooks/useLiveCategories'
+import { formatWalletName } from '@/lib/wallet-utils'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -220,7 +221,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="[--drawer-inset:0.5rem] [--bleed:0px] rounded-xl data-[swipe-axis=y]:max-h-[90vh]">
         <DrawerHeader>
           <div className="flex items-center justify-between">
             <DrawerTitle>Filter Transactions</DrawerTitle>
@@ -242,7 +243,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
         </DrawerHeader>
 
         {hasQuickFilters && (
-          <div className="px-4 pb-4 pt-2">
+          <div className="shrink-0 px-4 pb-4 pt-2">
             <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
               <Info className="w-4 h-4 mt-0.5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -270,15 +271,15 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
           </div>
         )}
 
-        <Tabs defaultValue="period" className="w-full">
-          <div className="px-4 pb-2">
+        <Tabs defaultValue="period" className="flex w-full min-h-0 flex-1 flex-col">
+          <div className="shrink-0 px-4 pb-2">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="period">Period</TabsTrigger>
               <TabsTrigger value="filters">Filters</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="period" className="px-4 pb-4 space-y-4 overflow-y-auto max-h-[calc(90dvh-12rem)]">
+          <TabsContent value="period" className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 space-y-4">
             {selectedType === 'monthly' && (
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Month Start Day</Label>
@@ -377,7 +378,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
             </div>
           </TabsContent>
 
-          <TabsContent value="filters" className="px-4 pb-4 space-y-4 overflow-y-auto max-h-[calc(90dvh-12rem)]">
+          <TabsContent value="filters" className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 space-y-4">
             <div className="space-y-6">
               <FilterCheckboxList
                 items={transactionTypes}
@@ -406,7 +407,7 @@ export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFilt
                 onSelectAll={handleSelectAll('walletIds')}
                 label="Wallets"
                 getItemId={(wallet) => wallet._id}
-                getItemLabel={(wallet) => wallet.name}
+                getItemLabel={(wallet) => formatWalletName(wallet)}
               />
             </div>
           </TabsContent>

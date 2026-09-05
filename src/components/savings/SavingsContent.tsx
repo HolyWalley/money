@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { useLiveSavingGoals } from '@/hooks/useLiveSavingGoals'
-import { GoalDialog } from './GoalDialog'
+import { GoalDrawer } from './GoalDrawer'
 import { WalletGoalsSection } from './WalletGoalsSection'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
@@ -14,7 +14,7 @@ export function SavingsContent() {
   const { wallets } = useLiveWallets()
   const { goals } = useLiveSavingGoals()
   const [filter, setFilter] = useState<FilterTab>('active')
-  const [goalDialogOpen, setGoalDialogOpen] = useState(false)
+  const [goalDrawerOpen, setGoalDrawerOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null)
 
   const savingsWallets = wallets.filter(w => w.isSavings)
@@ -32,11 +32,11 @@ export function SavingsContent() {
 
   const handleEdit = (goal: SavingGoal) => {
     setEditingGoal(goal)
-    setGoalDialogOpen(true)
+    setGoalDrawerOpen(true)
   }
 
-  const handleCloseDialog = () => {
-    setGoalDialogOpen(false)
+  const handleCloseDrawer = () => {
+    setGoalDrawerOpen(false)
     setEditingGoal(null)
   }
 
@@ -58,7 +58,7 @@ export function SavingsContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Savings Goals</h2>
-        <Button size="sm" onClick={() => setGoalDialogOpen(true)}>
+        <Button size="sm" onClick={() => setGoalDrawerOpen(true)}>
           <Plus className="h-4 w-4 mr-1" />
           Add Goal
         </Button>
@@ -81,9 +81,9 @@ export function SavingsContent() {
         />
       ))}
 
-      <GoalDialog
-        open={goalDialogOpen}
-        onOpenChange={handleCloseDialog}
+      <GoalDrawer
+        open={goalDrawerOpen}
+        onOpenChange={handleCloseDrawer}
         goal={editingGoal}
         savingsWallets={savingsWallets}
       />

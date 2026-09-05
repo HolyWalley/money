@@ -125,8 +125,8 @@ export function RecurringPaymentDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
+      <DrawerContent className="[--drawer-inset:0.5rem] [--bleed:0px] rounded-xl">
+        <div className="mx-auto w-full">
           <DrawerHeader>
             <DrawerTitle>Make Recurring</DrawerTitle>
           </DrawerHeader>

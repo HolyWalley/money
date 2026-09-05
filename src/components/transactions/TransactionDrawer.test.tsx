@@ -104,7 +104,7 @@ describe('TransactionDrawer', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('remembers the wallet and date of a saved transaction', async () => {
+  it('remembers the wallet of a saved transaction but not a date that is today', async () => {
     formDefaults.saveWallet('expense', { walletId: 'w2' })
     const user = userEvent.setup()
     const { onSubmit } = renderDrawer()
@@ -115,7 +115,7 @@ describe('TransactionDrawer', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     expect(formDefaults.loadWallet('expense')).toEqual({ walletId: 'w2', toWalletId: undefined })
-    expect(formDefaults.loadDate()).toBe(onSubmit.mock.calls[0][0].date)
+    expect(formDefaults.loadDate()).toBeNull()
   })
 
   it('marks the current mode in the menu', async () => {

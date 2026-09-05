@@ -1,7 +1,74 @@
-import { differenceInCalendarDays, differenceInCalendarMonths, isBefore, startOfDay } from 'date-fns'
+import { addDays, differenceInCalendarDays, differenceInCalendarMonths, endOfDay, isBefore, startOfDay } from 'date-fns'
+import { getAdjacentPeriod, getPeriodContainingDate, type Period, type PeriodSettings } from './period-utils'
 import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
+
+type ContributionShape = Partial<
+  Pick<
+    SavingGoal,
+    | 'goalType'
+    | 'contributionAmount'
+    | 'contributionPeriodType'
+    | 'contributionMonthDay'
+    | 'contributionWeekDay'
+    | 'contributionYearDay'
+  >
+>
+
+const MAX_PERIOD_STEPS = 1000
+
+function contributionPeriodSettings(goal: ContributionShape): PeriodSettings {
+  return {
+    type: goal.contributionPeriodType as PeriodSettings['type'],
+    monthDay: goal.contributionMonthDay,
+    weekDay: goal.contributionWeekDay,
+    yearDay: goal.contributionYearDay,
+  }
+}
+
+function nextPeriodAfter(period: Period, settings: PeriodSettings): Period {
+  const next = getAdjacentPeriod(period, 1, settings)
+  if (next.end.getTime() <= period.end.getTime()) {
+    return getPeriodContainingDate(startOfDay(addDays(period.end, 1)), settings)
+  }
+  return next
+}
+
+export function countContributionOccurrences(
+  goal: ContributionShape,
+  windowStart: Date,
+  windowEnd: Date,
+): number {
+  if (!goal.contributionPeriodType) return 0
+
+  const settings = contributionPeriodSettings(goal)
+  const wStart = startOfDay(windowStart)
+  const wEnd = endOfDay(windowEnd)
+
+  if (wEnd.getTime() < wStart.getTime()) return 0
+
+  let count = 0
+  let period = getPeriodContainingDate(wStart, settings)
+
+  for (let i = 0; i < MAX_PERIOD_STEPS; i++) {
+    if (period.start.getTime() > wEnd.getTime()) break
+    if (period.start.getTime() >= wStart.getTime()) count++
+
+    const next = nextPeriodAfter(period, settings)
+    if (next.end.getTime() <= period.end.getTime()) break
+    period = next
+  }
+
+  return count
+}
+
+export function hasAllocationRoom(
+  goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount'> & ContributionShape,
+): boolean {
+  if (goal.goalType === 'contribution') return true
+  return goal.allocatedAmount < (goal.targetAmount ?? 0)
+}
 
 export type SuggestionStatus =
   | 'no-deadline'
@@ -9,6 +76,7 @@ export type SuggestionStatus =
   | 'overdue'
   | 'under-month'
   | 'on-track'
+  | 'contribution'
 
 export interface SavingsSuggestion {
   status: SuggestionStatus
@@ -18,10 +86,19 @@ export interface SavingsSuggestion {
 }
 
 export function getSavingsSuggestion(
-  goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount' | 'targetDate'>,
+  goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount' | 'targetDate'> & ContributionShape,
   now: Date = new Date()
 ): SavingsSuggestion {
-  const remainingAmount = Math.max(goal.targetAmount - goal.allocatedAmount, 0)
+  if (goal.goalType === 'contribution') {
+    return {
+      status: 'contribution',
+      remainingAmount: 0,
+      monthsRemaining: 0,
+      monthlyAmount: round2(goal.contributionAmount ?? 0),
+    }
+  }
+
+  const remainingAmount = Math.max((goal.targetAmount ?? 0) - goal.allocatedAmount, 0)
 
   if (remainingAmount === 0) {
     return { status: 'fully-funded', remainingAmount: 0, monthsRemaining: 0, monthlyAmount: 0 }
@@ -55,7 +132,7 @@ function round2(value: number): number {
 export interface PeriodSuggestionDetails {
   amount: number
   remainingAmount: number
-  path: 'achieved' | 'no-target' | 'no-remaining' | 'past-period' | 'overdue-pays-full' | 'in-period-pays-full' | 'pro-rata'
+  path: 'achieved' | 'no-target' | 'no-remaining' | 'past-period' | 'overdue-pays-full' | 'in-period-pays-full' | 'pro-rata' | 'contribution'
   activeDays?: number
   totalDays?: number
   deadline?: Date
@@ -63,12 +140,31 @@ export interface PeriodSuggestionDetails {
 }
 
 export function getPeriodSavingsSuggestion(
-  goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved'>,
+  goal: Pick<SavingGoal, 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved'> & ContributionShape,
   periodStart: Date,
   periodEnd: Date,
   now?: Date,
 ): PeriodSuggestionDetails {
-  const remainingAmount = Math.max(goal.targetAmount - goal.allocatedAmount, 0)
+  if (goal.goalType === 'contribution') {
+    if (goal.achieved) {
+      return { amount: 0, remainingAmount: 0, path: 'achieved' }
+    }
+
+    const contributionToday = startOfDay(now ?? new Date())
+    if (isBefore(startOfDay(periodEnd), contributionToday)) {
+      return { amount: 0, remainingAmount: 0, path: 'past-period', today: contributionToday }
+    }
+
+    const occurrences = countContributionOccurrences(goal, periodStart, periodEnd)
+    return {
+      amount: round2(occurrences * (goal.contributionAmount ?? 0)),
+      remainingAmount: 0,
+      path: 'contribution',
+      today: contributionToday,
+    }
+  }
+
+  const remainingAmount = Math.max((goal.targetAmount ?? 0) - goal.allocatedAmount, 0)
 
   if (goal.achieved) {
     return { amount: 0, remainingAmount, path: 'achieved' }
@@ -106,17 +202,38 @@ export function getPeriodSavingsSuggestion(
   return { amount: round2(amount), remainingAmount, path: 'pro-rata', activeDays, totalDays, deadline, today }
 }
 
+export interface SuggestionGoalBreakdown {
+  goalId: string
+  name: string
+  amount: number
+}
+
 export interface WalletSavingsSuggestion {
   wallet: Wallet
   currency: string
   amount: number
   contributingGoalCount: number
+  goals: SuggestionGoalBreakdown[]
+}
+
+type TransferShape = Pick<
+  Transaction,
+  '_id' | 'transactionType' | 'walletId' | 'toWalletId' | 'amount' | 'currency' | 'toAmount' | 'toCurrency' | 'date'
+>
+
+// On a transfer `currency`/`amount` belong to the source wallet, so a transfer
+// funded from another currency lands in the savings wallet as toAmount. Reading
+// only `currency` nets nothing off and the suggestion never goes quiet.
+function transferAmountReceived(tx: TransferShape, walletCurrency: string): number {
+  if (tx.toCurrency === walletCurrency && tx.toAmount !== undefined) return tx.toAmount
+  if (tx.currency === walletCurrency) return tx.amount
+  return 0
 }
 
 export function computeSavingsSuggestionsByWallet(
   wallets: Pick<Wallet, '_id' | 'name' | 'currency' | 'isSavings'>[],
-  goals: Pick<SavingGoal, '_id' | 'walletId' | 'name' | 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved' | 'sourceRecurringPaymentId'>[],
-  transactions: Pick<Transaction, '_id' | 'transactionType' | 'walletId' | 'toWalletId' | 'amount' | 'currency' | 'date'>[],
+  goals: (Pick<SavingGoal, '_id' | 'walletId' | 'name' | 'targetAmount' | 'allocatedAmount' | 'targetDate' | 'achieved' | 'sourceRecurringPaymentId'> & ContributionShape)[],
+  transactions: TransferShape[],
   periodStart: Date,
   periodEnd: Date,
   now?: Date,
@@ -130,30 +247,37 @@ export function computeSavingsSuggestionsByWallet(
     }
   }
 
-  const accumulators = new Map<string, { sum: number; count: number; lines: string[] }>()
+  const accumulators = new Map<
+    string,
+    { sum: number; count: number; lines: string[]; goals: SuggestionGoalBreakdown[] }
+  >()
 
   for (const goal of goals) {
     if (!savingsWallets.has(goal.walletId)) continue
     if (goal.achieved === true) continue
-    if (!goal.targetDate) continue
 
-    const remainingAmount = Math.max(goal.targetAmount - goal.allocatedAmount, 0)
-    if (remainingAmount <= 0) continue
+    if (goal.goalType !== 'contribution') {
+      if (!goal.targetDate) continue
 
-    const goalDeadline = new Date(goal.targetDate)
-    if (
-      goalDeadline >= periodStart &&
-      goalDeadline <= periodEnd &&
-      goal.sourceRecurringPaymentId
-    ) {
-      continue
+      const remainingAmount = Math.max((goal.targetAmount ?? 0) - goal.allocatedAmount, 0)
+      if (remainingAmount <= 0) continue
+
+      const goalDeadline = new Date(goal.targetDate)
+      if (
+        goalDeadline >= periodStart &&
+        goalDeadline <= periodEnd &&
+        goal.sourceRecurringPaymentId
+      ) {
+        continue
+      }
     }
 
     const details = getPeriodSavingsSuggestion(goal, periodStart, periodEnd, now)
     if (details.amount > 0) {
-      const existing = accumulators.get(goal.walletId) ?? { sum: 0, count: 0, lines: [] }
+      const existing = accumulators.get(goal.walletId) ?? { sum: 0, count: 0, lines: [], goals: [] }
       existing.sum += details.amount
       existing.count += 1
+      existing.goals.push({ goalId: goal._id, name: goal.name, amount: details.amount })
       if (debug) {
         const label = goal.name || goal._id
         if (details.path === 'pro-rata') {
@@ -163,6 +287,10 @@ export function computeSavingsSuggestionsByWallet(
         } else if (details.path === 'in-period-pays-full') {
           existing.lines.push(
             `${label}: ${details.amount.toFixed(2)} (deadline ${details.deadline?.toISOString().slice(0, 10)} inside period → full remaining)`,
+          )
+        } else if (details.path === 'contribution') {
+          existing.lines.push(
+            `${label}: ${details.amount.toFixed(2)} (recurring contribution, ${goal.contributionPeriodType})`,
           )
         } else if (details.path === 'overdue-pays-full') {
           existing.lines.push(
@@ -186,10 +314,9 @@ export function computeSavingsSuggestionsByWallet(
     for (const tx of transactions) {
       if (tx.transactionType !== 'transfer') continue
       if (tx.toWalletId !== wallet._id) continue
-      if (tx.currency !== wallet.currency) continue
       const txDate = new Date(tx.date)
       if (txDate < periodStart || txDate > periodEnd) continue
-      alreadyTransferred += tx.amount
+      alreadyTransferred += transferAmountReceived(tx, wallet.currency)
     }
 
     const net = round2(Math.max(accumulator.sum - alreadyTransferred, 0))
@@ -213,6 +340,7 @@ export function computeSavingsSuggestionsByWallet(
         currency: wallet.currency,
         amount: net,
         contributingGoalCount: accumulator.count,
+        goals: accumulator.goals,
       })
     }
   }

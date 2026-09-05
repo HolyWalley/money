@@ -4,6 +4,7 @@ import { useEventBus } from '@/hooks/useEventBus'
 import { savingGoalService } from '@/services/savingGoalService'
 import { db } from '@/lib/db-dexie'
 import { GoalAdjustDrawer } from './GoalAdjustDrawer'
+import { hasAllocationRoom } from '@/lib/savings-suggestion'
 import type { Transaction } from '../../../shared/schemas/transaction.schema'
 
 interface DrawerState {
@@ -34,7 +35,7 @@ export function SavingsNotificationListener() {
     if (!wallet?.isSavings) return
 
     const activeGoals = await savingGoalService.getActiveGoalsByWallet(walletId)
-    if (activeGoals.some(g => g.allocatedAmount < g.targetAmount)) {
+    if (activeGoals.some(hasAllocationRoom)) {
       toast('Savings balance increased', {
         duration: 10000,
         action: {

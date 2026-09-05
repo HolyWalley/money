@@ -92,6 +92,7 @@ function makeDexieGoal(overrides: Record<string, unknown> = {}) {
     _id: 'goal-1',
     walletId: 'wallet-savings',
     name: 'Rent',
+    goalType: 'target',
     targetAmount: 100,
     allocatedAmount: 0,
     achieved: false,
@@ -102,6 +103,19 @@ function makeDexieGoal(overrides: Record<string, unknown> = {}) {
     updatedAt: new UTCDate(2026, 0, 1),
     ...overrides,
   }
+}
+
+function makeContributionDexieGoal(overrides: Record<string, unknown> = {}) {
+  return makeDexieGoal({
+    _id: 'goal-contribution',
+    name: 'Travel',
+    goalType: 'contribution',
+    targetAmount: undefined,
+    targetDate: undefined,
+    contributionAmount: 100,
+    contributionPeriodType: 'monthly',
+    ...overrides,
+  })
 }
 
 beforeEach(() => {
@@ -201,6 +215,7 @@ describe('syncLinkedGoal', () => {
     expect(mockCreateGoal).toHaveBeenCalledWith({
       walletId: 'wallet-savings',
       name: 'Rent payment',
+      goalType: 'target',
       targetAmount: 100,
       targetDate: next.toISOString(),
       sourceRecurringPaymentId: 'rp-1',
@@ -238,6 +253,7 @@ describe('syncLinkedGoal', () => {
 
     expect(mockUpdateGoal).toHaveBeenCalledTimes(1)
     expect(mockUpdateGoal).toHaveBeenCalledWith('goal-existing', {
+      goalType: 'target',
       targetAmount: 250,
       targetDate: next.toISOString(),
       walletId: 'wallet-savings',
@@ -262,6 +278,45 @@ describe('syncLinkedGoal', () => {
 
     expect(mockUpdateGoal).not.toHaveBeenCalled()
     expect(mockCreateGoal).not.toHaveBeenCalled()
+  })
+
+  it('rewrites a linked goal that lost its targetAmount instead of skipping the write', async () => {
+    const next = new UTCDate(2026, 5, 1)
+    mockGetOccurrencesInPeriod.mockReturnValue([next])
+    mockGoalsToArray.mockResolvedValue([
+      makeDexieGoal({
+        _id: 'goal-existing',
+        targetAmount: undefined,
+        targetDate: next,
+        walletId: 'wallet-savings',
+      }),
+    ])
+
+    const rp = makeRP({ amount: 100, savingsWalletId: 'wallet-savings' })
+    await syncLinkedGoal(rp)
+
+    expect(mockUpdateGoal).toHaveBeenCalledWith('goal-existing', {
+      goalType: 'target',
+      targetAmount: 100,
+      targetDate: next.toISOString(),
+      walletId: 'wallet-savings',
+    })
+  })
+
+  it('never writes to a contribution goal, even one carrying the link', async () => {
+    const next = new UTCDate(2026, 5, 1)
+    mockGetOccurrencesInPeriod.mockReturnValue([next])
+    mockGoalsToArray.mockResolvedValue([
+      makeContributionDexieGoal({ _id: 'goal-contribution' }),
+    ])
+
+    const rp = makeRP()
+    await syncLinkedGoal(rp)
+
+    expect(mockUpdateGoal).not.toHaveBeenCalled()
+    expect(mockCreateGoal).toHaveBeenCalledWith(
+      expect.objectContaining({ goalType: 'target', targetAmount: 100 })
+    )
   })
 
   it('no-ops when savingsWalletId is unset', async () => {
@@ -315,6 +370,7 @@ describe('onRecurringPaymentReplaced', () => {
 
     expect(mockUpdateGoal).toHaveBeenCalledWith('goal-active', {
       sourceRecurringPaymentId: 'rp-new',
+      goalType: 'target',
       targetAmount: 150,
       targetDate: next.toISOString(),
       walletId: 'wallet-new-savings',
@@ -334,6 +390,44 @@ describe('onRecurringPaymentReplaced', () => {
     expect(mockUpdateGoal).toHaveBeenCalledWith('goal-active', {
       sourceRecurringPaymentId: '',
     })
+  })
+
+  it('relinks without a deadline when the replacement has no future occurrence', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeDexieGoal({ _id: 'goal-active', sourceRecurringPaymentId: 'rp-old' }),
+    ])
+    mockGetOccurrencesInPeriod.mockReturnValue([])
+
+    const prev = makeRP({ _id: 'rp-old' })
+    const replacement = makeRP({ _id: 'rp-new', amount: 150 })
+
+    await onRecurringPaymentReplaced(prev, replacement)
+
+    expect(mockUpdateGoal).toHaveBeenCalledWith('goal-active', {
+      sourceRecurringPaymentId: 'rp-new',
+      goalType: 'target',
+      targetAmount: 150,
+      targetDate: undefined,
+      walletId: 'wallet-savings',
+    })
+  })
+
+  it('leaves a contribution goal alone and creates a target goal for the replacement', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeContributionDexieGoal({ sourceRecurringPaymentId: 'rp-old' }),
+    ])
+    const next = new UTCDate(2026, 6, 1)
+    mockGetOccurrencesInPeriod.mockReturnValue([next])
+
+    const prev = makeRP({ _id: 'rp-old' })
+    const replacement = makeRP({ _id: 'rp-new' })
+
+    await onRecurringPaymentReplaced(prev, replacement)
+
+    expect(mockUpdateGoal).not.toHaveBeenCalled()
+    expect(mockCreateGoal).toHaveBeenCalledWith(
+      expect.objectContaining({ goalType: 'target', sourceRecurringPaymentId: 'rp-new' })
+    )
   })
 
   it('syncs replacement when no active linked goal exists and savings is enabled', async () => {
@@ -484,6 +578,14 @@ describe('detachLinkedGoals', () => {
     await detachLinkedGoals('rp-1')
     expect(mockUpdateGoal).not.toHaveBeenCalled()
   })
+
+  it('does not touch contribution goals', async () => {
+    mockGoalsToArray.mockResolvedValue([makeContributionDexieGoal()])
+
+    await detachLinkedGoals('rp-1')
+
+    expect(mockUpdateGoal).not.toHaveBeenCalled()
+  })
 })
 
 describe('findActiveLinkedGoal', () => {
@@ -504,6 +606,41 @@ describe('findActiveLinkedGoal', () => {
     expect(result?.targetDate).toBe(new UTCDate(2026, 5, 1).toISOString())
     expect(typeof result?.createdAt).toBe('string')
     expect(typeof result?.updatedAt).toBe('string')
+  })
+
+  it('maps a goal with no deadline to an undefined targetDate', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeDexieGoal({ _id: 'g-1', targetDate: undefined }),
+    ])
+
+    const result = await findActiveLinkedGoal('rp-1')
+    expect(result?.targetDate).toBeUndefined()
+  })
+
+  it('defaults goalType to target for a legacy row that predates the field', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeDexieGoal({ _id: 'g-1', goalType: undefined }),
+    ])
+
+    const result = await findActiveLinkedGoal('rp-1')
+    expect(result?.goalType).toBe('target')
+  })
+
+  it('skips contribution goals, which the linker must never manage', async () => {
+    mockGoalsToArray.mockResolvedValue([makeContributionDexieGoal()])
+
+    const result = await findActiveLinkedGoal('rp-1')
+    expect(result).toBeUndefined()
+  })
+
+  it('returns the target goal when a contribution goal shares the link', async () => {
+    mockGoalsToArray.mockResolvedValue([
+      makeContributionDexieGoal(),
+      makeDexieGoal({ _id: 'g-target' }),
+    ])
+
+    const result = await findActiveLinkedGoal('rp-1')
+    expect(result?._id).toBe('g-target')
   })
 })
 
@@ -596,6 +733,20 @@ describe('reconcileLinkedGoals', () => {
     expect(reconcileLinkedGoals()).toBe(1)
     expect(reconcileLinkedGoals()).toBe(0)
     expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledTimes(1)
+  })
+
+  it('never touches contribution goals, which carry no link to reconcile', () => {
+    seedGoal('goal-contribution', {
+      goalType: 'contribution',
+      contributionAmount: 100,
+      contributionPeriodType: 'monthly',
+      achieved: false,
+    })
+    seedGoal('goal-orphan', { sourceRecurringPaymentId: 'rp-gone', achieved: false })
+
+    expect(reconcileLinkedGoals()).toBe(1)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledTimes(1)
+    expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-orphan', { sourceRecurringPaymentId: '' })
   })
 
   it('detaches nothing when there are no goals at all', () => {

@@ -60,6 +60,36 @@ describe('formDefaults', () => {
     expect(formDefaults.loadDate()).toBeNull()
   })
 
+  it('does not remember a date that is simply today', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 29, 10, 0))
+
+    formDefaults.saveDate(new Date(2026, 7, 29, 10, 0).toISOString())
+
+    vi.setSystemTime(new Date(2026, 7, 29, 15, 0))
+    expect(formDefaults.loadDate()).toBeNull()
+  })
+
+  it('forgets an earlier date once the entry moves back to today', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 29, 10, 0))
+
+    formDefaults.saveDate('2026-08-27T00:00:00.000Z')
+    expect(formDefaults.loadDate()).toBe('2026-08-27T00:00:00.000Z')
+
+    formDefaults.saveDate(new Date(2026, 7, 29, 11, 0).toISOString())
+    expect(formDefaults.loadDate()).toBeNull()
+  })
+
+  it('still remembers a past date chosen today', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 29, 10, 0))
+
+    formDefaults.saveDate(new Date(2026, 7, 27, 0, 0).toISOString())
+
+    expect(formDefaults.loadDate()).toBe(new Date(2026, 7, 27, 0, 0).toISOString())
+  })
+
   it('keeps the chosen save mode', () => {
     formDefaults.saveSaveMode('addAnother')
     expect(formDefaults.loadSaveMode()).toBe('addAnother')

@@ -83,12 +83,19 @@ class SavingGoalService {
         throw new Error(`Saving goal ${goalId} not found`)
       }
 
-      const remaining = goal.targetAmount - goal.allocatedAmount
+      if (goal.goalType === 'contribution') {
+        const contributed = goal.allocatedAmount + amount
+        updateSavingGoalCRDT(goalId, { allocatedAmount: Math.round(contributed * 100) / 100 })
+        continue
+      }
+
+      const targetAmount = goal.targetAmount ?? 0
+      const remaining = targetAmount - goal.allocatedAmount
       if (amount > remaining + 0.001) {
         throw new Error(`Allocation of ${amount} exceeds remaining capacity of ${remaining} for goal "${goal.name}"`)
       }
 
-      const newAllocated = Math.min(goal.allocatedAmount + amount, goal.targetAmount)
+      const newAllocated = Math.min(goal.allocatedAmount + amount, targetAmount)
       updateSavingGoalCRDT(goalId, { allocatedAmount: Math.round(newAllocated * 100) / 100 })
     }
   }

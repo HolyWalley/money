@@ -8,11 +8,12 @@ interface SavingsSuggestionCardProps {
 }
 
 export function SavingsSuggestionCard({ suggestion, onLogTransfer }: SavingsSuggestionCardProps) {
-  const { wallet, currency, amount, contributingGoalCount } = suggestion
-  const subtitle =
-    contributingGoalCount === 1
-      ? '1 goal · suggested transfer'
-      : `${contributingGoalCount} goals · suggested transfer`
+  const { wallet, currency, amount, contributingGoalCount, goals } = suggestion
+  const goalLabel = contributingGoalCount === 1 ? '1 goal' : `${contributingGoalCount} goals`
+  const breakdown = goals.length > 0
+    ? ` (${goals.map(g => `${g.name} ${g.amount.toFixed(2)} ${currency}`).join(', ')})`
+    : ''
+  const subtitle = `${goalLabel}${breakdown} · suggested transfer`
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 py-3 px-3 sm:px-4 border-b border-border/50 last:border-b-0">

@@ -42,10 +42,29 @@ function makeDexieGoal(overrides: Record<string, unknown> = {}) {
     _id: 'goal-1',
     walletId: 'wallet-1',
     name: 'Camera',
+    goalType: 'target',
     targetAmount: 500,
     allocatedAmount: 100,
     achieved: false,
     order: 0,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+    ...overrides,
+  }
+}
+
+function makeContributionGoal(overrides: Record<string, unknown> = {}) {
+  return {
+    _id: 'goal-c',
+    walletId: 'wallet-1',
+    name: 'Travel',
+    goalType: 'contribution',
+    contributionAmount: 100,
+    contributionPeriodType: 'monthly',
+    contributionMonthDay: 1,
+    allocatedAmount: 0,
+    achieved: false,
+    order: 1,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     ...overrides,
@@ -67,6 +86,7 @@ describe('savingGoalService', () => {
       const result = await savingGoalService.createGoal({
         walletId: 'wallet-1',
         name: 'New Camera',
+        goalType: 'target',
         targetAmount: 500,
       })
 
@@ -83,6 +103,65 @@ describe('savingGoalService', () => {
       expect(result._id).toBe('new-goal-id')
       expect(result.allocatedAmount).toBe(0)
       expect(result.achieved).toBe(false)
+    })
+
+    it('defaults goalType to target when it is not supplied', async () => {
+      mockSortBy.mockResolvedValue([])
+
+      await savingGoalService.createGoal({
+        walletId: 'wallet-1',
+        name: 'Legacy Shape',
+        targetAmount: 500,
+      } as Parameters<typeof savingGoalService.createGoal>[0])
+
+      expect(mockAddSavingGoal).toHaveBeenCalledWith(
+        expect.objectContaining({ goalType: 'target' })
+      )
+    })
+
+    it('passes contribution fields through to the CRDT layer', async () => {
+      mockSortBy.mockResolvedValue([])
+
+      const result = await savingGoalService.createGoal({
+        walletId: 'wallet-1',
+        name: 'Travel',
+        goalType: 'contribution',
+        contributionAmount: 100,
+        contributionPeriodType: 'monthly',
+        contributionMonthDay: 15,
+      })
+
+      expect(mockAddSavingGoal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          walletId: 'wallet-1',
+          name: 'Travel',
+          goalType: 'contribution',
+          contributionAmount: 100,
+          contributionPeriodType: 'monthly',
+          contributionMonthDay: 15,
+          allocatedAmount: 0,
+          achieved: false,
+          order: 0,
+        })
+      )
+      expect(result.goalType).toBe('contribution')
+      expect(result.contributionAmount).toBe(100)
+      expect(result.targetAmount).toBeUndefined()
+    })
+
+    it('rejects a contribution goal without a cadence', async () => {
+      mockSortBy.mockResolvedValue([])
+
+      await expect(
+        savingGoalService.createGoal({
+          walletId: 'wallet-1',
+          name: 'Travel',
+          goalType: 'contribution',
+          contributionAmount: 100,
+        })
+      ).rejects.toThrow()
+
+      expect(mockAddSavingGoal).not.toHaveBeenCalled()
     })
   })
 
@@ -150,6 +229,62 @@ describe('savingGoalService', () => {
         ])
       ).rejects.toThrow('not found')
     })
+
+    it('allocates to a contribution goal with no ceiling', async () => {
+      mockGet.mockResolvedValue(makeContributionGoal({ allocatedAmount: 0 }))
+
+      await savingGoalService.allocateToGoals([
+        { goalId: 'goal-c', amount: 100 },
+      ])
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 100 })
+    })
+
+    it('lets a contribution goal grow past its per-period amount', async () => {
+      mockGet.mockResolvedValue(makeContributionGoal({ allocatedAmount: 1200, contributionAmount: 100 }))
+
+      await savingGoalService.allocateToGoals([
+        { goalId: 'goal-c', amount: 100 },
+      ])
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 1300 })
+    })
+
+    it('never throws a capacity error for a contribution goal', async () => {
+      mockGet.mockResolvedValue(makeContributionGoal({ allocatedAmount: 50 }))
+
+      await expect(
+        savingGoalService.allocateToGoals([
+          { goalId: 'goal-c', amount: 100000 },
+        ])
+      ).resolves.toBeUndefined()
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 100050 })
+    })
+
+    it('rounds a contribution allocation to two decimals', async () => {
+      mockGet.mockResolvedValue(makeContributionGoal({ allocatedAmount: 0.1 }))
+
+      await savingGoalService.allocateToGoals([
+        { goalId: 'goal-c', amount: 0.2 },
+      ])
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 0.3 })
+    })
+
+    it('still caps a target goal when mixed with a contribution goal', async () => {
+      mockGet
+        .mockResolvedValueOnce(makeContributionGoal({ _id: 'goal-c', allocatedAmount: 0 }))
+        .mockResolvedValueOnce(makeDexieGoal({ _id: 'goal-1', allocatedAmount: 480, targetAmount: 500 }))
+
+      await savingGoalService.allocateToGoals([
+        { goalId: 'goal-c', amount: 999 },
+        { goalId: 'goal-1', amount: 20 },
+      ])
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 999 })
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-1', { allocatedAmount: 500 })
+    })
   })
 
   describe('deallocateFromGoals', () => {
@@ -181,6 +316,16 @@ describe('savingGoalService', () => {
           { goalId: 'goal-1', amount: 60 },
         ])
       ).rejects.toThrow('exceeds allocated amount')
+    })
+
+    it('deallocates from a contribution goal', async () => {
+      mockGet.mockResolvedValue(makeContributionGoal({ allocatedAmount: 300 }))
+
+      await savingGoalService.deallocateFromGoals([
+        { goalId: 'goal-c', amount: 100 },
+      ])
+
+      expect(mockUpdateSavingGoalCRDT).toHaveBeenCalledWith('goal-c', { allocatedAmount: 200 })
     })
 
     it('skips zero-amount deallocations', async () => {

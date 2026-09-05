@@ -11,7 +11,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { useUnallocatedAmount } from '@/hooks/useUnallocatedAmount'
 import { savingGoalService } from '@/services/savingGoalService'
-import { getSavingsSuggestion } from '@/lib/savings-suggestion'
+import { getSavingsSuggestion, hasAllocationRoom } from '@/lib/savings-suggestion'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
 interface GoalAdjustDrawerProps {
@@ -40,7 +40,7 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
 
     savingGoalService.getActiveGoalsByWallet(walletId).then(activeGoals => {
       const filtered = currentMode === 'allocate'
-        ? activeGoals.filter(g => g.allocatedAmount < g.targetAmount)
+        ? activeGoals.filter(hasAllocationRoom)
         : activeGoals.filter(g => g.allocatedAmount > 0)
       setGoals(filtered)
       setAmounts(Object.fromEntries(filtered.map(g => [g._id, 0])))
@@ -88,8 +88,11 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
   const handleSuggest = () => {
     const raw = goals.map(g => {
       const s = getSavingsSuggestion(g)
+      if (s.status === 'contribution') {
+        return { id: g._id, value: Math.min(s.monthlyAmount, adjustAmount) }
+      }
       const monthly = s.status === 'on-track' ? s.monthlyAmount : 0
-      const cap = Math.round((g.targetAmount - g.allocatedAmount) * 100) / 100
+      const cap = Math.round(((g.targetAmount ?? 0) - g.allocatedAmount) * 100) / 100
       return { id: g._id, value: Math.min(monthly, cap) }
     })
     const total = raw.reduce((sum, r) => sum + r.value, 0)
@@ -149,27 +152,28 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
 
           <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
             {goals.map(goal => {
-              const maxForGoal = mode === 'allocate'
-                ? Math.min(
-                    Math.round((goal.targetAmount - goal.allocatedAmount) * 100) / 100,
-                    Math.round((amounts[goal._id] + remaining) * 100) / 100,
-                  )
+              const room = Math.round((amounts[goal._id] + remaining) * 100) / 100
+              const allocateMax = goal.goalType === 'contribution'
+                ? room
                 : Math.min(
-                    goal.allocatedAmount,
-                    Math.round((amounts[goal._id] + remaining) * 100) / 100,
+                    Math.round(((goal.targetAmount ?? 0) - goal.allocatedAmount) * 100) / 100,
+                    room,
                   )
+              const maxForGoal = mode === 'allocate'
+                ? allocateMax
+                : Math.min(goal.allocatedAmount, room)
               const currentAmount = amounts[goal._id] || 0
+              const rowLabel = mode === 'deallocate'
+                ? `Allocated: ${formatCurrency(goal.allocatedAmount)}`
+                : goal.goalType === 'contribution'
+                  ? `Saved: ${formatCurrency(goal.allocatedAmount)}`
+                  : `${formatCurrency(goal.allocatedAmount)} / ${formatCurrency(goal.targetAmount ?? 0)}`
 
               return (
                 <div key={goal._id} className="flex flex-col gap-2">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{goal.name}</span>
-                    <span className="text-muted-foreground">
-                      {mode === 'allocate'
-                        ? `${formatCurrency(goal.allocatedAmount)} / ${formatCurrency(goal.targetAmount)}`
-                        : `Allocated: ${formatCurrency(goal.allocatedAmount)}`
-                      }
-                    </span>
+                    <span className="text-muted-foreground">{rowLabel}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <Slider
@@ -204,7 +208,7 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
                 <Button
                   variant="secondary"
                   onClick={handleSuggest}
-                  disabled={isSubmitting || !goals.some(g => !!g.targetDate)}
+                  disabled={isSubmitting || !goals.some(g => !!g.targetDate || g.goalType === 'contribution')}
                 >
                   Suggest
                 </Button>

@@ -3,6 +3,7 @@ import { ArrowDownToLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useUnallocatedAmount } from '@/hooks/useUnallocatedAmount'
 import { GoalAdjustDrawer } from './GoalAdjustDrawer'
+import { hasAllocationRoom } from '@/lib/savings-suggestion'
 import { GoalCard } from './GoalCard'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
@@ -17,7 +18,7 @@ export function WalletGoalsSection({ wallet, goals, onEdit }: WalletGoalsSection
   const { unallocated, isLoading } = useUnallocatedAmount(wallet._id)
   const [allocationOpen, setAllocationOpen] = useState(false)
 
-  const hasEligibleGoals = goals.some(g => !g.achieved && g.allocatedAmount < g.targetAmount)
+  const hasEligibleGoals = goals.some(g => !g.achieved && hasAllocationRoom(g))
   const canAllocate = !isLoading && unallocated > 0 && hasEligibleGoals
 
   const formatCurrency = (amount: number) => {

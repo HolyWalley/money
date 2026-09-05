@@ -222,6 +222,7 @@ Promise.resolve().then(() => {
 
       return {
         ...(obj as SavingGoal),
+        goalType: (obj.goalType as SavingGoal['goalType']) ?? 'target',
         targetDate: targetDate && !isNaN(targetDate.getTime()) ? targetDate : undefined,
         createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
         updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
@@ -473,14 +474,26 @@ export function updateRecurringPaymentLog(id: string, updates: Partial<Recurring
   })
 }
 
-export function addSavingGoal({ walletId, name, targetAmount, allocatedAmount, achieved, order, targetDate, sourceRecurringPaymentId }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
+const contributionAnchorField = {
+  weekly: 'contributionWeekDay',
+  monthly: 'contributionMonthDay',
+  yearly: 'contributionYearDay',
+} as const
+
+export function addSavingGoal({ walletId, name, goalType, targetAmount, contributionAmount, contributionPeriodType, contributionMonthDay, contributionWeekDay, contributionYearDay, allocatedAmount, achieved, order, targetDate, sourceRecurringPaymentId }: Omit<SavingGoal, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     savingGoals.set(id, createSavingGoalMap({
       _id: id,
       walletId,
       name,
+      goalType,
       targetAmount,
+      contributionAmount,
+      contributionPeriodType,
+      contributionMonthDay,
+      contributionWeekDay,
+      contributionYearDay,
       allocatedAmount,
       achieved,
       order,
@@ -500,7 +513,22 @@ export function updateSavingGoal(id: string, updates: Partial<SavingGoal>) {
 
     if (updates.walletId !== undefined) goal.set('walletId', updates.walletId)
     if (updates.name !== undefined) goal.set('name', updates.name)
+    if (updates.goalType !== undefined) goal.set('goalType', updates.goalType)
     if (updates.targetAmount !== undefined) goal.set('targetAmount', updates.targetAmount)
+    if (updates.contributionAmount !== undefined) goal.set('contributionAmount', updates.contributionAmount)
+    if (updates.contributionPeriodType !== undefined) {
+      goal.set('contributionPeriodType', updates.contributionPeriodType)
+      // A cadence change orphans the other anchors, and the '!== undefined'
+      // whitelist below can never clear them. Left behind they contradict the
+      // new cadence and the schema rejects every later edit of the goal.
+      const keptAnchor = contributionAnchorField[updates.contributionPeriodType]
+      for (const anchor of Object.values(contributionAnchorField)) {
+        if (anchor !== keptAnchor) goal.delete(anchor)
+      }
+    }
+    if (updates.contributionMonthDay !== undefined) goal.set('contributionMonthDay', updates.contributionMonthDay)
+    if (updates.contributionWeekDay !== undefined) goal.set('contributionWeekDay', updates.contributionWeekDay)
+    if (updates.contributionYearDay !== undefined) goal.set('contributionYearDay', updates.contributionYearDay)
     if (updates.allocatedAmount !== undefined) goal.set('allocatedAmount', updates.allocatedAmount)
     if (updates.achieved !== undefined) goal.set('achieved', updates.achieved)
     if (updates.order !== undefined) goal.set('order', updates.order)

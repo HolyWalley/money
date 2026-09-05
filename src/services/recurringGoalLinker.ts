@@ -42,11 +42,12 @@ export async function findActiveLinkedGoal(rpId: string): Promise<SavingGoal | u
     .equals(rpId)
     .toArray()
 
-  const active = goals.find(g => !g.achieved)
+  const active = goals.find(g => !g.achieved && g.goalType !== 'contribution')
   if (!active) return undefined
 
   return {
     ...active,
+    goalType: active.goalType ?? 'target',
     targetDate: active.targetDate ? active.targetDate.toISOString() : undefined,
     createdAt: active.createdAt.toISOString(),
     updatedAt: active.updatedAt.toISOString(),
@@ -74,6 +75,7 @@ export async function syncLinkedGoal(rp: RecurringPayment): Promise<void> {
       return
     }
     await savingGoalService.updateGoal(active._id, {
+      goalType: 'target',
       targetAmount: wantsTargetAmount,
       targetDate: wantsTargetDate,
       walletId: wantsWalletId,
@@ -84,6 +86,7 @@ export async function syncLinkedGoal(rp: RecurringPayment): Promise<void> {
   await savingGoalService.createGoal({
     walletId: wantsWalletId,
     name: rp.description?.trim() || 'Recurring payment',
+    goalType: 'target',
     targetAmount: wantsTargetAmount,
     targetDate: wantsTargetDate,
     sourceRecurringPaymentId: rp._id,
@@ -133,6 +136,7 @@ export async function onRecurringPaymentReplaced(
   const next = await findNextScheduledOccurrence(replacement)
   await savingGoalService.updateGoal(active._id, {
     sourceRecurringPaymentId: replacement._id,
+    goalType: 'target',
     targetAmount: replacement.amount,
     targetDate: next?.toISOString(),
     walletId: replacement.savingsWalletId,

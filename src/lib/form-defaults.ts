@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, isToday } from 'date-fns'
 import type { TransactionType } from '../../shared/schemas/transaction.schema'
 import type { Currency } from '../../shared/schemas/user_settings.schema'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
@@ -82,9 +82,14 @@ export class FormDefaultsService {
     return date.value
   }
 
+  // Today is never worth remembering: the form already falls back to now, and
+  // storing it would freeze every later entry in the day at the clock time of
+  // the first one. Clearing rather than skipping matters — a date picked
+  // earlier today is still remembered, and moving back to today has to drop it.
   saveDate(value: string): void {
     const data = this.read() ?? emptyDefaults()
-    data.date = { value, savedOn: currentDay() }
+    const parsed = new Date(value)
+    data.date = isToday(parsed) ? null : { value, savedOn: currentDay() }
     this.write(data)
   }
 

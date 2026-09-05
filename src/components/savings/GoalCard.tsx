@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { savingGoalService } from '@/services/savingGoalService'
-import { getSavingsSuggestion } from '@/lib/savings-suggestion'
+import { getSavingsSuggestion, hasAllocationRoom } from '@/lib/savings-suggestion'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 
 interface GoalCardProps {
@@ -20,15 +20,24 @@ interface GoalCardProps {
   onEdit: () => void
 }
 
+const cadenceNoun = {
+  weekly: 'week',
+  monthly: 'month',
+  yearly: 'year',
+} as const
+
 export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const percentage = goal.targetAmount > 0
-    ? Math.min(Math.round((goal.allocatedAmount / goal.targetAmount) * 100), 100)
+  const isContribution = goal.goalType === 'contribution'
+  const targetAmount = goal.targetAmount ?? 0
+
+  const percentage = !isContribution && targetAmount > 0
+    ? Math.min(Math.round((goal.allocatedAmount / targetAmount) * 100), 100)
     : 0
 
-  const isFullyFunded = goal.allocatedAmount >= goal.targetAmount
-  const suggestion = getSavingsSuggestion(goal)
+  const isFullyFunded = !hasAllocationRoom(goal)
+  const suggestion = isContribution ? null : getSavingsSuggestion(goal)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -38,6 +47,10 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
       maximumFractionDigits: 2,
     }).format(amount)
   }
+
+  const contributionLabel = goal.contributionPeriodType
+    ? `${formatCurrency(goal.contributionAmount ?? 0)} / ${cadenceNoun[goal.contributionPeriodType]}`
+    : formatCurrency(goal.contributionAmount ?? 0)
 
   const handleToggleAchieved = async () => {
     await savingGoalService.updateGoal(goal._id, { achieved: !goal.achieved })
@@ -66,7 +79,7 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
                 Fully funded
               </span>
             )}
-            {!goal.achieved && !isFullyFunded && suggestion.status === 'overdue' && (
+            {!goal.achieved && !isFullyFunded && suggestion?.status === 'overdue' && (
               <span className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded">
                 Overdue
               </span>
@@ -105,35 +118,45 @@ export function GoalCard({ goal, currency, onEdit }: GoalCardProps) {
           </DropdownMenu>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>{formatCurrency(goal.allocatedAmount)}</span>
-            <span className="text-muted-foreground">{formatCurrency(goal.targetAmount)}</span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                goal.achieved
-                  ? 'bg-green-500'
-                  : isFullyFunded
-                    ? 'bg-blue-500'
-                    : 'bg-primary'
-              }`}
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground text-right">{percentage}%</p>
-          {goal.targetDate && !goal.achieved && suggestion.status !== 'fully-funded' && (() => {
-            const formattedDate = format(new Date(goal.targetDate), 'MMM d, yyyy')
-            let text: string | null = null
-            if (suggestion.status === 'on-track') {
-              text = `Suggested: ~${formatCurrency(suggestion.monthlyAmount)} / month — by ${formattedDate}`
-            } else if (suggestion.status === 'under-month') {
-              text = `${formatCurrency(suggestion.remainingAmount)} to go — under a month left (${formattedDate})`
-            } else if (suggestion.status === 'overdue') {
-              text = `${formatCurrency(suggestion.remainingAmount)} short — was due ${formattedDate}`
-            }
-            return text ? <p className="text-xs text-muted-foreground">{text}</p> : null
-          })()}
+          {isContribution ? (
+            <div className="flex justify-between text-sm">
+              <span>{formatCurrency(goal.allocatedAmount)} saved</span>
+              <span className="text-muted-foreground">{contributionLabel}</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between text-sm">
+                <span>{formatCurrency(goal.allocatedAmount)}</span>
+                <span className="text-muted-foreground">{formatCurrency(targetAmount)}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    goal.achieved
+                      ? 'bg-green-500'
+                      : isFullyFunded
+                        ? 'bg-blue-500'
+                        : 'bg-primary'
+                  }`}
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-right">{percentage}%</p>
+              {goal.targetDate && !goal.achieved && (() => {
+                if (!suggestion || suggestion.status === 'fully-funded') return null
+                const formattedDate = format(new Date(goal.targetDate), 'MMM d, yyyy')
+                let text: string | null = null
+                if (suggestion.status === 'on-track') {
+                  text = `Suggested: ~${formatCurrency(suggestion.monthlyAmount)} / month — by ${formattedDate}`
+                } else if (suggestion.status === 'under-month') {
+                  text = `${formatCurrency(suggestion.remainingAmount)} to go — under a month left (${formattedDate})`
+                } else if (suggestion.status === 'overdue') {
+                  text = `${formatCurrency(suggestion.remainingAmount)} short — was due ${formattedDate}`
+                }
+                return text ? <p className="text-xs text-muted-foreground">{text}</p> : null
+              })()}
+            </>
+          )}
         </CardContent>
       </Card>
 

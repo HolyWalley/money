@@ -99,8 +99,8 @@ export function TransactionDrawer({ open, onOpenChange, transaction, initialValu
 
   return (
     <Drawer open={open} onOpenChange={next => (next ? onOpenChange(true) : closeDrawer())}>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
+      <DrawerContent className="[--drawer-inset:0.5rem] [--bleed:0px] rounded-xl">
+        <div className="mx-auto w-full">
           <DrawerHeader>
             <DrawerTitle>{transaction ? 'Edit Transaction' : 'New Transaction'}</DrawerTitle>
           </DrawerHeader>
