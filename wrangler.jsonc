@@ -24,6 +24,10 @@
 			{
 				"name": "MONEY_OBJECT",
 				"class_name": "MoneyObject"
+			},
+			{
+				"name": "MARKET_OBJECT",
+				"class_name": "MarketObject"
 			}
 		]
 	},
@@ -31,6 +35,10 @@
 		{
 			"tag": "v1",
 			"new_sqlite_classes": ["MoneyObject"]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": ["MarketObject"]
 		}
 	]
 }

@@ -28,5 +28,6 @@ export default {
   }
 }
 
-// Export Durable Object
+// Export Durable Objects
 export { MoneyObject } from './durable-objects/MoneyObject'
+export { MarketObject } from './durable-objects/MarketObject'

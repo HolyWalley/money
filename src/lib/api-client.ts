@@ -1,4 +1,5 @@
 import type { User } from '../contexts/AuthContext';
+import type { InstrumentCandidate, PricesResponse } from '../../shared/market-data';
 import { reportRequestOutcome } from './network-status';
 
 /**
@@ -37,6 +38,9 @@ export type RequestOptions = {
 export const API_TIMEOUTS = {
   default: 10_000,
   auth: 8_000,
+  // One price request may wait on several provider calls behind the worker,
+  // each with its own 8s deadline, so the default one is too short for it.
+  prices: 20_000,
   syncPull: 30_000,
   syncPush: 45_000,
   syncInitialPush: 120_000,
@@ -349,6 +353,24 @@ class ApiClient {
       endpoint = `/sync?since=${String(query.since)}`;
     }
     return this.request<SyncResponse>(endpoint, { timeoutMs: API_TIMEOUTS.syncPull });
+  }
+
+  // Market data endpoints
+  //
+  // They go through request() like everything else for one reason: an access
+  // token expires in minutes, and a raw fetch would answer every 401 with "no
+  // prices" for ever after. Nothing else would heal it either - /sync, the
+  // other thing that refreshes a session, is behind withPremium.
+  async getPrices(symbols: string[], from: string, to: string): Promise<ApiResponse<PricesResponse>> {
+    const params = new URLSearchParams({ symbols: symbols.join(','), from, to });
+    return this.request<PricesResponse>(`/prices?${params.toString()}`, { timeoutMs: API_TIMEOUTS.prices });
+  }
+
+  async searchInstruments(query: string): Promise<ApiResponse<{ results: InstrumentCandidate[] }>> {
+    const params = new URLSearchParams({ q: query });
+    return this.request<{ results: InstrumentCandidate[] }>(`/prices/search?${params.toString()}`, {
+      timeoutMs: API_TIMEOUTS.prices,
+    });
   }
 
   // Debug endpoint

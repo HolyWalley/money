@@ -1,4 +1,5 @@
 import type { UserSettings } from "../../shared/types/userSettings"
+import type { MarketObject } from "../durable-objects/MarketObject"
 import type { MoneyObject } from "../durable-objects/MoneyObject"
 import type { IPremium } from "../utils/storage"
 
@@ -16,6 +17,9 @@ export interface CloudflareEnv {
   JWT_ACCESS_EXPIRES_IN: string
   JWT_REFRESH_EXPIRES_IN: string
   MONEY_OBJECT: DurableObjectNamespace<MoneyObject>;
+  // One shared instance for everyone, addressed by a fixed name - market data
+  // is public, not per-user.
+  MARKET_OBJECT: DurableObjectNamespace<MarketObject>;
   ENVIRONMENT?: string; // 'development' | 'production'
 }
 

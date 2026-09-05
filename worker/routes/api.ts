@@ -13,6 +13,7 @@ import * as admin from '../handlers/admin'
 import * as debug from '../handlers/debug'
 import * as dump from '../handlers/dump'
 import * as cleanup from '../handlers/cleanup'
+import * as prices from '../handlers/prices'
 import { ResponseUtils } from '../utils/response'
 import { withPremium } from '../middleware/premium'
 
@@ -67,6 +68,17 @@ export function createAPIRouter() {
 
   router.put('/api/v1/sync', withPremium, async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await sync.onRequestPut(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  // Market data is public and shared, so it is authenticated but not withPremium
+  router.get('/api/v1/prices', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await prices.onRequestGet(request as unknown as Request, env)
+    return withHeaders(response, request)
+  })
+
+  router.get('/api/v1/prices/search', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await prices.onRequestGetSearch(request as unknown as Request, env)
     return withHeaders(response, request)
   })
 

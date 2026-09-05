@@ -454,6 +454,41 @@ describe('api-client query building', () => {
   })
 })
 
+describe('api-client market data', () => {
+  it('asks for prices with the symbols and days in the query', async () => {
+    fetchMock.mockResolvedValue(json({ success: true, data: { 'FWIA.DE': { currency: 'EUR', closes: {} } } }))
+
+    const result = await apiClient.getPrices(['FWIA.DE', 'VWCE.DE'], '2025-03-10', '2025-03-14')
+
+    expect(urlsOf()[0]).toBe('/api/v1/prices?symbols=FWIA.DE%2CVWCE.DE&from=2025-03-10&to=2025-03-14')
+    expect(result).toMatchObject({ ok: true })
+  })
+
+  it('renews the session and retries when the access token has expired', async () => {
+    // Prices are the only thing a non-premium user fetches often, and /sync is
+    // behind withPremium, so nothing else would ever renew the session for
+    // them: a 401 answered as "no prices" would be permanent.
+    fetchMock
+      .mockResolvedValueOnce(json({ success: false, error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(json({ success: true }))
+      .mockResolvedValueOnce(json({ success: true, data: { 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } } }))
+
+    const result = await apiClient.getPrices(['FWIA.DE'], '2025-03-10', '2025-03-14')
+
+    expect(urlsOf()[1]).toBe('/api/v1/refresh')
+    expect(result.ok).toBe(true)
+    expect(result.data).toEqual({ 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } })
+  })
+
+  it('sends a symbol search as a query', async () => {
+    fetchMock.mockResolvedValue(json({ success: true, data: { results: [] } }))
+
+    await apiClient.searchInstruments('IE00BHZRQZ17')
+
+    expect(urlsOf()[0]).toBe('/api/v1/prices/search?q=IE00BHZRQZ17')
+  })
+})
+
 describe('api-client connectivity reporting', () => {
   it('two consecutive transport failures drive the connection to unreachable', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))

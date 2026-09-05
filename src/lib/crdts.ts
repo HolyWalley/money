@@ -8,7 +8,10 @@ import type { Wallet } from '../../shared/schemas/wallet.schema'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 import type { RecurringPayment, RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
 import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
-import type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog, DexieSavingGoal } from './db-dexie'
+import type { BrokerAccount } from '../../shared/schemas/broker-account.schema'
+import type { Instrument } from '../../shared/schemas/instrument.schema'
+import type { Trade } from '../../shared/schemas/trade.schema'
+import type { DexieCategory, DexieWallet, DexieTransaction, DexieRecurringPayment, DexieRecurringPaymentLog, DexieSavingGoal, DexieBrokerAccount, DexieInstrument, DexieTrade } from './db-dexie'
 
 // Yjs event types
 interface YMapEvent {
@@ -43,6 +46,21 @@ function createRecurringPaymentLogMap(data: Omit<RecurringPaymentLog, '_id'> & {
 }
 
 function createSavingGoalMap(data: Omit<SavingGoal, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
+function createBrokerAccountMap(data: Omit<BrokerAccount, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
+function createInstrumentMap(data: Omit<Instrument, '_id'> & { _id: string }): Y.Map<unknown> {
+  const entries = Object.entries(data) as [string, unknown][]
+  return new Y.Map(entries)
+}
+
+function createTradeMap(data: Omit<Trade, '_id'> & { _id: string }): Y.Map<unknown> {
   const entries = Object.entries(data) as [string, unknown][]
   return new Y.Map(entries)
 }
@@ -95,6 +113,9 @@ const transactions = ydoc.getMap<Y.Map<unknown>>('transactions')
 const recurringPayments = ydoc.getMap<Y.Map<unknown>>('recurringPayments')
 const recurringPaymentLogs = ydoc.getMap<Y.Map<unknown>>('recurringPaymentLogs')
 const savingGoals = ydoc.getMap<Y.Map<unknown>>('savingGoals')
+const brokerAccounts = ydoc.getMap<Y.Map<unknown>>('brokerAccounts')
+const instruments = ydoc.getMap<Y.Map<unknown>>('instruments')
+const trades = ydoc.getMap<Y.Map<unknown>>('trades')
 
 // Generic observer setup for Yjs maps syncing to Dexie
 function setupDeepObserver<TDexie>(
@@ -258,6 +279,59 @@ Promise.resolve().then(() => {
         ...(obj as SavingGoal),
         goalType: (obj.goalType as SavingGoal['goalType']) ?? 'target',
         targetDate: targetDate && !isNaN(targetDate.getTime()) ? targetDate : undefined,
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
+  );
+
+  // Setup observers for broker accounts
+  setupDeepObserver<DexieBrokerAccount>(
+    brokerAccounts,
+    db.brokerAccounts,
+    (obj) => {
+      const now = new Date();
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as BrokerAccount),
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
+  );
+
+  // Setup observers for instruments
+  setupDeepObserver<DexieInstrument>(
+    instruments,
+    db.instruments,
+    (obj) => {
+      const now = new Date();
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as Instrument),
+        createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
+        updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
+      };
+    }
+  );
+
+  // Setup observers for trades
+  setupDeepObserver<DexieTrade>(
+    trades,
+    db.trades,
+    (obj) => {
+      const now = new Date();
+      const date = obj.date ? new Date(obj.date as string) : now;
+      const createdAt = obj.createdAt ? new Date(obj.createdAt as string) : now;
+      const updatedAt = obj.updatedAt ? new Date(obj.updatedAt as string) : now;
+
+      return {
+        ...(obj as Trade),
+        date: isNaN(date.getTime()) ? now : date,
         createdAt: isNaN(createdAt.getTime()) ? now : createdAt,
         updatedAt: isNaN(updatedAt.getTime()) ? now : updatedAt
       };
@@ -439,35 +513,41 @@ export function addRecurringPayment({
   return id
 }
 
+/**
+ * Applies one optional field of an update.
+ *
+ * A plain `updates.x !== undefined` check cannot tell "leave this field alone"
+ * from "clear it", so an optional field could be set but never unset. The key
+ * being present with an undefined value is the caller asking for it to go.
+ */
+function setOptional<T extends object>(map: Y.Map<unknown>, updates: T, key: keyof T & string) {
+  if (!Object.prototype.hasOwnProperty.call(updates, key)) return
+
+  const value = updates[key]
+  if (value === undefined) {
+    map.delete(key)
+  } else {
+    map.set(key, value)
+  }
+}
+
 export function updateRecurringPayment(id: string, updates: Partial<RecurringPayment>) {
   ydoc.transact(() => {
     const recurringPayment = recurringPayments.get(id)
     if (!recurringPayment) return
 
-    const setOptional = <K extends keyof RecurringPayment>(key: K) => {
-      if (Object.prototype.hasOwnProperty.call(updates, key)) {
-        const value = updates[key]
-        const mapKey = key as string
-        if (value === undefined) {
-          recurringPayment.delete(mapKey)
-        } else {
-          recurringPayment.set(mapKey, value)
-        }
-      }
-    }
-
     if (updates.amount !== undefined) recurringPayment.set('amount', updates.amount)
     if (updates.currency !== undefined) recurringPayment.set('currency', updates.currency)
     if (updates.categoryId !== undefined) recurringPayment.set('categoryId', updates.categoryId)
     if (updates.walletId !== undefined) recurringPayment.set('walletId', updates.walletId)
-    setOptional('toWalletId')
+    setOptional(recurringPayment, updates, 'toWalletId')
     if (updates.transactionType !== undefined) recurringPayment.set('transactionType', updates.transactionType)
-    setOptional('description')
+    setOptional(recurringPayment, updates, 'description')
     if (updates.rrule !== undefined) recurringPayment.set('rrule', updates.rrule)
     if (updates.startDate !== undefined) recurringPayment.set('startDate', updates.startDate)
-    setOptional('endDate')
+    setOptional(recurringPayment, updates, 'endDate')
     if (updates.isActive !== undefined) recurringPayment.set('isActive', updates.isActive)
-    setOptional('savingsWalletId')
+    setOptional(recurringPayment, updates, 'savingsWalletId')
     recurringPayment.set('updatedAt', new Date().toISOString())
   })
 }
@@ -578,6 +658,169 @@ export function deleteSavingGoal(id: string) {
   })
 }
 
+export function addBrokerAccount({ type, name, broker, cashWalletId, order }: Omit<BrokerAccount, '_id' | 'createdAt' | 'updatedAt'>) {
+  const id = uuid()
+  ydoc.transact(() => {
+    brokerAccounts.set(id, createBrokerAccountMap({
+      _id: id,
+      type,
+      name,
+      broker,
+      cashWalletId,
+      order,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }))
+  })
+  return id
+}
+
+export function updateBrokerAccount(id: string, updates: Partial<BrokerAccount>) {
+  ydoc.transact(() => {
+    const account = brokerAccounts.get(id)
+    if (!account) return
+
+    if (updates.name !== undefined) account.set('name', updates.name)
+    if (updates.broker !== undefined) account.set('broker', updates.broker)
+    setOptional(account, updates, 'cashWalletId')
+    if (updates.order !== undefined) account.set('order', updates.order)
+    account.set('updatedAt', new Date().toISOString())
+  })
+}
+
+// Leaves the account's trades and instruments behind, exactly as deleteWallet
+// leaves its transactions behind; investmentService removes the trades first.
+export function deleteBrokerAccount(id: string) {
+  ydoc.transact(() => {
+    brokerAccounts.delete(id)
+  })
+}
+
+export function addInstrument({ type, isin, ticker, symbol, name, currency, kind }: Omit<Instrument, '_id' | 'createdAt' | 'updatedAt'>) {
+  const id = uuid()
+  ydoc.transact(() => {
+    instruments.set(id, createInstrumentMap({
+      _id: id,
+      type,
+      isin,
+      ticker,
+      symbol,
+      name,
+      currency,
+      kind,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }))
+  })
+  return id
+}
+
+export function updateInstrument(id: string, updates: Partial<Instrument>) {
+  ydoc.transact(() => {
+    const instrument = instruments.get(id)
+    if (!instrument) return
+
+    setOptional(instrument, updates, 'isin')
+    setOptional(instrument, updates, 'ticker')
+    setOptional(instrument, updates, 'symbol')
+    if (updates.name !== undefined) instrument.set('name', updates.name)
+    if (updates.currency !== undefined) instrument.set('currency', updates.currency)
+    if (updates.kind !== undefined) instrument.set('kind', updates.kind)
+    instrument.set('updatedAt', new Date().toISOString())
+  })
+}
+
+export function deleteInstrument(id: string) {
+  ydoc.transact(() => {
+    instruments.delete(id)
+  })
+}
+
+// A trade as a caller hands it over: an id and timestamps of its own are
+// optional, so a bulk import can insert rows whose ids it already assigned.
+type NewTrade = Omit<Trade, '_id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Trade, '_id' | 'createdAt' | 'updatedAt'>>
+
+function newTrade({ _id, type, accountId, instrumentId, kind, date, quantity, price, amount, currency, fee, externalId, note, createdAt, updatedAt }: NewTrade): Trade {
+  const timestamp = new Date().toISOString()
+  return {
+    _id: _id ?? uuid(),
+    type,
+    accountId,
+    instrumentId,
+    kind,
+    date,
+    quantity,
+    price,
+    amount,
+    currency,
+    fee,
+    externalId,
+    note,
+    createdAt: createdAt ?? timestamp,
+    updatedAt: updatedAt ?? timestamp
+  }
+}
+
+export function addTrade(tradeData: NewTrade) {
+  const trade = newTrade(tradeData)
+  ydoc.transact(() => {
+    trades.set(trade._id, createTradeMap(trade))
+  })
+  return trade._id
+}
+
+/**
+ * Adds many trades in a single transaction, keeping the ids of those that
+ * already carry one.
+ *
+ * A statement import inserts hundreds of trades at once. Yjs emits one document
+ * update per transaction, so adding them one at a time would hand the sync layer
+ * hundreds of updates to store and ship instead of one.
+ */
+export function addTrades(tradesData: NewTrade[]) {
+  const newTrades = tradesData.map(newTrade)
+  ydoc.transact(() => {
+    for (const trade of newTrades) {
+      trades.set(trade._id, createTradeMap(trade))
+    }
+  })
+  return newTrades.map(trade => trade._id)
+}
+
+export function updateTrade(id: string, updates: Partial<Trade>) {
+  ydoc.transact(() => {
+    const trade = trades.get(id)
+    if (!trade) return
+
+    if (updates.accountId !== undefined) trade.set('accountId', updates.accountId)
+    setOptional(trade, updates, 'instrumentId')
+    if (updates.kind !== undefined) trade.set('kind', updates.kind)
+    if (updates.date !== undefined) trade.set('date', updates.date)
+    if (updates.quantity !== undefined) trade.set('quantity', updates.quantity)
+    setOptional(trade, updates, 'price')
+    if (updates.amount !== undefined) trade.set('amount', updates.amount)
+    if (updates.currency !== undefined) trade.set('currency', updates.currency)
+    if (updates.fee !== undefined) trade.set('fee', updates.fee)
+    if (updates.externalId !== undefined) trade.set('externalId', updates.externalId)
+    setOptional(trade, updates, 'note')
+    trade.set('updatedAt', new Date().toISOString())
+  })
+}
+
+export function deleteTrade(id: string) {
+  ydoc.transact(() => {
+    trades.delete(id)
+  })
+}
+
+export function deleteTrades(ids: string[]) {
+  ydoc.transact(() => {
+    for (const id of ids) {
+      trades.delete(id)
+    }
+  })
+}
+
 export {
   ydoc,
   crdtReady,
@@ -588,4 +831,7 @@ export {
   recurringPayments,
   recurringPaymentLogs,
   savingGoals,
+  brokerAccounts,
+  instruments,
+  trades,
 }
