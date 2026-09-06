@@ -201,7 +201,7 @@ describe('importTrades', () => {
   it('stores every row of a first import', async () => {
     const summary = await investmentService.importTrades('acc-1', JANUARY_STATEMENT)
 
-    expect(summary).toEqual({ inserted: 3, alreadyImported: 0, duplicateWithinFile: 0, invalid: [] })
+    expect(summary).toEqual({ inserted: 3, alreadyImported: 0, duplicateWithinFile: 0, relabelled: 0, invalid: [] })
     expect(yTrades.size).toBe(3)
   })
 
@@ -210,7 +210,7 @@ describe('importTrades', () => {
 
     const summary = await investmentService.importTrades('acc-1', FEBRUARY_STATEMENT)
 
-    expect(summary).toEqual({ inserted: 2, alreadyImported: 3, duplicateWithinFile: 0, invalid: [] })
+    expect(summary).toEqual({ inserted: 2, alreadyImported: 3, duplicateWithinFile: 0, relabelled: 0, invalid: [] })
     expect(yTrades.size).toBe(5)
   })
 
@@ -220,8 +220,38 @@ describe('importTrades', () => {
 
     const summary = await investmentService.importTrades('acc-1', JANUARY_STATEMENT)
 
-    expect(summary).toEqual({ inserted: 0, alreadyImported: 3, duplicateWithinFile: 0, invalid: [] })
+    expect(summary).toEqual({ inserted: 0, alreadyImported: 3, duplicateWithinFile: 0, relabelled: 0, invalid: [] })
     expect([...yTrades.keys()].sort()).toEqual(before)
+  })
+
+  // The parser learned to carry the statement's own words after these rows were
+  // already stored, and nothing else would ever put them there: a re-import
+  // skips what it already has.
+  it('gives an already-imported row the words the statement gave it', async () => {
+    const bare = { ...buyRow('2026-01-05T09:00:00.000Z', 3, -540.3), kind: 'interest' as const }
+    await investmentService.importTrades('acc-1', [bare])
+
+    const summary = await investmentService.importTrades('acc-1', [
+      { ...bare, note: 'Promocja rabat' },
+    ])
+
+    expect(summary.relabelled).toBe(1)
+    expect(summary.inserted).toBe(0)
+    expect([...yTrades.values()][0].get('note')).toBe('Promocja rabat')
+  })
+
+  // A note the user has written on is theirs, and a re-import is not the moment
+  // to take it back.
+  it('leaves a note that is already there alone', async () => {
+    const bare = { ...buyRow('2026-01-05T09:00:00.000Z', 3, -540.3), kind: 'interest' as const }
+    await investmentService.importTrades('acc-1', [{ ...bare, note: 'Mine' }])
+
+    const summary = await investmentService.importTrades('acc-1', [
+      { ...bare, note: 'Promocja rabat' },
+    ])
+
+    expect(summary.relabelled).toBe(0)
+    expect([...yTrades.values()][0].get('note')).toBe('Mine')
   })
 
   it('skips a row repeated inside a single statement', async () => {
@@ -229,7 +259,7 @@ describe('importTrades', () => {
 
     const summary = await investmentService.importTrades('acc-1', [repeated, repeated])
 
-    expect(summary).toEqual({ inserted: 1, alreadyImported: 0, duplicateWithinFile: 1, invalid: [] })
+    expect(summary).toEqual({ inserted: 1, alreadyImported: 0, duplicateWithinFile: 1, relabelled: 0, invalid: [] })
     expect(yTrades.size).toBe(1)
   })
 
@@ -241,7 +271,7 @@ describe('importTrades', () => {
 
     const summary = await investmentService.importTrades('acc-2', JANUARY_STATEMENT)
 
-    expect(summary).toEqual({ inserted: 3, alreadyImported: 0, duplicateWithinFile: 0, invalid: [] })
+    expect(summary).toEqual({ inserted: 3, alreadyImported: 0, duplicateWithinFile: 0, relabelled: 0, invalid: [] })
     expect(yTrades.size).toBe(6)
 
     await waitFor(async () => (await db.trades.count()) === 6, 'trades never reached Dexie')
@@ -258,7 +288,7 @@ describe('importTrades', () => {
 
     const summary = await investmentService.importTrades('acc-1', [...JANUARY_STATEMENT, repeated, repeated])
 
-    expect(summary).toEqual({ inserted: 1, alreadyImported: 3, duplicateWithinFile: 1, invalid: [] })
+    expect(summary).toEqual({ inserted: 1, alreadyImported: 3, duplicateWithinFile: 1, relabelled: 0, invalid: [] })
     expect(yTrades.size).toBe(4)
   })
 

@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, PiggyBank, Trash } from 'lucide-react'
+import { ChartCandlestick, MoreHorizontal, Pencil, PiggyBank, Trash } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,11 +14,19 @@ import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
 interface WalletCardProps {
   wallet: Wallet
+  /**
+   * The broker whose cash this wallet holds, where it holds one.
+   *
+   * Worth saying on the card, because such a wallet moves without a
+   * transaction behind it to point at: a statement is stored as trades, and
+   * the balance is derived from them along with the ledger's own rows.
+   */
+  brokerName?: string
   onEdit: (wallet: Wallet) => void
   onDelete: (wallet: Wallet) => void
 }
 
-export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
+export function WalletCard({ wallet, brokerName, onEdit, onDelete }: WalletCardProps) {
   const {
     attributes,
     listeners,
@@ -61,6 +69,12 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-base font-medium flex items-center gap-1.5">
             {wallet.isSavings && <PiggyBank className="h-4 w-4 text-muted-foreground" />}
+            {brokerName && (
+              <ChartCandlestick
+                className="text-muted-foreground h-4 w-4"
+                aria-label={`Holds ${brokerName}'s cash`}
+              />
+            )}
             {wallet.name}
           </CardTitle>
           <DropdownMenu>
@@ -100,8 +114,8 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
               formatCurrency(balance, wallet.currency)
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Current balance
+          <p className="text-muted-foreground mt-1 text-xs">
+            {brokerName ? `Cash at ${brokerName}, after imported trades` : 'Current balance'}
           </p>
         </CardContent>
       </Card>

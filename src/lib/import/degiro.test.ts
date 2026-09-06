@@ -493,6 +493,10 @@ describe('cash movements', () => {
     expect(row.kind).toBe('interest')
     expect(row.amount).toBe(5)
     expect(row.warnings).toEqual([])
+    // Filed as income, which it is, but still called what the statement called
+    // it - otherwise it reads as "Interest" beside eighteen quarterly notices
+    // of nothing, and the only word telling them apart is gone.
+    expect(row.description).toBe('Promocja rabat')
   })
 
   it('leaves a genuinely unfamiliar row unclassified, with a warning rather than a silent drop', () => {

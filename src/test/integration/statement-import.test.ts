@@ -175,6 +175,7 @@ describe('a parsed statement stored and read back', () => {
       inserted: 0,
       alreadyImported: rows.length,
       duplicateWithinFile: 0,
+      relabelled: 0,
       invalid: [],
     })
     expect(await db.trades.where('accountId').equals(accountId).count()).toBe(rows.length)

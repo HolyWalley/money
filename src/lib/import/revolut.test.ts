@@ -525,6 +525,9 @@ describe('revolutParser', () => {
       // Booked as income the balance would read 101.20: out by twice the fee.
       expect(sumAmounts(parsed.rows)).toBeCloseTo(98.80, 2)
       expect(parsed.rows[1].warnings).toContainEqual(expect.stringContaining('CUSTODY FEE'))
+      // Carried through so a ledger can call the row what Revolut called it,
+      // rather than filing every cost under the one word 'Fee'.
+      expect(parsed.rows[1].description).toBe('CUSTODY FEE')
     })
 
     it('reads a withdrawal-shaped type as money leaving, and says it guessed', () => {

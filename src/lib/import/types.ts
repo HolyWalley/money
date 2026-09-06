@@ -25,6 +25,17 @@ export interface ParsedRow {
   instrumentName?: string
   quantity?: number
   price?: number
+  /**
+   * What the statement itself called this row: DeGiro's description column,
+   * Revolut's type.
+   *
+   * Kept because the kind a row is filed under is a category, not a name, and
+   * the two are not the same thing. A promotional rebate is income to a ledger
+   * and is imported as interest, which is right - but a list that shows it as
+   * "Interest" beside eighteen quarterly notices has thrown away the only word
+   * that told them apart.
+   */
+  description?: string
   amount: number          // signed cash effect, in currency
   currency: string
   fee?: number

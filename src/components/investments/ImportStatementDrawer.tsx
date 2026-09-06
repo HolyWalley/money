@@ -58,6 +58,12 @@ function noteFor(row: ParsedRow): string | undefined {
       return 'Withdrawal'
     case 'unknown':
       return `Unrecognised statement row: ${row.raw.trim().slice(0, NOTE_LENGTH)}`
+    // A cost names no holding to be listed under, so without the statement's
+    // own words all it can be called is its kind - and "Interest" is what a
+    // quarterly notice of nothing and a 5.00 promotional rebate both read as.
+    case 'fee':
+    case 'interest':
+      return row.description?.slice(0, NOTE_LENGTH)
     default:
       return undefined
   }
@@ -473,6 +479,13 @@ export function ImportStatementDrawer({
                     value={summary.duplicateWithinFile}
                     note="the statement stated them twice; imported once"
                   />
+                  {summary.relabelled > 0 && (
+                    <SummaryLine
+                      label="Relabelled"
+                      value={summary.relabelled}
+                      note="already imported, and now carrying the words the statement gave them"
+                    />
+                  )}
                   <SummaryLine
                     label="Could not be read"
                     value={summary.invalid.length}

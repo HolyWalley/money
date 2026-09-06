@@ -412,6 +412,7 @@ function parseRow(record: CsvRecord, seen: Map<string, number>): ParsedRow {
     date,
     amount,
     currency,
+    description: description.trim() || undefined,
     orderId,
     externalId: makeExternalId('degiro', [...identity, occurrence]),
     raw: record.raw,

@@ -55,6 +55,7 @@ const emptySummary: ImportTradesSummary = {
   inserted: 0,
   alreadyImported: 0,
   duplicateWithinFile: 0,
+  relabelled: 0,
   invalid: [],
 }
 
@@ -324,6 +325,23 @@ describe('confirming the import', () => {
     expect([...new Set(rows.map(row => row.kind))].sort()).toEqual(['buy', 'fee', 'interest'])
   })
 
+  // A cost names no holding to be listed under, so its kind is all a ledger
+  // could otherwise call it - and "Interest" is what a quarterly notice of
+  // nothing and a 5.00 promotional rebate would both read as.
+  it('carries the words the statement used onto the rows that have no holding', async () => {
+    renderDrawer()
+    const user = await uploadFixture(DEGIRO_FIXTURE)
+
+    await user.click(await screen.findByRole('button', { name: /^Import \d+ rows$/ }))
+    await waitFor(() => expect(mocks.importTrades).toHaveBeenCalledTimes(1))
+
+    const notes = importedRows()
+      .filter(row => row.kind === 'interest' || row.kind === 'fee')
+      .map(row => row.note)
+    expect(notes).toContain('Promocja rabat')
+    expect(notes.every(note => Boolean(note))).toBe(true)
+  })
+
   it('resolves one instrument per holding and never the broker cash account', async () => {
     renderDrawer()
     const user = await uploadFixture(DEGIRO_FIXTURE)
@@ -344,6 +362,7 @@ describe('confirming the import', () => {
       inserted: 12,
       alreadyImported: 92,
       duplicateWithinFile: 3,
+      relabelled: 0,
       invalid: [{ index: 4, reason: 'date: Required' }],
     } satisfies ImportTradesSummary)
 

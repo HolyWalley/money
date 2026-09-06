@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Wallet, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WalletCard } from './WalletCard'
@@ -29,12 +29,14 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { restrictToParentElement } from '@dnd-kit/modifiers'
+import { useLiveBrokerAccounts } from '@/hooks/useLiveBrokerAccounts'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { walletService } from '@/services/walletService'
 import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema'
 
 export function WalletList() {
   const { wallets, isLoading } = useLiveWallets()
+  const { brokerAccounts } = useLiveBrokerAccounts()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null)
@@ -42,6 +44,19 @@ export function WalletList() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCheckingTransactions, setIsCheckingTransactions] = useState(false)
   const [localWallets, setLocalWallets] = useState<WalletType[]>([])
+
+  // Which wallet holds which broker's cash, so a card can say so. Two accounts
+  // can share one wallet; the first to name it is the one the card credits,
+  // which is the common case and the only one worth a sentence.
+  const brokerNames = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const account of brokerAccounts) {
+      if (account.cashWalletId && !names.has(account.cashWalletId)) {
+        names.set(account.cashWalletId, account.name)
+      }
+    }
+    return names
+  }, [brokerAccounts])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -188,6 +203,7 @@ export function WalletList() {
                 <WalletCard
                   key={wallet._id}
                   wallet={wallet}
+                  brokerName={brokerNames.get(wallet._id)}
                   onEdit={handleEdit}
                   onDelete={setWalletToDelete}
                 />

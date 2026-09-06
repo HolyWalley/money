@@ -6,6 +6,7 @@ import {
   addInstrument,
   updateInstrument as updateInstrumentCRDT,
   addTrades,
+  updateTrade,
   deleteTrades,
   instruments as yInstruments,
   trades as yTrades,
@@ -37,6 +38,14 @@ export interface ImportTradesSummary {
   alreadyImported: number
   /** Rows the statement itself repeats verbatim. */
   duplicateWithinFile: number
+  /**
+   * Rows already imported that gained the words the statement gave them.
+   *
+   * Only ever fills a note that was empty. A row imported before the parser
+   * carried descriptions has nothing to lose by being told what it was called,
+   * but one the user has since written on is theirs.
+   */
+  relabelled: number
   /** Rows that could not be read. The rest of the statement is imported anyway. */
   invalid: ImportTradeIssue[]
 }
@@ -251,9 +260,10 @@ class InvestmentService {
 
   async importTrades(accountId: string, rows: ImportTradeRow[]): Promise<ImportTradesSummary> {
     try {
-      const alreadyStored = this.externalIdsOfAccount(accountId)
+      const stored = this.storedByExternalId(accountId)
       const seenInFile = new Set<string>()
       const newTrades: Array<Omit<Trade, '_id' | 'createdAt' | 'updatedAt'>> = []
+      const relabel = new Map<string, string>()
       const invalid: ImportTradeIssue[] = []
       let alreadyImported = 0
       let duplicateWithinFile = 0
@@ -275,8 +285,10 @@ class InvestmentService {
         // had, and a single file can repeat a row verbatim. The two are counted
         // apart: only the first means "you have imported this before".
         const { externalId } = parsed.data
-        if (alreadyStored.has(externalId)) {
+        const existing = stored.get(externalId)
+        if (existing) {
           alreadyImported++
+          if (parsed.data.note && !existing.note) relabel.set(existing.id, parsed.data.note)
           return
         }
         if (seenInFile.has(externalId)) {
@@ -289,11 +301,15 @@ class InvestmentService {
       })
 
       addTrades(newTrades)
+      for (const [id, note] of relabel) {
+        updateTrade(id, { note })
+      }
 
       return {
         inserted: newTrades.length,
         alreadyImported,
         duplicateWithinFile,
+        relabelled: relabel.size,
         invalid
       }
     } catch (error) {
@@ -345,14 +361,16 @@ class InvestmentService {
    * than the mirror: a second import started before the mirror caught up with
    * the first would re-insert every row.
    */
-  private externalIdsOfAccount(accountId: string): Set<string> {
-    const externalIds = new Set<string>()
-    for (const entry of yTrades.values()) {
+  private storedByExternalId(accountId: string): Map<string, { id: string; note?: string }> {
+    const stored = new Map<string, { id: string; note?: string }>()
+    for (const [id, entry] of yTrades.entries()) {
       if (entry.get('accountId') !== accountId) continue
       const externalId = entry.get('externalId')
-      if (typeof externalId === 'string') externalIds.add(externalId)
+      if (typeof externalId !== 'string') continue
+      const note = entry.get('note')
+      stored.set(externalId, { id, note: typeof note === 'string' ? note : undefined })
     }
-    return externalIds
+    return stored
   }
 
   private async getMaxOrder(): Promise<number> {

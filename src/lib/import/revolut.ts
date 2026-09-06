@@ -393,6 +393,7 @@ function parse(text: string): ParsedStatement {
       ticker: ticker || undefined,
       quantity: quantity ?? 0,
       price: price ?? undefined,
+      description: rawType.trim() || undefined,
       amount: signedAmount(kind, amount),
       currency,
       fee: 0,
