@@ -13,7 +13,7 @@ import type { BrokerAccount } from '../../../shared/schemas/broker-account.schem
 export function InvestmentsPage() {
   const portfolio = usePortfolio()
   const history = usePortfolioHistory()
-  const { brokerAccounts, isLoading } = useLiveBrokerAccounts()
+  const brokerAccounts = useLiveBrokerAccounts()
   // Which account the import was started from, where it was started from one at
   // all. The drawer stays mounted while closed so it can animate out with its
   // content still on screen rather than blanking halfway.
@@ -26,9 +26,7 @@ export function InvestmentsPage() {
     setIsImportOpen(true)
   }
 
-  // Only once it is known there are none: hiding the portfolio while the
-  // accounts are still being read would blank the page and then fill it.
-  const hasNoAccounts = !isLoading && brokerAccounts.length === 0
+  const hasNoAccounts = brokerAccounts.length === 0
 
   return (
     <main className="mx-auto py-6 px-4 sm:px-6 lg:px-8">

@@ -8,8 +8,6 @@ import { getPeriodDates, type TransactionFilters } from './useLiveTransactions'
 /** Enough periods to see a direction without crowding a phone screen. */
 export const TREND_PERIOD_COUNT = 6
 
-const IDLE: TransactionFilters = { isLoading: true }
-
 export interface TrendPoint {
   period: Period
   income: number
@@ -58,7 +56,7 @@ export function usePeriodTrend(
     }
   }, [filters, periods])
 
-  const { transactions, isLoading } = useDecoratedTransactions(spanFilters ?? IDLE)
+  const { transactions, isLoading } = useDecoratedTransactions(spanFilters)
 
   const points = useMemo(() => {
     if (periods.length === 0) return []

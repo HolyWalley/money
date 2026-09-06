@@ -59,8 +59,8 @@ function deleteDescription({ account, tradeCount }: DeleteTarget): string {
 }
 
 export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
-  const { brokerAccounts, isLoading } = useLiveBrokerAccounts()
-  const { wallets } = useLiveWallets()
+  const brokerAccounts = useLiveBrokerAccounts()
+  const wallets = useLiveWallets()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<BrokerAccount | null>(null)
@@ -102,8 +102,6 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
       console.error('Failed to delete broker account:', error)
     }
   }
-
-  if (isLoading) return null
 
   return (
     <section>

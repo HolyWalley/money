@@ -34,7 +34,7 @@ const wallets: Wallet[] = [
 ]
 
 vi.mock('@/hooks/useLiveWallets', () => ({
-  useLiveWallets: () => ({ wallets, isLoading: false }),
+  useLiveWallets: () => wallets,
 }))
 
 // The real select is a Base UI popup; a native one keeps the label wiring and

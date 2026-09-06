@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useWalletBalance } from '@/hooks/useWalletBalance'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
 interface WalletCardProps {
@@ -22,11 +21,12 @@ interface WalletCardProps {
    * the balance is derived from them along with the ledger's own rows.
    */
   brokerName?: string
+  balance: number
   onEdit: (wallet: Wallet) => void
   onDelete: (wallet: Wallet) => void
 }
 
-export function WalletCard({ wallet, brokerName, onEdit, onDelete }: WalletCardProps) {
+export function WalletCard({ wallet, brokerName, balance, onEdit, onDelete }: WalletCardProps) {
   const {
     attributes,
     listeners,
@@ -38,8 +38,6 @@ export function WalletCard({ wallet, brokerName, onEdit, onDelete }: WalletCardP
     id: wallet._id,
     animateLayoutChanges: () => false,
   })
-
-  const { balance, isLoading } = useWalletBalance(wallet._id)
 
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -108,11 +106,7 @@ export function WalletCard({ wallet, brokerName, onEdit, onDelete }: WalletCardP
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {isLoading ? (
-              <span className="text-muted-foreground">...</span>
-            ) : (
-              formatCurrency(balance, wallet.currency)
-            )}
+            {formatCurrency(balance, wallet.currency)}
           </div>
           <p className="text-muted-foreground mt-1 text-xs">
             {brokerName ? `Cash at ${brokerName}, after imported trades` : 'Current balance'}

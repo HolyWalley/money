@@ -10,26 +10,24 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('./useLiveRecurringPayments', () => ({
-  useLiveRecurringPayments: () => ({
-    recurringPayments: mocks.recurringPayments,
-    isLoading: false,
-  }),
+  useLiveRecurringPayments: () => mocks.recurringPayments,
 }))
 
 // Models the real query: it reads only the logs inside the window it is handed,
 // so a hook that widens the occurrence window without widening this one shows
 // payments that were in fact already logged.
 vi.mock('./useLiveRecurringPaymentLogs', () => ({
-  useLiveRecurringPaymentLogs: ({ periodStart, periodEnd }: { periodStart?: Date; periodEnd?: Date }) => ({
-    logs: mocks.loggedDates
-      .map(day => ({ _id: `rp-1_${day}`, recurringPaymentId: 'rp-1', scheduledDate: new Date(`${day}T12:00:00`) }))
-      .filter(log => !periodStart || !periodEnd || (log.scheduledDate >= periodStart && log.scheduledDate <= periodEnd)),
-    isLoading: false,
-  }),
+  useLiveRecurringPaymentLogs: ({ periodStart, periodEnd }: { periodStart?: Date; periodEnd?: Date }) =>
+    mocks.loggedDates
+      .map(day => ({ _id: `rp-1_${day}`, recurringPaymentId: 'rp-1', scheduledDate: new Date(`${day}T12:00:00`).toISOString() }))
+      .filter(log => {
+        const scheduledAt = Date.parse(log.scheduledDate)
+        return !periodStart || !periodEnd || (scheduledAt >= periodStart.getTime() && scheduledAt <= periodEnd.getTime())
+      }),
 }))
 
 vi.mock('./useLiveSavingGoals', () => ({
-  useLiveSavingGoals: () => ({ goals: [], isLoading: false }),
+  useLiveSavingGoals: () => [],
 }))
 
 // Monthly, on the 5th, starting September 2026.

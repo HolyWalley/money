@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { WalletCard } from './WalletCard'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
 
-// The card is a drag handle in the list it normally lives in, and neither the
-// drag nor the ledger read is what these tests are about.
+// The card is a drag handle in the list it normally lives in, and the drag is
+// not what these tests are about.
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({
     attributes: {},
@@ -18,10 +18,6 @@ vi.mock('@dnd-kit/sortable', () => ({
 
 vi.mock('@dnd-kit/utilities', () => ({
   CSS: { Transform: { toString: () => undefined } },
-}))
-
-vi.mock('@/hooks/useWalletBalance', () => ({
-  useWalletBalance: () => ({ balance: 3.39, isLoading: false }),
 }))
 
 const wallet: Wallet = {
@@ -38,7 +34,7 @@ const wallet: Wallet = {
 
 function renderCard(props: Partial<Parameters<typeof WalletCard>[0]> = {}) {
   return render(
-    <WalletCard wallet={wallet} onEdit={() => {}} onDelete={() => {}} {...props} />
+    <WalletCard wallet={wallet} balance={3.39} onEdit={() => {}} onDelete={() => {}} {...props} />
   )
 }
 

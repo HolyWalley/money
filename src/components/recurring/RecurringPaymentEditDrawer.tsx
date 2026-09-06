@@ -62,7 +62,7 @@ function PaymentDetailsFields({ isSubmitting }: { isSubmitting: boolean }) {
   const amount = form.watch('amount')
   const currency = form.watch('currency')
   const walletId = form.watch('walletId')
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
 
   useEffect(() => {
     const wallet = wallets.find(w => w._id === walletId)

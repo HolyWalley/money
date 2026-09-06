@@ -11,7 +11,6 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { QuickFilterChips } from './transactions/QuickFilterChips'
-import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 import { useNetWorth } from '@/hooks/useNetWorth'
 import { usePeriodCommitments } from '@/hooks/usePeriodCommitments'
 import { usePreviousPeriodCashflow } from '@/hooks/usePeriodComparison'
@@ -24,8 +23,8 @@ import { CashflowTrendChart } from './overview/CashflowTrendChart'
 import { StatDelta } from './overview/StatDelta'
 
 function OverviewContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType } = useFilterContext()
-  const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
+  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType, isPending } = useFilterContext()
+  const { transactions } = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
   const wallets = useLiveWallets()
@@ -105,8 +104,6 @@ function OverviewContent() {
     setSelectedCategoryId(maxCategoryId)
   }, [expensesByCategory])
 
-  const initiallyLoaded = useInitiallyLoaded(isLoading)
-
   const handleFiltersChange = useCallback((newFilters: TransactionFilters) => {
     updateBaseFilters(newFilters)
   }, [updateBaseFilters])
@@ -127,10 +124,6 @@ function OverviewContent() {
     })
   }, [toggleQuickFilter])
 
-  if (!initiallyLoaded) {
-    return null
-  }
-
   if (!baseCurrency) {
     return null
   }
@@ -147,14 +140,15 @@ function OverviewContent() {
         <PeriodFilter
           filters={effectiveFilters}
           onFiltersChange={handleFiltersChange}
+          isPending={isPending}
           subtitle={`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
         />
       </div>
 
       <QuickFilterChips
         quickFilters={quickFilters}
-        wallets={wallets.wallets}
-        categories={categories.categories}
+        wallets={wallets}
+        categories={categories}
         onTypeChange={setQuickFiltersForType}
         onClearAll={clearQuickFilters}
       />
@@ -241,7 +235,7 @@ function OverviewContent() {
         {expensesByCategory.size > 0 && (
           <ExpensesByCategoryChart
             expensesByCategory={expensesByCategory}
-            categories={categories.categories}
+            categories={categories}
             baseCurrency={baseCurrency}
             selectedCategoryId={selectedCategoryId}
             onCategoryClick={setSelectedCategoryId}
@@ -252,8 +246,8 @@ function OverviewContent() {
           <div className="h-[400px]">
             <VirtualizedTransactionList
               transactions={filteredTransactions}
-              wallets={wallets.wallets}
-              categories={categories.categories}
+              wallets={wallets}
+              categories={categories}
               isMobile={isMobile}
               baseCurrency={baseCurrency}
               onWalletClick={handleWalletClick}

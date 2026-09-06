@@ -1,6 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo, useSyncExternalStore } from 'react'
 import { db } from '@/lib/db-dexie'
-import { useMemo, useRef } from 'react'
+import { documentReady } from '@/lib/document-ready'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { Transaction } from '../../shared/schemas/transaction.schema'
 import {
   getPeriodContainingDate,
@@ -23,12 +24,10 @@ export interface PeriodFilter {
 }
 
 export interface TransactionFilters {
-  isLoading: boolean
   categoryIds?: string[]
   walletIds?: string[]
   transactionTypeIds?: string[]
   period?: PeriodFilter
-  filterVersion?: string // Add a version/id that changes when filters actually change
 }
 
 export const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date } => {
@@ -51,82 +50,87 @@ export const getPeriodDates = (period: PeriodFilter): { start: Date; end: Date }
   return getAdjacentPeriod(basePeriod, offset, settings)
 }
 
-// TODO: can we somehow merge all filters into a single loop, not many loops? Maybe not needed, check dexie doc
-export function useLiveTransactions(filters: TransactionFilters) {
-  const isLoading = useRef(true)
+export const EMPTY_TRANSACTIONS: Transaction[] = []
 
-  const categoryIds = useMemo(() => {
-    if (!filters.categoryIds) {
-      return
-    }
+export const transactionsStore = createSharedLiveQuery(async () => {
+  const dexieTransactions = await db.transactions.orderBy('date').reverse().toArray()
+  // Convert Date objects back to ISO strings for components
+  return dexieTransactions.map(tx => ({
+    ...tx,
+    date: tx.date.toISOString(),
+    createdAt: tx.createdAt.toISOString(),
+    updatedAt: tx.updatedAt.toISOString()
+  })) as Transaction[]
+}, { after: documentReady, name: 'transactions' })
 
-    return new Set(filters.categoryIds)
-  }, [filters.categoryIds])
+interface TransactionSelection {
+  categoryIds: string[] | null
+  walletIds: string[] | null
+  transactionTypeIds: string[] | null
+  period: { start: number; end: number } | null
+}
 
-  const transactionTypeIds = useMemo(() => {
-    if (!filters.transactionTypeIds) {
-      return;
-    }
+const sorted = (ids: string[] | undefined): string[] | null => (ids ? [...ids].sort() : null)
 
-    return new Set(filters.transactionTypeIds)
-  }, [filters.transactionTypeIds])
+/**
+ * The filters as a string, so two objects asking for the same rows compare
+ * equal: the ids in whatever order they were ticked, and the period resolved
+ * to its instants, since "this month" is a different window tomorrow.
+ */
+export function transactionsKey(filters: TransactionFilters | null): string {
+  if (filters === null) return 'null'
 
-  const walletIds = useMemo(() => {
-    if (!filters.walletIds) {
-      return;
-    }
-
-    return new Set(filters.walletIds)
-  }, [filters.walletIds])
-
-  const transactions = useLiveQuery(async () => {
-    if (filters.isLoading) {
-      return []
-    }
-
-    let query = db.transactions.orderBy('date').reverse()
-
-    if (categoryIds && categoryIds.size) {
-      query = query.filter(t => {
-        return t.categoryId ? categoryIds.has(t.categoryId) : false
-      })
-    }
-
-    if (transactionTypeIds && transactionTypeIds.size) {
-      query = query.filter(t => {
-        return transactionTypeIds.has(t.transactionType)
-      })
-    }
-
-    if (walletIds && walletIds.size) {
-      query = query.filter(t => {
-        return walletIds.has(t.walletId) ||
-          (t.toWalletId ? walletIds.has(t.toWalletId) : false)
-      })
-    }
-
-    if (filters?.period) {
-      const { start, end } = getPeriodDates(filters.period)
-      query = query.filter(t => {
-        return t.date >= start && t.date <= end
-      })
-    }
-
-    const dexieTransactions = await query.toArray()
-
-    isLoading.current = false
-
-    // Convert Date objects back to ISO strings for components
-    return dexieTransactions.map(tx => ({
-      ...tx,
-      date: tx.date.toISOString(),
-      createdAt: tx.createdAt.toISOString(),
-      updatedAt: tx.updatedAt.toISOString()
-    })) as Transaction[]
-  }, [categoryIds, transactionTypeIds, walletIds, filters.isLoading, filters.filterVersion])
-
-  return {
-    transactions: transactions || [],
-    isLoading: isLoading.current || filters.isLoading,
+  const period = filters.period ? getPeriodDates(filters.period) : null
+  const selection: TransactionSelection = {
+    categoryIds: sorted(filters.categoryIds),
+    walletIds: sorted(filters.walletIds),
+    transactionTypeIds: sorted(filters.transactionTypeIds),
+    period: period ? { start: period.start.getTime(), end: period.end.getTime() } : null,
   }
+  return JSON.stringify(selection)
+}
+
+// An empty id list has always meant no filter rather than no rows.
+const toSet = (ids: string[] | null): Set<string> | null => (ids && ids.length ? new Set(ids) : null)
+
+function selectTransactions(all: Transaction[], selection: TransactionSelection): Transaction[] {
+  const categoryIds = toSet(selection.categoryIds)
+  const transactionTypeIds = toSet(selection.transactionTypeIds)
+  const walletIds = toSet(selection.walletIds)
+  const { period } = selection
+
+  return all.filter(t => {
+    if (categoryIds && !categoryIds.has(t.categoryId)) return false
+    if (transactionTypeIds && !transactionTypeIds.has(t.transactionType)) return false
+    if (walletIds && !walletIds.has(t.walletId) && !(t.toWalletId && walletIds.has(t.toWalletId))) return false
+    if (period) {
+      const time = Date.parse(t.date)
+      if (time < period.start || time > period.end) return false
+    }
+    return true
+  })
+}
+
+const subscribeToNothing = () => () => {}
+const readNothing = () => EMPTY_TRANSACTIONS
+
+export function useLiveTransactions(filters: TransactionFilters | null): Transaction[] {
+  // The store hook is a `useSyncExternalStore` and a `use()`. Null takes the
+  // same hook on a source that never changes, so the order holds when filters
+  // go from null to set while mounted - a rolling period becoming a monthly
+  // one - without starting a query nobody asked for.
+  const all = filters === null
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    ? useSyncExternalStore(subscribeToNothing, readNothing, readNothing)
+    : transactionsStore()
+
+  const key = transactionsKey(filters)
+  // Keyed on the serialised filters rather than the object: a provider hands
+  // out a fresh one per render, and equal filters must hand back equal rows.
+  const selection = useMemo(() => JSON.parse(key) as TransactionSelection | null, [key])
+
+  return useMemo(
+    () => (selection === null ? EMPTY_TRANSACTIONS : selectTransactions(all, selection)),
+    [all, selection]
+  )
 }

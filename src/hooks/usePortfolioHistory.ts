@@ -60,8 +60,8 @@ interface PricedCloses {
  * emptier than it was.
  */
 export function usePortfolioHistory(): UsePortfolioHistoryResult {
-  const { trades, isLoading: isLoadingTrades } = useLiveTrades()
-  const { instruments, isLoading: isLoadingInstruments } = useLiveInstruments()
+  const trades = useLiveTrades()
+  const instruments = useLiveInstruments()
   const { baseCurrency } = useCurrentRates(NO_CURRENCIES)
 
   // Pinned once rather than read from the clock on every render: a window that
@@ -182,10 +182,6 @@ export function usePortfolioHistory(): UsePortfolioHistoryResult {
     baseCurrency,
     convertOn,
     asOf,
-    isLoading:
-      isLoadingTrades ||
-      isLoadingInstruments ||
-      isLoadingRates ||
-      (symbolsKey !== '' && priced.key !== fetchKey),
+    isLoading: isLoadingRates || (symbolsKey !== '' && priced.key !== fetchKey),
   }
 }

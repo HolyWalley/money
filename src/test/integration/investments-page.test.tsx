@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db-dexie'
@@ -8,8 +8,10 @@ import {
   instruments as yInstruments,
   trades as yTrades,
 } from '@/lib/crdts'
+import { resetSharedLiveQueries } from '@/lib/shared-live-query'
 import { investmentService, type ImportTradeRow } from '@/services/investmentService'
 import { InvestmentsPage } from '@/components/investments/InvestmentsPage'
+import { mountSuspended } from '@/test/suspense'
 import { createPriceCacheKey, utcDateKey, type InstrumentCandidate } from '../../../shared/market-data'
 
 /**
@@ -150,6 +152,7 @@ async function seedPortfolio() {
 
 beforeEach(async () => {
   vi.clearAllMocks()
+  resetSharedLiveQueries()
 
   // Every day of the range, not only its last: the history curve values what
   // was held on each day in turn, and a feed answering for one day would leave
@@ -197,7 +200,7 @@ describe('the investments page, end to end', () => {
   it('values stored trades as real positions a user can read', async () => {
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     // The holdings are what the page is for; the account behind them is folded
     // away until someone goes looking for it.
@@ -227,7 +230,7 @@ describe('the investments page, end to end', () => {
   it('draws the value of what was held on every day since the first trade', async () => {
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     await screen.findByText('40.53125')
 
@@ -251,7 +254,7 @@ describe('the investments page, end to end', () => {
   it('counts the stored dividend in the year it was paid', async () => {
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     await screen.findByText('40.53125')
 
@@ -263,7 +266,7 @@ describe('the investments page, end to end', () => {
   it('says which holding is missing from the total, and why', async () => {
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     // Held, and deliberately not counted as worthless: the shares and what they
     // cost are still on the row.
@@ -286,9 +289,12 @@ describe('the investments page, end to end', () => {
   // Before the first account there is nothing to value and nowhere to import
   // to, so the page asks for the one thing it needs.
   it('asks for an account before it offers anything else', async () => {
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
-    expect(await screen.findByText('No broker accounts yet')).toBeInTheDocument()
+    // The page suspends until the accounts are known, so the empty state is
+    // there the moment anything is, never a portfolio that blanks into it.
+    await waitFor(() => expect(screen.queryByTestId('fallback')).not.toBeInTheDocument())
+    expect(screen.getByText('No broker accounts yet')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Portfolio' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Import statement' })).not.toBeInTheDocument()
   })
@@ -297,7 +303,7 @@ describe('the investments page, end to end', () => {
     const user = userEvent.setup()
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     // Clicked once the page has settled, the way a user reaches it: the live
     // queries are still re-rendering the list until the figures land.
@@ -317,7 +323,7 @@ describe('the investments page, end to end', () => {
     const user = userEvent.setup()
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     await screen.findByText('40.53125')
 
@@ -334,7 +340,7 @@ describe('the investments page, end to end', () => {
     const user = userEvent.setup()
     await seedPortfolio()
 
-    render(<InvestmentsPage />)
+    await mountSuspended(<InvestmentsPage />)
 
     await screen.findByText('40.53125')
 

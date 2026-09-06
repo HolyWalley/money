@@ -36,7 +36,7 @@ function UpcomingPaymentsSectionComponent({
   const [isOpen, setIsOpen] = useState(false)
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
-  const { payments, dueCount, upcomingCount, totalsByCurrency, isLoading } = useUpcomingPayments(periodStart, periodEnd)
+  const { payments, dueCount, upcomingCount, totalsByCurrency } = useUpcomingPayments(periodStart, periodEnd)
 
   const { duePayments, upcomingPayments } = useMemo(() => {
     return {
@@ -44,10 +44,6 @@ function UpcomingPaymentsSectionComponent({
       upcomingPayments: payments.filter(p => p.status === 'upcoming'),
     }
   }, [payments])
-
-  if (isLoading) {
-    return null
-  }
 
   const totalCount = dueCount + upcomingCount
 

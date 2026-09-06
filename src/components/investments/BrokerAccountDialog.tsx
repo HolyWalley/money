@@ -30,7 +30,7 @@ const EMPTY_VALUES: BrokerAccountFormValues = {
 }
 
 export function BrokerAccountDialog({ open, onOpenChange, account, onSuccess }: BrokerAccountDialogProps) {
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

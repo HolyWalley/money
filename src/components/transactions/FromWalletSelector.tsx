@@ -7,7 +7,7 @@ interface FromWalletSelectorProps {
 }
 
 export function FromWalletSelector({ isSubmitting, balance }: FromWalletSelectorProps) {
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
 
   return (
     <WalletSelector

@@ -14,15 +14,15 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/hooks/useLiveTrades', () => ({
-  useLiveTrades: () => ({ trades: mocks.trades, isLoading: false }),
+  useLiveTrades: () => mocks.trades,
 }))
 
 vi.mock('@/hooks/useLiveInstruments', () => ({
-  useLiveInstruments: () => ({ instruments: mocks.instruments, isLoading: false }),
+  useLiveInstruments: () => mocks.instruments,
 }))
 
 vi.mock('@/hooks/useLiveBrokerAccounts', () => ({
-  useLiveBrokerAccounts: () => ({ brokerAccounts: mocks.accounts, isLoading: false }),
+  useLiveBrokerAccounts: () => mocks.accounts,
 }))
 
 const ACCOUNT: BrokerAccount = {

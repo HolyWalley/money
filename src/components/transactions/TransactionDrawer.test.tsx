@@ -7,21 +7,25 @@ import { TransactionDrawer } from './TransactionDrawer'
 import { formDefaults } from '@/lib/form-defaults'
 import type { CreateTransaction, Transaction } from '../../../shared/schemas/transaction.schema'
 
-const mocks = vi.hoisted(() => ({
-  user: { settings: { defaultCurrency: 'USD' } },
-  wallets: [
+const mocks = vi.hoisted(() => {
+  const wallets = [
     { _id: 'w1', name: 'Cash', currency: 'USD' },
     { _id: 'w2', name: 'Revolut', currency: 'EUR' },
-  ],
-  toast: { success: vi.fn() },
-}))
+  ]
+  return {
+    user: { settings: { defaultCurrency: 'USD' } },
+    wallets,
+    useLiveWallets: vi.fn(() => wallets),
+    toast: { success: vi.fn() },
+  }
+})
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: mocks.user }),
 }))
 
 vi.mock('@/hooks/useLiveWallets', () => ({
-  useLiveWallets: () => ({ wallets: mocks.wallets, isLoading: false }),
+  useLiveWallets: () => mocks.useLiveWallets(),
 }))
 
 vi.mock('sonner', () => ({ toast: mocks.toast }))
@@ -77,6 +81,7 @@ describe('TransactionDrawer', () => {
   beforeEach(() => {
     localStorage.clear()
     mocks.toast.success.mockClear()
+    mocks.useLiveWallets.mockClear()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: (query: string) => ({
@@ -90,6 +95,22 @@ describe('TransactionDrawer', () => {
         dispatchEvent: () => false,
       }),
     })
+  })
+
+  // The wallets read suspends, and the trigger sits in the shell above any
+  // boundary; the read has to wait for the drawer to open.
+  it('reads the wallets only once it is open', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    const { rerender } = render(
+      <TransactionDrawer open={false} onOpenChange={vi.fn()} onSubmit={onSubmit} />
+    )
+
+    expect(mocks.useLiveWallets).not.toHaveBeenCalled()
+
+    rerender(<TransactionDrawer open onOpenChange={vi.fn()} onSubmit={onSubmit} />)
+
+    expect(await screen.findByLabelText('Amount')).toBeInTheDocument()
+    expect(mocks.useLiveWallets).toHaveBeenCalled()
   })
 
   it('saves and closes by default', async () => {

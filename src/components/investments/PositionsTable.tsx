@@ -203,7 +203,7 @@ export function PositionsTable({
   // from the Xetra EUR one behind the same ISIN. Average cost carries no date,
   // so pairing it with today would compare a price paid last spring against
   // today's closes and rank on the difference between two days.
-  const { trades } = useLiveTrades()
+  const trades = useLiveTrades()
   const reference = useMemo(() => {
     if (!resolving) return undefined
     // Newest first, so this is the most recent buy that recorded a price.

@@ -23,15 +23,15 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('./useLiveWallets', () => ({
-  useLiveWallets: () => ({ wallets: mocks.wallets, isLoading: false }),
+  useLiveWallets: () => mocks.wallets,
 }))
 
 vi.mock('./useWalletBalances', () => ({
-  useWalletBalances: () => ({ balances: mocks.balances, isLoading: false }),
+  useWalletBalances: () => mocks.balances,
 }))
 
 vi.mock('./useLiveBrokerAccounts', () => ({
-  useLiveBrokerAccounts: () => ({ brokerAccounts: mocks.brokerAccounts, isLoading: false }),
+  useLiveBrokerAccounts: () => mocks.brokerAccounts,
 }))
 
 vi.mock('./usePortfolio', () => ({

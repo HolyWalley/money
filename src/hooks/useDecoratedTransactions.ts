@@ -15,11 +15,11 @@ interface UseDecoratedTransactionsResult {
 }
 
 export function useDecoratedTransactions(
-  filters: TransactionFilters
+  filters: TransactionFilters | null
 ): UseDecoratedTransactionsResult {
   const { user } = useAuth();
   const baseCurrency = user?.settings?.defaultCurrency;
-  const { transactions, isLoading: isLoadingTransactions } = useLiveTransactions(filters);
+  const transactions = useLiveTransactions(filters);
 
   // Extract unique currencies and date range from transactions
   const { targetCurrencies, startDate, endDate } = useMemo(() => {
@@ -95,6 +95,6 @@ export function useDecoratedTransactions(
 
   return {
     transactions: decoratedTransactions,
-    isLoading: isLoadingTransactions || isLoadingRates,
+    isLoading: isLoadingRates,
   };
 }

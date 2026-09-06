@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useCallback, useTransition, type ReactNode } from 'react'
 import { FilterContext, type QuickFilter, type QuickFilterType } from './FilterContext'
 import type { TransactionFilters } from '@/hooks/useLiveTransactions'
 import type { FilterPage } from '@/lib/filter-persistence'
@@ -9,14 +9,8 @@ import type { Category } from '../../shared/schemas/category.schema'
 interface FilterProviderProps {
   page: FilterPage
   children: ReactNode
-  wallets: {
-    wallets: Wallet[]
-    isLoading: boolean
-  }
-  categories: {
-    categories: Category[]
-    isLoading: boolean
-  }
+  wallets: Wallet[]
+  categories: Category[]
 }
 
 // A type/value pair can only be selected once, so it doubles as a stable key.
@@ -24,7 +18,7 @@ function quickFilterId(type: QuickFilterType, value: string): string {
   return `${type}-${value}`
 }
 
-function mergeFilters(base: TransactionFilters, quick: QuickFilter[]): TransactionFilters {
+export function mergeFilters(base: TransactionFilters, quick: QuickFilter[]): TransactionFilters {
   if (quick.length === 0) {
     return base
   }
@@ -46,7 +40,6 @@ function mergeFilters(base: TransactionFilters, quick: QuickFilter[]): Transacti
     categoryIds: quickCategories.length > 0 ? quickCategories : base.categoryIds,
     walletIds: quickWallets.length > 0 ? quickWallets : base.walletIds,
     transactionTypeIds: quickTypes.length > 0 ? quickTypes : base.transactionTypeIds,
-    filterVersion: Date.now().toString(),
   }
 }
 
@@ -55,7 +48,6 @@ function getDefaultFilters(
   categories: Category[]
 ): TransactionFilters {
   return {
-    isLoading: false,
     categoryIds: categories.map(c => c._id),
     walletIds: wallets.map(w => w._id),
     transactionTypeIds: ['income', 'expense', 'transfer'],
@@ -68,53 +60,28 @@ function getDefaultFilters(
 }
 
 export function FilterProvider({ page, children, wallets, categories }: FilterProviderProps) {
-  const [initialized, setInitialized] = useState(false)
-  const [savedFilters, setSavedFilters] = useState<TransactionFilters>({ isLoading: true })
-  const [baseFilters, setBaseFilters] = useState<TransactionFilters>({ isLoading: true })
+  const [savedFilters, setSavedFilters] = useState<TransactionFilters>(
+    () => filterPersistence.loadFilters(page) ?? getDefaultFilters(wallets, categories)
+  )
+  const [baseFilters, setBaseFilters] = useState<TransactionFilters>(savedFilters)
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([])
-  const saveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
-
-  const isLoading = wallets.isLoading || categories.isLoading
-
-  useEffect(() => {
-    if (initialized || isLoading) {
-      return
-    }
-
-    const defaultFilters = getDefaultFilters(wallets.wallets, categories.categories)
-    const loadedFilters = filterPersistence.loadFilters(page)
-
-    const filtersToUse = loadedFilters || defaultFilters
-
-    setSavedFilters(filtersToUse)
-    setBaseFilters(filtersToUse)
-    setInitialized(true)
-  }, [initialized, isLoading, page, wallets.wallets, categories.categories])
+  // Every change of filters is a change of rows, and the rows are memos over a
+  // store that answers at once; the transition is what keeps the current rows
+  // on screen while the new ones are selected, instead of the page's fallback.
+  const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
-
-    if (isLoading || !initialized) {
-      return
-    }
-
     if (JSON.stringify(baseFilters) === JSON.stringify(savedFilters)) {
       return
     }
 
-    saveTimerRef.current = setTimeout(() => {
+    const saveTimer = setTimeout(() => {
       filterPersistence.saveFilters(page, baseFilters)
       setSavedFilters(baseFilters)
     }, 500)
 
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-      }
-    }
-  }, [baseFilters, savedFilters, page, isLoading, initialized])
+    return () => clearTimeout(saveTimer)
+  }, [baseFilters, savedFilters, page])
 
   const effectiveFilters = useMemo(
     () => mergeFilters(baseFilters, quickFilters),
@@ -122,11 +89,9 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
   )
 
   const updateBaseFilters = useCallback((updates: Partial<TransactionFilters>) => {
-    setBaseFilters(prev => ({
-      ...prev,
-      ...updates,
-      filterVersion: Date.now().toString(),
-    }))
+    startTransition(() => {
+      setBaseFilters(prev => ({ ...prev, ...updates }))
+    })
   }, [])
 
   const saveBaseFilters = useCallback(() => {
@@ -135,24 +100,30 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
   }, [page, baseFilters])
 
   const resetBaseFilters = useCallback(() => {
-    setBaseFilters(savedFilters)
+    startTransition(() => {
+      setBaseFilters(savedFilters)
+    })
   }, [savedFilters])
 
   const clearQuickFilters = useCallback(() => {
-    setQuickFilters([])
+    startTransition(() => {
+      setQuickFilters([])
+    })
   }, [])
 
   const toggleQuickFilter = useCallback((filter: Omit<QuickFilter, 'id'>) => {
-    setQuickFilters(prev => {
-      const exists = prev.find(
-        f => f.type === filter.type && f.value === filter.value
-      )
+    startTransition(() => {
+      setQuickFilters(prev => {
+        const exists = prev.find(
+          f => f.type === filter.type && f.value === filter.value
+        )
 
-      if (exists) {
-        return prev.filter(f => f.id !== exists.id)
-      }
+        if (exists) {
+          return prev.filter(f => f.id !== exists.id)
+        }
 
-      return [...prev, { ...filter, id: quickFilterId(filter.type, filter.value) }]
+        return [...prev, { ...filter, id: quickFilterId(filter.type, filter.value) }]
+      })
     })
   }, [])
 
@@ -162,10 +133,12 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
     type: QuickFilterType,
     values: Omit<QuickFilter, 'id' | 'type'>[]
   ) => {
-    setQuickFilters(prev => [
-      ...prev.filter(f => f.type !== type),
-      ...values.map(value => ({ ...value, type, id: quickFilterId(type, value.value) })),
-    ])
+    startTransition(() => {
+      setQuickFilters(prev => [
+        ...prev.filter(f => f.type !== type),
+        ...values.map(value => ({ ...value, type, id: quickFilterId(type, value.value) })),
+      ])
+    })
   }, [])
 
   const hasUnsavedChanges = useMemo(
@@ -190,7 +163,7 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
       toggleQuickFilter,
       setQuickFiltersForType,
       currentPage: page,
-      isLoading,
+      isPending,
     }),
     [
       savedFilters,
@@ -206,7 +179,7 @@ export function FilterProvider({ page, children, wallets, categories }: FilterPr
       toggleQuickFilter,
       setQuickFiltersForType,
       page,
-      isLoading,
+      isPending,
     ]
   )
 

@@ -20,7 +20,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 }))
 
 vi.mock('@/hooks/useLiveWallets', () => ({
-  useLiveWallets: () => ({ wallets: mocks.wallets, isLoading: false }),
+  useLiveWallets: () => mocks.wallets,
 }))
 
 describe('useTransactionForm', () => {

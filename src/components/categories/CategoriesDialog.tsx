@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PopupBoundary } from '@/components/PopupBoundary'
 import { ScrollArea } from '../ui/scroll-area'
 import { CategoryList } from './CategoryList'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -16,8 +17,26 @@ interface CategoriesDialogProps {
 }
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
-  const { categories: dbCategories } = useLiveCategories()
-  const [localCategories, setLocalCategories] = useState<Category[]>([])
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader className="pl-2">
+          <DialogTitle>Categories</DialogTitle>
+        </DialogHeader>
+        {/* The lists read the categories, which suspends. They live inside
+            the content, which is unmounted while closed, so the read happens
+            when the dialog opens rather than when the shell does. */}
+        <PopupBoundary>
+          <CategoriesDialogBody />
+        </PopupBoundary>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CategoriesDialogBody() {
+  const dbCategories = useLiveCategories()
+  const [localCategories, setLocalCategories] = useState<Category[]>(dbCategories)
   const [isPendingUpdate, setIsPendingUpdate] = useState(false)
   const [newCategoryId, setNewCategoryId] = useState<string | null>(null)
 
@@ -134,51 +153,40 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
     }
   }
 
-  // if (isLoading) {
-  //   return null
-  // }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader className="pl-2">
-          <DialogTitle>Categories</DialogTitle>
-        </DialogHeader>
-        <ScrollArea className="mt-4 h-[60vh]">
-          <div className="pr-4 pl-2 space-y-6">
-            <CategoryList
-              categories={incomeCategories}
-              allCategories={localCategories}
-              title="Income"
-              onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
-              onAddCategory={() => handleAddCategory('income')}
-              onDeleteCategory={handleDeleteCategory}
-              newCategoryId={newCategoryId}
-              onClearNewCategoryId={() => setNewCategoryId(null)}
-            />
-            <CategoryList
-              categories={transferCategories}
-              allCategories={localCategories}
-              title="Transfer"
-              onReorder={(activeId, overId) => handleReorder(activeId, overId, 'transfer')}
-              onAddCategory={() => handleAddCategory('transfer')}
-              onDeleteCategory={handleDeleteCategory}
-              newCategoryId={newCategoryId}
-              onClearNewCategoryId={() => setNewCategoryId(null)}
-            />
-            <CategoryList
-              categories={expenseCategories}
-              allCategories={localCategories}
-              title="Expenses"
-              onReorder={(activeId, overId) => handleReorder(activeId, overId, 'expense')}
-              onAddCategory={() => handleAddCategory('expense')}
-              onDeleteCategory={handleDeleteCategory}
-              newCategoryId={newCategoryId}
-              onClearNewCategoryId={() => setNewCategoryId(null)}
-            />
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+    <ScrollArea className="mt-4 h-[60vh]">
+      <div className="pr-4 pl-2 space-y-6">
+        <CategoryList
+          categories={incomeCategories}
+          allCategories={localCategories}
+          title="Income"
+          onReorder={(activeId, overId) => handleReorder(activeId, overId, 'income')}
+          onAddCategory={() => handleAddCategory('income')}
+          onDeleteCategory={handleDeleteCategory}
+          newCategoryId={newCategoryId}
+          onClearNewCategoryId={() => setNewCategoryId(null)}
+        />
+        <CategoryList
+          categories={transferCategories}
+          allCategories={localCategories}
+          title="Transfer"
+          onReorder={(activeId, overId) => handleReorder(activeId, overId, 'transfer')}
+          onAddCategory={() => handleAddCategory('transfer')}
+          onDeleteCategory={handleDeleteCategory}
+          newCategoryId={newCategoryId}
+          onClearNewCategoryId={() => setNewCategoryId(null)}
+        />
+        <CategoryList
+          categories={expenseCategories}
+          allCategories={localCategories}
+          title="Expenses"
+          onReorder={(activeId, overId) => handleReorder(activeId, overId, 'expense')}
+          onAddCategory={() => handleAddCategory('expense')}
+          onDeleteCategory={handleDeleteCategory}
+          newCategoryId={newCategoryId}
+          onClearNewCategoryId={() => setNewCategoryId(null)}
+        />
+      </div>
+    </ScrollArea>
   )
 }

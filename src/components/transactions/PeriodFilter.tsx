@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +27,8 @@ interface PeriodFilterProps {
   className?: string
   searchTerm?: string
   onSearchChange?: (term: string) => void
+  /** True while the rows for a changed period are still on their way. */
+  isPending?: boolean
 }
 
 function toPeriodSettings(period: PeriodFilterType): PeriodSettings {
@@ -46,7 +48,7 @@ const DEFAULT_PERIOD_FILTER: PeriodFilterType = {
   currentPeriod: 0,
 }
 
-export function PeriodFilter({ filters, subtitle, onFiltersChange, onExportCsv, className, searchTerm = '', onSearchChange }: PeriodFilterProps) {
+export function PeriodFilter({ filters, subtitle, onFiltersChange, onExportCsv, className, searchTerm = '', onSearchChange, isPending = false }: PeriodFilterProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -154,14 +156,20 @@ export function PeriodFilter({ filters, subtitle, onFiltersChange, onExportCsv, 
             <span className="sr-only">Previous period</span>
           </Button>
 
+          {/* Inside a transition the label and the list swap together, so
+              until then the label still names the period on screen; the
+              spinner is the only thing that moves. */}
           <Button
             type="button"
             variant="ghost"
             onClick={() => setIsDrawerOpen(true)}
+            aria-busy={isPending || undefined}
             className="h-full flex-1 flex-col hover:bg-accent gap-1"
           >
             <div className="flex justify-center font-medium">
-              <CalendarIcon className="mr-2 h-4 w-4" />
+              {isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <CalendarIcon className="mr-2 h-4 w-4" />}
               <span className={cn(isCurrent && "text-primary")}>
                 {getPeriodLabel()}
               </span>

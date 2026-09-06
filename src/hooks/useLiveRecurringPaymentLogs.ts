@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo } from 'react'
 import { db } from '@/lib/db-dexie'
+import { documentReady } from '@/lib/document-ready'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { RecurringPaymentLog } from '../../shared/schemas/recurring-payment.schema'
 
 interface UseLiveRecurringPaymentLogsOptions {
@@ -9,50 +10,41 @@ interface UseLiveRecurringPaymentLogsOptions {
   periodEnd?: Date
 }
 
-export function useLiveRecurringPaymentLogs(options: UseLiveRecurringPaymentLogsOptions = {}) {
-  const { recurringPaymentId, periodStart, periodEnd } = options
+export const recurringPaymentLogsStore = createSharedLiveQuery(async () => {
+  const dexieLogs = await db.recurringPaymentLogs.orderBy('scheduledDate').toArray()
 
+  return dexieLogs.map(log => ({
+    ...log,
+    scheduledDate: log.scheduledDate.toISOString(),
+    createdAt: log.createdAt.toISOString()
+  })) as RecurringPaymentLog[]
+}, { after: documentReady, name: 'recurring payment logs' })
+
+export function useLiveRecurringPaymentLogs(
+  options: UseLiveRecurringPaymentLogsOptions = {}
+): RecurringPaymentLog[] {
+  const { recurringPaymentId, periodStart, periodEnd } = options
+  const logs = recurringPaymentLogsStore()
+
+  // Keyed on the instants, not the Date objects: callers build a fresh pair
+  // every render.
   const periodStartTime = periodStart?.getTime()
   const periodEndTime = periodEnd?.getTime()
 
-  const [readyPeriod, setReadyPeriod] = useState<{ start?: number; end?: number }>({})
-
-  const logs = useLiveQuery(async () => {
-    let query = db.recurringPaymentLogs.orderBy('scheduledDate')
+  return useMemo(() => {
+    let filtered = logs
 
     if (recurringPaymentId) {
-      query = query.filter(log => log.recurringPaymentId === recurringPaymentId)
+      filtered = filtered.filter(log => log.recurringPaymentId === recurringPaymentId)
     }
 
-    if (periodStart && periodEnd) {
-      query = query.filter(log => {
-        return log.scheduledDate >= periodStart && log.scheduledDate <= periodEnd
+    if (periodStartTime !== undefined && periodEndTime !== undefined) {
+      filtered = filtered.filter(log => {
+        const scheduledAt = Date.parse(log.scheduledDate)
+        return scheduledAt >= periodStartTime && scheduledAt <= periodEndTime
       })
     }
 
-    const dexieLogs = await query.toArray()
-
-    return {
-      logs: dexieLogs.map(log => ({
-        ...log,
-        scheduledDate: log.scheduledDate.toISOString(),
-        createdAt: log.createdAt.toISOString()
-      })) as RecurringPaymentLog[],
-      periodStartTime,
-      periodEndTime,
-    }
-  }, [recurringPaymentId, periodStartTime, periodEndTime])
-
-  useEffect(() => {
-    if (logs) {
-      setReadyPeriod({ start: logs.periodStartTime, end: logs.periodEndTime })
-    }
-  }, [logs])
-
-  const isPeriodStale = readyPeriod.start !== periodStartTime || readyPeriod.end !== periodEndTime
-
-  return {
-    logs: logs?.logs || [],
-    isLoading: logs === undefined || isPeriodStale
-  }
+    return filtered
+  }, [logs, recurringPaymentId, periodStartTime, periodEndTime])
 }

@@ -15,11 +15,11 @@ interface WalletGoalsSectionProps {
 }
 
 export function WalletGoalsSection({ wallet, goals, onEdit }: WalletGoalsSectionProps) {
-  const { unallocated, isLoading } = useUnallocatedAmount(wallet._id)
+  const { unallocated } = useUnallocatedAmount(wallet._id)
   const [allocationOpen, setAllocationOpen] = useState(false)
 
   const hasEligibleGoals = goals.some(g => !g.achieved && hasAllocationRoom(g))
-  const canAllocate = !isLoading && unallocated > 0 && hasEligibleGoals
+  const canAllocate = unallocated > 0 && hasEligibleGoals
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -42,7 +42,7 @@ export function WalletGoalsSection({ wallet, goals, onEdit }: WalletGoalsSection
             </Button>
           )}
           <span className="text-sm text-muted-foreground">
-            Unallocated: {isLoading ? '...' : formatCurrency(unallocated)}
+            Unallocated: {formatCurrency(unallocated)}
           </span>
         </div>
       </div>

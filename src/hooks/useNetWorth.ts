@@ -12,9 +12,9 @@ export interface UseNetWorthResult extends NetWorthSummary {
 }
 
 export function useNetWorth(): UseNetWorthResult {
-  const { wallets, isLoading: isLoadingWallets } = useLiveWallets()
-  const { balances, isLoading: isLoadingBalances } = useWalletBalances()
-  const { brokerAccounts, isLoading: isLoadingAccounts } = useLiveBrokerAccounts()
+  const wallets = useLiveWallets()
+  const balances = useWalletBalances()
+  const brokerAccounts = useLiveBrokerAccounts()
   const { summary: portfolio, isLoading: isLoadingPortfolio } = usePortfolio()
 
   const currencies = useMemo(() => wallets.map(wallet => wallet.currency), [wallets])
@@ -43,11 +43,6 @@ export function useNetWorth(): UseNetWorthResult {
   return {
     ...summary,
     baseCurrency,
-    isLoading:
-      isLoadingWallets ||
-      isLoadingBalances ||
-      isLoadingRates ||
-      isLoadingAccounts ||
-      isLoadingPortfolio,
+    isLoading: isLoadingRates || isLoadingPortfolio,
   }
 }

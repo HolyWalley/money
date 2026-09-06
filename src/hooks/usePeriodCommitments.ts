@@ -22,14 +22,8 @@ export interface PeriodCommitments {
  * a spendable wallet still has to cover.
  */
 export function usePeriodCommitments(periodStart: Date, periodEnd: Date): PeriodCommitments {
-  const { totalsByCurrency: recurringTotals, isLoading: isLoadingRecurring } = useUpcomingPayments(
-    periodStart,
-    periodEnd
-  )
-  const { totalsByCurrency: savingsTotals, isLoading: isLoadingSavings } = useSavingsSuggestions(
-    periodStart,
-    periodEnd
-  )
+  const { totalsByCurrency: recurringTotals } = useUpcomingPayments(periodStart, periodEnd)
+  const { totalsByCurrency: savingsTotals } = useSavingsSuggestions(periodStart, periodEnd)
 
   const currencies = useMemo(
     () => [...new Set([...recurringTotals.keys(), ...savingsTotals.keys()])],
@@ -51,6 +45,6 @@ export function usePeriodCommitments(periodStart: Date, periodEnd: Date): Period
     savings: savings.total,
     total: recurring.total + savings.total,
     missingCurrencies,
-    isLoading: isLoadingRecurring || isLoadingSavings || isLoadingRates,
+    isLoading: isLoadingRates,
   }
 }

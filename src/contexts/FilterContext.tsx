@@ -28,7 +28,8 @@ export interface FilterContextValue {
     values: Omit<QuickFilter, 'id' | 'type'>[]
   ) => void
   currentPage: FilterPage
-  isLoading: boolean
+  /** True while the rows for a changed filter are still on their way. */
+  isPending: boolean
 }
 
 export const FilterContext = createContext<FilterContextValue | null>(null)

@@ -1,5 +1,5 @@
 import { useFormContext } from 'react-hook-form'
-import { useWalletBalance } from './useWalletBalance'
+import { useWalletBalances } from './useWalletBalances'
 import { projectWalletBalance, type BalanceTransaction } from '@/lib/wallet-balance'
 import type { CreateTransaction, Transaction } from '../../shared/schemas/transaction.schema'
 
@@ -17,7 +17,8 @@ export function useProjectedBalance(walletId: string | undefined, transaction?: 
   const fromWalletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
 
-  const { balance, isLoading } = useWalletBalance(walletId || '')
+  const balances = useWalletBalances()
+  const balance = (walletId ? balances.get(walletId) : undefined) ?? 0
 
   const pending: BalanceTransaction = {
     transactionType,
@@ -36,7 +37,6 @@ export function useProjectedBalance(walletId: string | undefined, transaction?: 
   return {
     current: balance,
     projected,
-    isLoading,
     hasChange: projected !== balance,
   }
 }

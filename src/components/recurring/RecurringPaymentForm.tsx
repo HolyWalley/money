@@ -66,7 +66,7 @@ export function RecurringPaymentForm({ rpCurrency, section = 'all' }: RecurringP
   const hasEndDate = form.watch('hasEndDate')
   const saveUp = form.watch('saveUp')
   const savingsWalletId = form.watch('savingsWalletId')
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
 
   const savingsWallets = wallets.filter(
     (w) => w.isSavings === true && w.currency === rpCurrency

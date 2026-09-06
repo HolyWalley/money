@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 // The table reads the trades only to hand the picker a real executed price.
 vi.mock('@/hooks/useLiveTrades', () => ({
-  useLiveTrades: () => ({ trades: mocks.trades, isLoading: false }),
+  useLiveTrades: () => mocks.trades,
 }))
 
 // The picker is another component's job; this stub is only here to prove the

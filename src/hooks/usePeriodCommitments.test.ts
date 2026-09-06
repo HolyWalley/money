@@ -6,24 +6,16 @@ import type { Converter } from '@/lib/currency-conversion'
 const mocks = vi.hoisted(() => ({
   recurringTotals: new Map<string, number>(),
   savingsTotals: new Map<string, number>(),
-  recurringLoading: false,
-  savingsLoading: false,
   ratesLoading: false,
   currenciesAsked: [] as string[],
 }))
 
 vi.mock('./useUpcomingPayments', () => ({
-  useUpcomingPayments: () => ({
-    totalsByCurrency: mocks.recurringTotals,
-    isLoading: mocks.recurringLoading,
-  }),
+  useUpcomingPayments: () => ({ totalsByCurrency: mocks.recurringTotals }),
 }))
 
 vi.mock('./useSavingsSuggestions', () => ({
-  useSavingsSuggestions: () => ({
-    totalsByCurrency: mocks.savingsTotals,
-    isLoading: mocks.savingsLoading,
-  }),
+  useSavingsSuggestions: () => ({ totalsByCurrency: mocks.savingsTotals }),
 }))
 
 // Halves anything in PLN and cannot price USD at all.
@@ -49,8 +41,6 @@ describe('usePeriodCommitments', () => {
   beforeEach(() => {
     mocks.recurringTotals = new Map()
     mocks.savingsTotals = new Map()
-    mocks.recurringLoading = false
-    mocks.savingsLoading = false
     mocks.ratesLoading = false
     mocks.currenciesAsked = []
   })
@@ -99,18 +89,6 @@ describe('usePeriodCommitments', () => {
 
     expect(current.total).toBe(100)
     expect(current.missingCurrencies).toEqual(['USD'])
-  })
-
-  it('waits while the recurring payments are still loading', () => {
-    mocks.recurringLoading = true
-
-    expect(render().current.isLoading).toBe(true)
-  })
-
-  it('waits while the savings suggestions are still loading', () => {
-    mocks.savingsLoading = true
-
-    expect(render().current.isLoading).toBe(true)
   })
 
   it('waits while a rate is still in flight', () => {

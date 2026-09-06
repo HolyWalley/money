@@ -11,8 +11,8 @@ import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
 type FilterTab = 'active' | 'achieved' | 'all'
 
 export function SavingsContent() {
-  const { wallets } = useLiveWallets()
-  const { goals } = useLiveSavingGoals()
+  const wallets = useLiveWallets()
+  const goals = useLiveSavingGoals()
   const [filter, setFilter] = useState<FilterTab>('active')
   const [goalDrawerOpen, setGoalDrawerOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null)

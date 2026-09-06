@@ -121,8 +121,8 @@ function comparePositions(a: PortfolioPosition, b: PortfolioPosition): number {
  * once for the same reason - a window read from the clock never stops moving.
  */
 export function usePortfolio(): UsePortfolioResult {
-  const { trades, isLoading: isLoadingTrades } = useLiveTrades()
-  const { instruments, isLoading: isLoadingInstruments } = useLiveInstruments()
+  const trades = useLiveTrades()
+  const instruments = useLiveInstruments()
 
   const asOf = useMemo(() => new Date(), [])
 
@@ -265,7 +265,7 @@ export function usePortfolio(): UsePortfolioResult {
   )
 
   const isLoadingPrices = symbolsKey !== '' && priced.key !== symbolsKey
-  const isLoading = isLoadingTrades || isLoadingInstruments || isLoadingRates || isLoadingPrices
+  const isLoading = isLoadingRates || isLoadingPrices
 
   return {
     positions: enriched,

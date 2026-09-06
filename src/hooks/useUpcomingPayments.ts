@@ -35,15 +35,15 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     return arrearsWindowStart(start, new Date(periodEndTime), new Date()) ?? start
   }, [periodStartTime, periodEndTime])
 
-  const { recurringPayments, isLoading: isLoadingPayments } = useLiveRecurringPayments(true)
+  const recurringPayments = useLiveRecurringPayments(true)
   // The logs have to span the same reach as the occurrences. Sweeping further
   // back for occurrences than for the logs that settle them would resurrect
   // every payment already logged before this period.
-  const { logs, isLoading: isLoadingLogs } = useLiveRecurringPaymentLogs({
+  const logs = useLiveRecurringPaymentLogs({
     periodStart: searchStart,
     periodEnd
   })
-  const { goals, isLoading: isLoadingGoals } = useLiveSavingGoals()
+  const goals = useLiveSavingGoals()
 
   const fundingByPaymentId = useMemo(() => buildLinkedGoalFunding(goals), [goals])
 
@@ -133,6 +133,5 @@ export function useUpcomingPayments(periodStart: Date, periodEnd: Date) {
     dueCount,
     upcomingCount,
     totalsByCurrency,
-    isLoading: isLoadingPayments || isLoadingLogs || isLoadingGoals
   }
 }

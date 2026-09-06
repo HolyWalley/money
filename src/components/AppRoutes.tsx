@@ -1,4 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -11,6 +13,7 @@ import { RecurringGoalLinkSubscriber } from '@/components/recurring/RecurringGoa
 import { SyncNotificationListener } from '@/components/sync/SyncNotificationListener'
 import { TransactionsPage } from '@/components/transactions/TransactionsPage'
 import { AppSidebar } from './AppSidebar'
+import { PageErrorBoundary } from './PageErrorBoundary'
 
 import { useSync } from '@/hooks/useSync'
 import { useAppInitialization } from '@/hooks/useAppInitialization'
@@ -25,10 +28,22 @@ export function getDeviceId(): string {
   return deviceId;
 }
 
-function AppLayout({ children }: { children: React.ReactNode }) {
+function PageLoading() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center">
+      <div className="flex items-center space-x-2">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span>Loading...</span>
+      </div>
+    </div>
+  )
+}
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const sync = useSync(getDeviceId())
   useAppInitialization()
   const isMobile = useIsMobile()
+  const location = useLocation()
 
   return (
     <div className="bg-background text-foreground flex">
@@ -43,7 +58,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <div
         className={`min-w-0 flex-1 min-h-[calc(100dvh)] pt-safe ${isMobile ? 'pb-safe-20' : 'pl-24'}`}
       >
-        {children}
+        {/* One boundary for every page, below the sidebar so the sidebar never
+            blanks. Not keyed on the path: a boundary remounted during a
+            transition shows its fallback at once. */}
+        <PageErrorBoundary resetKey={location.pathname}>
+          <Suspense fallback={<PageLoading />}>{children}</Suspense>
+        </PageErrorBoundary>
       </div>
       <SavingsNotificationListener />
       <RecurringGoalLinkSubscriber />

@@ -1,58 +1,35 @@
 import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db-dexie'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { useLiveSavingGoals } from '@/hooks/useLiveSavingGoals'
+import { useLiveTransactions } from '@/hooks/useLiveTransactions'
 import {
   computeSavingsSuggestionsByWallet,
   type WalletSavingsSuggestion,
 } from '@/lib/savings-suggestion'
-import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
-import type { Transaction } from '../../shared/schemas/transaction.schema'
+
+const TRANSFERS = ['transfer']
 
 export function useSavingsSuggestions(periodStart: Date, periodEnd: Date) {
-  const { wallets, isLoading: walletsLoading } = useLiveWallets()
+  const wallets = useLiveWallets()
+  const goals = useLiveSavingGoals()
+  const transfers = useLiveTransactions({
+    transactionTypeIds: TRANSFERS,
+    period: { type: 'custom', customFrom: periodStart, customTo: periodEnd },
+  })
 
-  const goals = useLiveQuery<SavingGoal[]>(async () => {
-    const dexieGoals = await db.savingGoals.toArray()
-    return dexieGoals.map(goal => ({
-      ...goal,
-      targetDate: goal.targetDate ? goal.targetDate.toISOString() : undefined,
-      createdAt: goal.createdAt.toISOString(),
-      updatedAt: goal.updatedAt.toISOString(),
-    })) as SavingGoal[]
-  }, [])
-
-  const transactions = useLiveQuery<Transaction[]>(
-    async () => {
-      const dexieTransactions = await db.transactions
-        .where('date')
-        .between(periodStart, periodEnd, true, true)
-        .filter((t) => t.transactionType === 'transfer')
-        .toArray()
-      return dexieTransactions.map(tx => ({
-        ...tx,
-        date: tx.date.toISOString(),
-        createdAt: tx.createdAt.toISOString(),
-        updatedAt: tx.updatedAt.toISOString(),
-      })) as Transaction[]
-    },
-    [periodStart, periodEnd],
+  const suggestions = useMemo<WalletSavingsSuggestion[]>(
+    () =>
+      computeSavingsSuggestionsByWallet(
+        wallets,
+        goals,
+        transfers,
+        periodStart,
+        periodEnd,
+        undefined,
+        { debug: true },
+      ),
+    [wallets, goals, transfers, periodStart, periodEnd],
   )
-
-  const isLoading = walletsLoading || goals === undefined || transactions === undefined
-
-  const suggestions = useMemo<WalletSavingsSuggestion[]>(() => {
-    if (isLoading) return []
-    return computeSavingsSuggestionsByWallet(
-      wallets,
-      goals ?? [],
-      transactions ?? [],
-      periodStart,
-      periodEnd,
-      undefined,
-      { debug: true },
-    )
-  }, [wallets, goals, transactions, periodStart, periodEnd, isLoading])
 
   const totalsByCurrency = useMemo(() => {
     const totals = new Map<string, number>()
@@ -62,5 +39,5 @@ export function useSavingsSuggestions(periodStart: Date, periodEnd: Date) {
     return totals
   }, [suggestions])
 
-  return { suggestions, totalsByCurrency, isLoading }
+  return { suggestions, totalsByCurrency }
 }

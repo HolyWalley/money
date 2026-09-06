@@ -2,8 +2,8 @@ import { useWalletBalance } from './useWalletBalance'
 import { useLiveSavingGoals } from './useLiveSavingGoals'
 
 export function useUnallocatedAmount(walletId: string) {
-  const { balance, isLoading: balanceLoading } = useWalletBalance(walletId)
-  const { goals, isLoading: goalsLoading } = useLiveSavingGoals(walletId)
+  const balance = useWalletBalance(walletId)
+  const goals = useLiveSavingGoals(walletId)
 
   const activeGoals = goals.filter(g => !g.achieved)
   const totalAllocated = activeGoals.reduce((sum, g) => sum + g.allocatedAmount, 0)
@@ -13,6 +13,5 @@ export function useUnallocatedAmount(walletId: string) {
     unallocated,
     totalAllocated,
     balance,
-    isLoading: balanceLoading || goalsLoading,
   }
 }

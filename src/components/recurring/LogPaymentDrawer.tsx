@@ -73,8 +73,8 @@ export function LogPaymentDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingChanges, setPendingChanges] = useState<TemplateChange[] | null>(null)
   const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false)
-  const { categories } = useLiveCategories()
-  const { wallets } = useLiveWallets()
+  const categories = useLiveCategories()
+  const wallets = useLiveWallets()
 
   const prefillTransaction = useMemo(() => {
     if (!payment) return null

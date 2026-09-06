@@ -6,14 +6,14 @@ import type { TransactionFilters } from './useLiveTransactions'
 import type { DecoratedTransaction } from './useDecoratedTransactions'
 
 const mocks = vi.hoisted(() => ({
-  lastFilters: null as TransactionFilters | null,
+  lastFilters: undefined as TransactionFilters | null | undefined,
   transactions: [] as DecoratedTransaction[],
 }))
 
 vi.mock('./useDecoratedTransactions', () => ({
-  useDecoratedTransactions: (filters: TransactionFilters) => {
+  useDecoratedTransactions: (filters: TransactionFilters | null) => {
     mocks.lastFilters = filters
-    return { transactions: mocks.transactions, isLoading: false }
+    return { transactions: filters ? mocks.transactions : [], isLoading: false }
   },
 }))
 
@@ -38,7 +38,6 @@ function incomeOn(day: string, amount: number): DecoratedTransaction {
 }
 
 const monthly: TransactionFilters = {
-  isLoading: false,
   period: { type: 'monthly', monthDay: 1, currentPeriod: 0 },
 }
 
@@ -49,7 +48,7 @@ function months(filters: TransactionFilters, count?: number): string[] {
 
 describe('usePeriodTrend', () => {
   beforeEach(() => {
-    mocks.lastFilters = null
+    mocks.lastFilters = undefined
     mocks.transactions = []
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 8, 15, 9, 0, 0))
@@ -115,7 +114,6 @@ describe('usePeriodTrend', () => {
 
   it('steps by week for a weekly period', () => {
     const weekly: TransactionFilters = {
-      isLoading: false,
       period: { type: 'weekly', weekDay: 1, currentPeriod: 0 },
     }
 
@@ -128,16 +126,20 @@ describe('usePeriodTrend', () => {
   // A rolling window is the same window however far you step back, and six
   // copies of one bar is not a trend.
   it('has no series for a rolling period', () => {
-    const { result } = renderHook(() =>
-      usePeriodTrend({ isLoading: false, period: { type: 'last30days' } })
-    )
+    const { result } = renderHook(() => usePeriodTrend({ period: { type: 'last30days' } }))
 
     expect(result.current.available).toBe(false)
     expect(result.current.points).toEqual([])
   })
 
+  it('reads nothing when there is no series to draw', () => {
+    renderHook(() => usePeriodTrend({ period: { type: 'last30days' } }))
+
+    expect(mocks.lastFilters).toBeNull()
+  })
+
   it('has no series before a period is chosen', () => {
-    const { result } = renderHook(() => usePeriodTrend({ isLoading: true }))
+    const { result } = renderHook(() => usePeriodTrend({}))
 
     expect(result.current.available).toBe(false)
   })

@@ -31,12 +31,14 @@ import {
 import { restrictToParentElement } from '@dnd-kit/modifiers'
 import { useLiveBrokerAccounts } from '@/hooks/useLiveBrokerAccounts'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
+import { useWalletBalances } from '@/hooks/useWalletBalances'
 import { walletService } from '@/services/walletService'
 import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema'
 
 export function WalletList() {
-  const { wallets, isLoading } = useLiveWallets()
-  const { brokerAccounts } = useLiveBrokerAccounts()
+  const wallets = useLiveWallets()
+  const brokerAccounts = useLiveBrokerAccounts()
+  const balances = useWalletBalances()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null)
@@ -151,10 +153,6 @@ export function WalletList() {
   const displayWallets = localWallets.length > 0 ? localWallets : wallets
   const walletIds = displayWallets.map(wallet => wallet._id)
 
-  if (isLoading) {
-    return null
-  }
-
   if (displayWallets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
@@ -204,6 +202,7 @@ export function WalletList() {
                   key={wallet._id}
                   wallet={wallet}
                   brokerName={brokerNames.get(wallet._id)}
+                  balance={balances.get(wallet._id) ?? 0}
                   onEdit={handleEdit}
                   onDelete={setWalletToDelete}
                 />

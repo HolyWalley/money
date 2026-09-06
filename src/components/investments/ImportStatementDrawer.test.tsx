@@ -16,6 +16,7 @@ import {
   expectedDegiroRowCounts,
   expectedDegiroRowTotal,
 } from '@/lib/import/__fixtures__/expected'
+import type { ParsedRow } from '@/lib/import/types'
 import type { ImportTradeRow, ImportTradesSummary } from '@/services/investmentService'
 import type { BrokerAccount } from '../../../shared/schemas/broker-account.schema'
 import type { Trade } from '../../../shared/schemas/trade.schema'
@@ -68,15 +69,15 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/hooks/useLiveTrades', () => ({
-  useLiveTrades: () => ({ trades: mocks.trades, isLoading: false }),
+  useLiveTrades: () => mocks.trades,
 }))
 
 vi.mock('@/hooks/useLiveWallets', () => ({
-  useLiveWallets: () => ({ wallets: mocks.wallets, isLoading: false }),
+  useLiveWallets: () => mocks.wallets,
 }))
 
 vi.mock('@/hooks/useWalletBalances', () => ({
-  useWalletBalances: () => ({ balances: mocks.balances, isLoading: false }),
+  useWalletBalances: () => mocks.balances,
 }))
 
 vi.mock('@/services/investmentService', () => ({
@@ -113,12 +114,17 @@ function renderDrawer() {
   return render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
 }
 
+/** A statement row as this account would already hold it; the drawer reads every account's rows and keeps only its own. */
+function storedRow(row: ParsedRow): Trade {
+  return { accountId: ACCOUNT._id, externalId: row.externalId, amount: row.amount, currency: row.currency } as Trade
+}
+
 /** The rows a default import of the DeGiro fixture stores, as this account would already hold them. */
 function alreadyImportedDegiroRows(): Trade[] {
   const statement = parseStatement(fixture(DEGIRO_FIXTURE)).statement!
   return statement.rows
     .filter(row => row.kind === 'buy' || row.kind === 'fee' || row.kind === 'interest')
-    .map(row => ({ externalId: row.externalId, amount: row.amount, currency: row.currency }) as Trade)
+    .map(row => storedRow(row))
 }
 
 /** fireEvent's shorthand does not return the event, and these assert on defaultPrevented. */
@@ -270,7 +276,7 @@ describe('a second upload of an overlapping statement', () => {
   it('separates what is new from what is already imported', async () => {
     const statement = parseStatement(fixture(DEGIRO_FIXTURE)).statement!
     const buys = statement.rows.filter(row => row.kind === 'buy')
-    mocks.trades = buys.map(row => ({ externalId: row.externalId, amount: row.amount, currency: row.currency }) as Trade)
+    mocks.trades = buys.map(row => storedRow(row))
 
     renderDrawer()
     await uploadFixture(DEGIRO_FIXTURE)

@@ -143,9 +143,9 @@ function Amount({ row, baseCurrency }: { row: Row; baseCurrency: string | undefi
  * is visible at all.
  */
 export function TransactionsCard({ convertOn, baseCurrency }: TransactionsCardProps) {
-  const { trades, isLoading } = useLiveTrades()
-  const { instruments } = useLiveInstruments()
-  const { brokerAccounts } = useLiveBrokerAccounts()
+  const trades = useLiveTrades()
+  const instruments = useLiveInstruments()
+  const brokerAccounts = useLiveBrokerAccounts()
   const [shown, setShown] = useState(PAGE_SIZE)
   const isMobile = useIsMobile()
 
@@ -189,7 +189,7 @@ export function TransactionsCard({ convertOn, baseCurrency }: TransactionsCardPr
   }, [trades, instruments, brokerAccounts, convertOn])
 
   // Nothing has been imported yet, and an empty ledger says less than no ledger.
-  if (isLoading || rows.length === 0) return null
+  if (rows.length === 0) return null
 
   const page = rows.slice(0, shown)
 

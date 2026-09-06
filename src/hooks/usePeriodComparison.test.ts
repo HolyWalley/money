@@ -5,14 +5,14 @@ import type { TransactionFilters } from './useLiveTransactions'
 import type { DecoratedTransaction } from './useDecoratedTransactions'
 
 const mocks = vi.hoisted(() => ({
-  lastFilters: null as TransactionFilters | null,
+  lastFilters: undefined as TransactionFilters | null | undefined,
   transactions: [] as DecoratedTransaction[],
 }))
 
 vi.mock('./useDecoratedTransactions', () => ({
-  useDecoratedTransactions: (filters: TransactionFilters) => {
+  useDecoratedTransactions: (filters: TransactionFilters | null) => {
     mocks.lastFilters = filters
-    return { transactions: mocks.transactions, isLoading: false }
+    return { transactions: filters ? mocks.transactions : [], isLoading: false }
   },
 }))
 
@@ -34,13 +34,12 @@ function tx(overrides: Partial<DecoratedTransaction>): DecoratedTransaction {
 }
 
 const monthly: TransactionFilters = {
-  isLoading: false,
   period: { type: 'monthly', monthDay: 1, currentPeriod: 0 },
 }
 
 describe('usePreviousPeriodCashflow', () => {
   beforeEach(() => {
-    mocks.lastFilters = null
+    mocks.lastFilters = undefined
     mocks.transactions = []
   })
 
@@ -81,41 +80,39 @@ describe('usePreviousPeriodCashflow', () => {
   // Stepping back a rolling window hands the same window straight back, so the
   // comparison would be the period against itself and always read as no change.
   it('has nothing to compare a rolling period against', () => {
-    const { result } = renderHook(() =>
-      usePreviousPeriodCashflow({ isLoading: false, period: { type: 'last30days' } })
-    )
+    const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last30days' } }))
 
     expect(result.current.available).toBe(false)
   })
 
   it('has nothing to compare a custom range against', () => {
-    const { result } = renderHook(() =>
-      usePreviousPeriodCashflow({ isLoading: false, period: { type: 'custom' } })
-    )
+    const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'custom' } }))
 
     expect(result.current.available).toBe(false)
   })
 
   it('has nothing to compare before a period is chosen', () => {
-    const { result } = renderHook(() => usePreviousPeriodCashflow({ isLoading: true }))
+    const { result } = renderHook(() => usePreviousPeriodCashflow({}))
 
     expect(result.current.available).toBe(false)
+  })
+
+  it('reads nothing when there is nothing to compare against', () => {
+    renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last30days' } }))
+
+    expect(mocks.lastFilters).toBeNull()
   })
 
   it('reports empty totals rather than the current period when unavailable', () => {
     mocks.transactions = [tx({ amount: 999, amountInBaseCurrency: 999 })]
 
-    const { result } = renderHook(() =>
-      usePreviousPeriodCashflow({ isLoading: false, period: { type: 'last30days' } })
-    )
+    const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last30days' } }))
 
     expect(result.current.summary.expense).toBe(0)
   })
 
   it('is not loading when there is nothing to load', () => {
-    const { result } = renderHook(() =>
-      usePreviousPeriodCashflow({ isLoading: false, period: { type: 'last7days' } })
-    )
+    const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last7days' } }))
 
     expect(result.current.isLoading).toBe(false)
   })

@@ -1,7 +1,9 @@
-import { render, act, waitFor, fireEvent } from '@testing-library/react'
+import { act, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/lib/db-dexie'
+import { resetSharedLiveQueries } from '@/lib/shared-live-query'
+import { mountSuspended } from '@/test/suspense'
 
 const { auth } = vi.hoisted(() => ({
   auth: { user: { settings: { defaultCurrency: 'USD' } } },
@@ -45,6 +47,7 @@ const { TransactionsPage } = await import('./TransactionsPage')
 const now = new Date()
 
 beforeEach(async () => {
+  resetSharedLiveQueries()
   localStorage.clear()
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -91,7 +94,7 @@ beforeEach(async () => {
 
 describe('TransactionsPage quick filters', () => {
   it('renders the list once per quick filter change, with the filtered rows', async () => {
-    const { getByText, getByTestId } = render(<TransactionsPage />)
+    const { getByText, getByTestId } = await mountSuspended(<TransactionsPage />)
 
     await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)) })
@@ -103,9 +106,8 @@ describe('TransactionsPage quick filters', () => {
       await new Promise(resolve => setTimeout(resolve, 300))
     })
 
-    // The filter change and the query result are two separate commits, but the
-    // list only participates in the second: on the first its props are unchanged,
-    // so memo skips it rather than re-rendering every row with stale data.
+    // The rows are a memo over the shared snapshot, so a filter change and its
+    // rows land in one commit: the list renders once, never with stale rows.
     expect(getByTestId('transaction-count').textContent).toBe('10')
     expect(listRenders.count).toBe(1)
 
@@ -144,14 +146,14 @@ describe('TransactionsPage quick filters', () => {
     }
 
     try {
-      const { getByTestId } = render(<TransactionsPage />)
+      const { getByTestId } = await mountSuspended(<TransactionsPage />)
       await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)) })
 
       expect(calls.wallets).toBe(1)
       expect(calls.categories).toBe(1)
-      // Read with activeOnly on and off, which are two different queries.
-      expect(calls.recurringPayments).toBe(2)
+      // Read with activeOnly on and off, both memos over the one store.
+      expect(calls.recurringPayments).toBe(1)
     } finally {
       restore.forEach(fn => fn())
     }
@@ -161,7 +163,7 @@ describe('TransactionsPage quick filters', () => {
 describe('TransactionsPage search', () => {
   it('narrows the list to what matches and gives it back when closed', async () => {
     const user = userEvent.setup()
-    const { getByTestId, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+    const { getByTestId, getByLabelText, getByPlaceholderText } = await mountSuspended(<TransactionsPage />)
 
     await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
 
@@ -177,7 +179,7 @@ describe('TransactionsPage search', () => {
 
   it('counts what the search left, not what the period holds', async () => {
     const user = userEvent.setup()
-    const { getByText, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+    const { getByText, getByLabelText, getByPlaceholderText } = await mountSuspended(<TransactionsPage />)
 
     await waitFor(() => expect(getByText('20 transactions')).toBeInTheDocument())
 
@@ -189,7 +191,7 @@ describe('TransactionsPage search', () => {
 
   it('widens the period for a search that found nothing here', async () => {
     const user = userEvent.setup()
-    const { getByText, getByTestId, getByLabelText, getByPlaceholderText } = render(<TransactionsPage />)
+    const { getByText, getByTestId, getByLabelText, getByPlaceholderText } = await mountSuspended(<TransactionsPage />)
 
     await waitFor(() => expect(getByTestId('transaction-count').textContent).toBe('20'))
 

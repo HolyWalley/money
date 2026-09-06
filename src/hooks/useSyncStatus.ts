@@ -14,8 +14,9 @@ import { useNetworkStatus } from './useNetworkStatus'
 // path and never deserialises the update blobs.
 const usePendingCountQuery = createSharedLiveQuery(() => countPendingUpdates())
 
+// The one read that never suspends: AuthLayout shows it above any boundary.
 export function usePendingUpdateCount(): number {
-  return usePendingCountQuery() ?? 0
+  return usePendingCountQuery.useOr(0)
 }
 
 export function useSyncStatus(): SyncStatus {

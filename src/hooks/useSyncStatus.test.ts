@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { usePendingUpdateCount, useSyncStatus } from './useSyncStatus'
 import { updatesDb } from '@/lib/updates-db'
+import { resetSharedLiveQueries } from '@/lib/shared-live-query'
 import { resetSyncStatus, setSyncEnabled } from '@/lib/sync-status'
 import { resetNetworkStatus } from '@/lib/network-status'
 
@@ -20,6 +21,7 @@ async function seed(count: number): Promise<void> {
 
 describe('useSyncStatus', () => {
   beforeEach(async () => {
+    resetSharedLiveQueries()
     await updatesDb.open()
     await updatesDb.updates.clear()
     resetSyncStatus()
@@ -33,10 +35,19 @@ describe('useSyncStatus', () => {
     await updatesDb.updates.clear()
   })
 
-  it('usePendingUpdateCount starts at 0', async () => {
+  // Read above every Suspense boundary, so it must answer on the first render.
+  it('usePendingUpdateCount is 0 at once, without suspending', async () => {
     const { result } = renderHook(() => usePendingUpdateCount())
 
-    await waitFor(() => expect(result.current).toBe(0))
+    expect(result.current).toBe(0)
+  })
+
+  it('usePendingUpdateCount answers rows that were there before the first read', async () => {
+    await seed(2)
+    const { result } = renderHook(() => usePendingUpdateCount())
+
+    expect(result.current).toBe(0)
+    await waitFor(() => expect(result.current).toBe(2))
   })
 
   it('usePendingUpdateCount reflects a bulkAdd', async () => {

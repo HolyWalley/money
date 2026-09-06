@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api-client'
@@ -44,8 +44,13 @@ export function UserDropdownMenu() {
 
     const previousUser = user
 
+    // Every step is a change of base currency, which changes every rates key
+    // on screen; in a transition the old figures stay up until the new ones
+    // can be shown.
+    const applyUser = (next: typeof user) => startTransition(() => setUser(next))
+
     // Optimistic update
-    setUser({
+    applyUser({
       ...user,
       settings: {
         ...user.settings,
@@ -60,15 +65,15 @@ export function UserDropdownMenu() {
 
       if (!response.ok) {
         // Revert on failure
-        setUser(previousUser)
+        applyUser(previousUser)
       } else if (response.data) {
         // Update with server data
-        setUser(response.data.user)
+        applyUser(response.data.user)
       }
     } catch (error) {
       console.error('Failed to update currency:', error)
       // Revert on error
-      setUser(previousUser)
+      applyUser(previousUser)
     }
   }
 

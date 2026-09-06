@@ -1,5 +1,6 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { renderHookSuspended } from '@/test/suspense'
 import { usePortfolio } from './usePortfolio'
 import type { CachedCloses } from '@/lib/market-data-client'
 import type { Instrument } from '../../shared/schemas/instrument.schema'
@@ -25,11 +26,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('./useLiveTrades', () => ({
-  useLiveTrades: () => ({ trades: mocks.trades, isLoading: false }),
+  useLiveTrades: () => mocks.trades,
 }))
 
 vi.mock('./useLiveInstruments', () => ({
-  useLiveInstruments: () => ({ instruments: mocks.instruments, isLoading: false }),
+  useLiveInstruments: () => mocks.instruments,
 }))
 
 vi.mock('./useCurrentRates', () => ({
@@ -118,7 +119,8 @@ function instrument(id: string, name: string, overrides: Partial<Instrument> = {
 }
 
 async function loadPortfolio() {
-  const rendered = renderHook(() => usePortfolio())
+  const rendered = await renderHookSuspended(() => usePortfolio())
+  await waitFor(() => expect(rendered.result.current).not.toBeNull())
   await waitFor(() => expect(rendered.result.current.isLoading).toBe(false))
   return rendered
 }
@@ -334,7 +336,7 @@ describe('usePortfolio', () => {
     mocks.trades = [trade('buy', 'inst-1', { quantity: 10, amount: -1000 })]
     mocks.pending = deferred()
 
-    const { result } = renderHook(() => usePortfolio())
+    const { result } = await renderHookSuspended(() => usePortfolio())
 
     expect(result.current.isLoading).toBe(true)
 
@@ -343,7 +345,7 @@ describe('usePortfolio', () => {
   })
 
   it('has nothing to wait for when no holding needs a price', async () => {
-    const { result } = renderHook(() => usePortfolio())
+    const { result } = await renderHookSuspended(() => usePortfolio())
 
     expect(result.current.isLoading).toBe(false)
     expect(mocks.symbolRequests).toEqual([])

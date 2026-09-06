@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileUp, ShieldCheck } from 'lucide-react'
 import {
   Drawer,
@@ -145,9 +145,16 @@ export function ImportStatementDrawer({
 
   const target = accounts.find(candidate => candidate._id === accountId) ?? null
 
-  const { trades } = useLiveTrades(target?._id)
-  const { wallets } = useLiveWallets()
-  const { balances } = useWalletBalances()
+  const trades = useLiveTrades()
+  const wallets = useLiveWallets()
+  const balances = useWalletBalances()
+
+  // Only the rows this account already holds: the same statement imported into
+  // another account is new here.
+  const storedTrades = useMemo(
+    () => trades.filter(trade => trade.accountId === target?._id),
+    [trades, target?._id]
+  )
 
   const wallet = target?.cashWalletId ? wallets.find(candidate => candidate._id === target.cashWalletId) : undefined
   const cashWallet: CashWalletSummary | null = wallet
@@ -275,7 +282,7 @@ export function ImportStatementDrawer({
   }
 
   const selectedRows = statement ? selectedRowsOf(statement.rows, selectedKinds) : []
-  const storedIds = new Set(trades.map(trade => trade.externalId))
+  const storedIds = new Set(storedTrades.map(trade => trade.externalId))
   const newRowCount = selectedRows.filter(row => !storedIds.has(row.externalId)).length
 
   const handleImport = async () => {
@@ -442,7 +449,7 @@ export function ImportStatementDrawer({
               <div className="space-y-4">
                 <ImportPreview
                   statement={statement}
-                  existingTrades={trades}
+                  existingTrades={storedTrades}
                   selectedKinds={selectedKinds}
                   onToggleKind={toggleKind}
                   cashWallet={cashWallet}

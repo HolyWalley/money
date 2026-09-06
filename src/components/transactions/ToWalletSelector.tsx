@@ -9,7 +9,7 @@ interface ToWalletSelectorProps {
 
 export function ToWalletSelector({ isSubmitting }: ToWalletSelectorProps) {
   const form = useFormContext<CreateTransaction>()
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
   const fromWalletId = form.watch('walletId')
 
   return (

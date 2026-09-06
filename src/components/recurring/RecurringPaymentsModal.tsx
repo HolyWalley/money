@@ -6,6 +6,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { PopupBoundary } from '@/components/PopupBoundary'
 import { RecurringPaymentItem } from './RecurringPaymentItem'
 import { RecurringPaymentEditDrawer } from './RecurringPaymentEditDrawer'
 import { useLiveRecurringPayments } from '@/hooks/useLiveRecurringPayments'
@@ -25,26 +26,6 @@ export function RecurringPaymentsModal({
 }: RecurringPaymentsModalProps) {
   const [editingPayment, setEditingPayment] = useState<RecurringPayment | null>(null)
   const [deletingPayment, setDeletingPayment] = useState<RecurringPayment | null>(null)
-
-  const { recurringPayments, isLoading } = useLiveRecurringPayments()
-  const { categories } = useLiveCategories()
-  const { wallets } = useLiveWallets()
-
-  const categoriesMap = useMemo(() => {
-    return new Map(categories.map(c => [c._id, c]))
-  }, [categories])
-
-  const walletsMap = useMemo(() => {
-    return new Map(wallets.map(w => [w._id, w]))
-  }, [wallets])
-
-  const handleEdit = (payment: RecurringPayment) => {
-    setEditingPayment(payment)
-  }
-
-  const handleDelete = (payment: RecurringPayment) => {
-    setDeletingPayment(payment)
-  }
 
   const handleConfirmDelete = async () => {
     if (!deletingPayment) return
@@ -66,30 +47,12 @@ export function RecurringPaymentsModal({
             <DrawerHeader>
               <DrawerTitle>Recurring Payments</DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto overscroll-contain group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-8rem)]">
-              {isLoading ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  Loading...
-                </div>
-              ) : recurringPayments.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  No recurring payments set up yet.
-                </div>
-              ) : (
-                <div className="divide-y divide-border/50">
-                  {recurringPayments.map((payment) => (
-                    <RecurringPaymentItem
-                      key={payment._id}
-                      payment={payment}
-                      category={categoriesMap.get(payment.categoryId)}
-                      wallet={walletsMap.get(payment.walletId)}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* The list reads three stores, which suspends. It lives inside
+                the content, which is unmounted while closed, so the read
+                happens when the drawer opens rather than when the shell does. */}
+            <PopupBoundary>
+              <RecurringPaymentsList onEdit={setEditingPayment} onDelete={setDeletingPayment} />
+            </PopupBoundary>
           </div>
         </DrawerContent>
       </Drawer>
@@ -110,5 +73,47 @@ export function RecurringPaymentsModal({
         onConfirm={handleConfirmDelete}
       />
     </>
+  )
+}
+
+interface RecurringPaymentsListProps {
+  onEdit: (payment: RecurringPayment) => void
+  onDelete: (payment: RecurringPayment) => void
+}
+
+function RecurringPaymentsList({ onEdit, onDelete }: RecurringPaymentsListProps) {
+  const recurringPayments = useLiveRecurringPayments()
+  const categories = useLiveCategories()
+  const wallets = useLiveWallets()
+
+  const categoriesMap = useMemo(() => {
+    return new Map(categories.map(c => [c._id, c]))
+  }, [categories])
+
+  const walletsMap = useMemo(() => {
+    return new Map(wallets.map(w => [w._id, w]))
+  }, [wallets])
+
+  return (
+    <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto overscroll-contain group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-8rem)]">
+      {recurringPayments.length === 0 ? (
+        <div className="py-8 text-center text-muted-foreground">
+          No recurring payments set up yet.
+        </div>
+      ) : (
+        <div className="divide-y divide-border/50">
+          {recurringPayments.map((payment) => (
+            <RecurringPaymentItem
+              key={payment._id}
+              payment={payment}
+              category={categoriesMap.get(payment.categoryId)}
+              wallet={walletsMap.get(payment.walletId)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

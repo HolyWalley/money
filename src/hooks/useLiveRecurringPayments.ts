@@ -1,17 +1,11 @@
+import { useMemo } from 'react'
 import { db } from '@/lib/db-dexie'
-import { createKeyedSharedLiveQuery } from '@/lib/shared-live-query'
+import { documentReady } from '@/lib/document-ready'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { RecurringPayment } from '../../shared/schemas/recurring-payment.schema'
 
-const EMPTY_RECURRING_PAYMENTS: RecurringPayment[] = []
-
-const useSharedRecurringPayments = createKeyedSharedLiveQuery(async (scope: string) => {
-  let query = db.recurringPayments.orderBy('createdAt').reverse()
-
-  if (scope === 'active') {
-    query = query.filter(rp => rp.isActive)
-  }
-
-  const dexiePayments = await query.toArray()
+export const recurringPaymentsStore = createSharedLiveQuery(async () => {
+  const dexiePayments = await db.recurringPayments.orderBy('createdAt').reverse().toArray()
 
   return dexiePayments.map(rp => ({
     ...rp,
@@ -20,13 +14,13 @@ const useSharedRecurringPayments = createKeyedSharedLiveQuery(async (scope: stri
     createdAt: rp.createdAt.toISOString(),
     updatedAt: rp.updatedAt.toISOString()
   })) as RecurringPayment[]
-})
+}, { after: documentReady, name: 'recurring payments' })
 
-export function useLiveRecurringPayments(activeOnly = true) {
-  const recurringPayments = useSharedRecurringPayments(activeOnly ? 'active' : 'all')
+export function useLiveRecurringPayments(activeOnly = true): RecurringPayment[] {
+  const recurringPayments = recurringPaymentsStore()
 
-  return {
-    recurringPayments: recurringPayments || EMPTY_RECURRING_PAYMENTS,
-    isLoading: recurringPayments === undefined
-  }
+  return useMemo(
+    () => (activeOnly ? recurringPayments.filter(rp => rp.isActive) : recurringPayments),
+    [recurringPayments, activeOnly]
+  )
 }

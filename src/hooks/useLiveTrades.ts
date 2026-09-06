@@ -1,18 +1,11 @@
-import { db, type DexieTrade } from '@/lib/db-dexie'
-import { createKeyedSharedLiveQuery } from '@/lib/shared-live-query'
+import { useMemo } from 'react'
+import { db } from '@/lib/db-dexie'
+import { documentReady } from '@/lib/document-ready'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { Trade } from '../../shared/schemas/trade.schema'
 
-const EMPTY_TRADES: Trade[] = []
-
-const ALL_ACCOUNTS = 'all'
-
-const useSharedTrades = createKeyedSharedLiveQuery(async (accountId: string) => {
-  let dexieTrades: DexieTrade[]
-  if (accountId === ALL_ACCOUNTS) {
-    dexieTrades = await db.trades.orderBy('date').toArray()
-  } else {
-    dexieTrades = await db.trades.where('accountId').equals(accountId).sortBy('date')
-  }
+export const tradesStore = createSharedLiveQuery(async () => {
+  const dexieTrades = await db.trades.orderBy('date').toArray()
   // Newest first, as every other list in the app shows history
   dexieTrades.reverse()
   // Convert Date objects back to ISO strings for components
@@ -22,13 +15,13 @@ const useSharedTrades = createKeyedSharedLiveQuery(async (accountId: string) => 
     createdAt: trade.createdAt.toISOString(),
     updatedAt: trade.updatedAt.toISOString()
   })) as Trade[]
-})
+}, { after: documentReady, name: 'trades' })
 
-export function useLiveTrades(accountId?: string) {
-  const trades = useSharedTrades(accountId ?? ALL_ACCOUNTS)
+export function useLiveTrades(accountId?: string): Trade[] {
+  const trades = tradesStore()
 
-  return {
-    trades: trades || EMPTY_TRADES,
-    isLoading: trades === undefined
-  }
+  return useMemo(
+    () => (accountId ? trades.filter(trade => trade.accountId === accountId) : trades),
+    [trades, accountId]
+  )
 }

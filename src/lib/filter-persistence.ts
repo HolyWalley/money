@@ -12,6 +12,20 @@ export interface StoredFilters {
 
 export type FilterPage = 'overview' | 'transactions'
 
+// Saves from before reads suspended carry the loading flag and the version
+// stamp the filters used to have. Same storage version: nothing else changed.
+interface LegacyFilterFields {
+  isLoading?: boolean
+  filterVersion?: string
+}
+
+function withoutLegacyFields(stored: TransactionFilters & LegacyFilterFields): TransactionFilters {
+  const filters = { ...stored }
+  delete filters.isLoading
+  delete filters.filterVersion
+  return filters
+}
+
 export class FilterPersistenceService {
   private getStorage(): StoredFilters | null {
     try {
@@ -55,8 +69,8 @@ export class FilterPersistenceService {
   }
 
   loadFilters(page: FilterPage): TransactionFilters | null {
-    const storage = this.getStorage()
-    return storage?.[page] || null
+    const stored = this.getStorage()?.[page]
+    return stored ? withoutLegacyFields(stored) : null
   }
 
   clearAll(): void {

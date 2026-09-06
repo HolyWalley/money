@@ -1,26 +1,25 @@
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo } from 'react'
 import { db } from '@/lib/db-dexie'
+import { documentReady } from '@/lib/document-ready'
+import { createSharedLiveQuery } from '@/lib/shared-live-query'
 import type { SavingGoal } from '../../shared/schemas/saving-goal.schema'
 
-export function useLiveSavingGoals(walletId?: string) {
-  const goals = useLiveQuery(async () => {
-    const query = walletId
-      ? db.savingGoals.where('walletId').equals(walletId)
-      : db.savingGoals.orderBy('order')
+export const savingGoalsStore = createSharedLiveQuery(async () => {
+  const dexieGoals = await db.savingGoals.orderBy('order').toArray()
 
-    const dexieGoals = walletId
-      ? await query.sortBy('order')
-      : await query.toArray()
+  return dexieGoals.map(goal => ({
+    ...goal,
+    targetDate: goal.targetDate ? goal.targetDate.toISOString() : undefined,
+    createdAt: goal.createdAt.toISOString(),
+    updatedAt: goal.updatedAt.toISOString()
+  })) as SavingGoal[]
+}, { after: documentReady, name: 'saving goals' })
 
-    return dexieGoals.map(goal => ({
-      ...goal,
-      createdAt: goal.createdAt.toISOString(),
-      updatedAt: goal.updatedAt.toISOString()
-    })) as SavingGoal[]
-  }, [walletId])
+export function useLiveSavingGoals(walletId?: string): SavingGoal[] {
+  const goals = savingGoalsStore()
 
-  return {
-    goals: goals || [],
-    isLoading: goals === undefined,
-  }
+  return useMemo(
+    () => (walletId ? goals.filter(goal => goal.walletId === walletId) : goals),
+    [goals, walletId]
+  )
 }

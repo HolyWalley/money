@@ -12,7 +12,7 @@ export function useTransactionForm(
   initialValues?: Partial<CreateTransaction>,
 ) {
   const { user } = useAuth()
-  const { wallets } = useLiveWallets()
+  const wallets = useLiveWallets()
   const defaultCurrency = (user?.settings?.defaultCurrency || 'USD') as Currency
 
   const form = useForm<CreateTransaction>({

@@ -1,36 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import type { TransactionFilters } from '@/hooks/useLiveTransactions'
 import type { QuickFilter } from './FilterContext'
-
-function mergeFilters(base: TransactionFilters, quick: QuickFilter[]): TransactionFilters {
-  if (quick.length === 0) {
-    return base
-  }
-
-  const quickCategories = quick
-    .filter(f => f.type === 'category')
-    .map(f => f.value)
-
-  const quickWallets = quick
-    .filter(f => f.type === 'wallet')
-    .map(f => f.value)
-
-  const quickTypes = quick
-    .filter(f => f.type === 'transactionType')
-    .map(f => f.value)
-
-  return {
-    ...base,
-    categoryIds: quickCategories.length > 0 ? quickCategories : base.categoryIds,
-    walletIds: quickWallets.length > 0 ? quickWallets : base.walletIds,
-    transactionTypeIds: quickTypes.length > 0 ? quickTypes : base.transactionTypeIds,
-    filterVersion: Date.now().toString(),
-  }
-}
+import { mergeFilters } from './FilterProvider'
 
 describe('mergeFilters', () => {
   const baseFilters: TransactionFilters = {
-    isLoading: false,
     categoryIds: ['cat1', 'cat2', 'cat3'],
     walletIds: ['wallet1', 'wallet2'],
     transactionTypeIds: ['income', 'expense', 'transfer'],
@@ -43,7 +17,7 @@ describe('mergeFilters', () => {
 
   it('should return base filters when no quick filters', () => {
     const result = mergeFilters(baseFilters, [])
-    expect(result).toEqual(baseFilters)
+    expect(result).toBe(baseFilters)
   })
 
   it('should override categoryIds with quick category filter', () => {
@@ -116,32 +90,18 @@ describe('mergeFilters', () => {
     expect(result.period).toEqual(baseFilters.period)
   })
 
-  it('should preserve isLoading from base filters', () => {
-    const loadingFilters = { ...baseFilters, isLoading: true }
-    const quickFilters: QuickFilter[] = [
-      { id: '1', type: 'wallet', value: 'wallet1', label: 'Wallet 1' },
-    ]
-
-    const result = mergeFilters(loadingFilters, quickFilters)
-
-    expect(result.isLoading).toBe(true)
-  })
-
-  it('should generate new filterVersion when merging', () => {
+  it('should add nothing beyond the filters themselves', () => {
     const quickFilters: QuickFilter[] = [
       { id: '1', type: 'wallet', value: 'wallet1', label: 'Wallet 1' },
     ]
 
     const result = mergeFilters(baseFilters, quickFilters)
 
-    expect(result.filterVersion).toBeDefined()
-    expect(result.filterVersion).not.toBe(baseFilters.filterVersion)
+    expect(Object.keys(result).sort()).toEqual(Object.keys(baseFilters).sort())
   })
 
   it('should handle base filters with undefined arrays', () => {
-    const minimalBase: TransactionFilters = {
-      isLoading: false,
-    }
+    const minimalBase: TransactionFilters = {}
 
     const quickFilters: QuickFilter[] = [
       { id: '1', type: 'wallet', value: 'wallet1', label: 'Wallet 1' },

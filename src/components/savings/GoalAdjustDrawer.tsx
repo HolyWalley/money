@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Drawer,
@@ -8,8 +8,10 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer'
+import { PopupBoundary } from '@/components/PopupBoundary'
 import { Slider } from '@/components/ui/slider'
 import { useUnallocatedAmount } from '@/hooks/useUnallocatedAmount'
+import { useLiveSavingGoals } from '@/hooks/useLiveSavingGoals'
 import { savingGoalService } from '@/services/savingGoalService'
 import { getSavingsSuggestion, hasAllocationRoom } from '@/lib/savings-suggestion'
 import type { SavingGoal } from '../../../shared/schemas/saving-goal.schema'
@@ -24,28 +26,46 @@ interface GoalAdjustDrawerProps {
 type Mode = 'allocate' | 'deallocate'
 
 export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: GoalAdjustDrawerProps) {
-  const { unallocated, isLoading } = useUnallocatedAmount(walletId)
-  const [goals, setGoals] = useState<SavingGoal[]>([])
-  const [amounts, setAmounts] = useState<Record<string, number>>({})
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        {/* The body reads the wallet's goals and balance, which suspends. It
+            lives inside the content, which is unmounted while closed, so the
+            read happens when the drawer opens rather than when its owner
+            mounts. */}
+        <PopupBoundary>
+          <GoalAdjustDrawerBody walletId={walletId} currency={currency} onOpenChange={onOpenChange} />
+        </PopupBoundary>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+interface GoalAdjustDrawerBodyProps {
+  walletId: string
+  currency: string
+  onOpenChange: (open: boolean) => void
+}
+
+function GoalAdjustDrawerBody({ walletId, currency, onOpenChange }: GoalAdjustDrawerBodyProps) {
+  const { unallocated } = useUnallocatedAmount(walletId)
+  const walletGoals = useLiveSavingGoals(walletId)
+
+  // The goals and the sum to spread are taken once, as the drawer opens: a
+  // goal that moved while the sliders are out would move their bounds under
+  // the thumb, and the amounts already dragged would no longer add up.
+  const [mode] = useState<Mode>(() => (unallocated >= 0 ? 'allocate' : 'deallocate'))
+  const [adjustAmount] = useState(() => Math.abs(unallocated))
+  const [goals] = useState<SavingGoal[]>(() => {
+    const activeGoals = walletGoals.filter(g => !g.achieved)
+    return mode === 'allocate'
+      ? activeGoals.filter(hasAllocationRoom)
+      : activeGoals.filter(g => g.allocatedAmount > 0)
+  })
+  const [amounts, setAmounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(goals.map(g => [g._id, 0]))
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [mode, setMode] = useState<Mode>('allocate')
-  const [adjustAmount, setAdjustAmount] = useState(0)
-
-  useEffect(() => {
-    if (!open || isLoading) return
-
-    const currentMode: Mode = unallocated >= 0 ? 'allocate' : 'deallocate'
-    setMode(currentMode)
-    setAdjustAmount(Math.abs(unallocated))
-
-    savingGoalService.getActiveGoalsByWallet(walletId).then(activeGoals => {
-      const filtered = currentMode === 'allocate'
-        ? activeGoals.filter(hasAllocationRoom)
-        : activeGoals.filter(g => g.allocatedAmount > 0)
-      setGoals(filtered)
-      setAmounts(Object.fromEntries(filtered.map(g => [g._id, 0])))
-    })
-  }, [open, isLoading, walletId, unallocated])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -116,122 +136,112 @@ export function GoalAdjustDrawer({ open, onOpenChange, walletId, currency }: Goa
     }
   }
 
-  if (isLoading) return null
-
-  if (adjustAmount === 0 || (goals.length === 0 && open)) {
+  if (adjustAmount === 0 || goals.length === 0) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <div className="mx-auto w-full max-w-sm">
-            <DrawerHeader>
-              <DrawerTitle>Adjust Goals</DrawerTitle>
-              <DrawerDescription>Nothing to adjust right now.</DrawerDescription>
-            </DrawerHeader>
-            <DrawerFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-            </DrawerFooter>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <div className="mx-auto w-full max-w-sm">
+        <DrawerHeader>
+          <DrawerTitle>Adjust Goals</DrawerTitle>
+          <DrawerDescription>Nothing to adjust right now.</DrawerDescription>
+        </DrawerHeader>
+        <DrawerFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DrawerFooter>
+      </div>
     )
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <div className="mx-auto w-full max-w-sm">
-          <DrawerHeader>
-            <DrawerTitle>{mode === 'allocate' ? 'Allocate to Goals' : 'Adjust Goals'}</DrawerTitle>
-            <DrawerDescription>
-              {mode === 'allocate'
-                ? `Distribute ${formatCurrency(adjustAmount)} across your savings goals.`
-                : `Goals exceed balance by ${formatCurrency(adjustAmount)}. Choose which goals to reduce.`
-              }
-            </DrawerDescription>
-          </DrawerHeader>
+    <div className="mx-auto w-full max-w-sm">
+      <DrawerHeader>
+        <DrawerTitle>{mode === 'allocate' ? 'Allocate to Goals' : 'Adjust Goals'}</DrawerTitle>
+        <DrawerDescription>
+          {mode === 'allocate'
+            ? `Distribute ${formatCurrency(adjustAmount)} across your savings goals.`
+            : `Goals exceed balance by ${formatCurrency(adjustAmount)}. Choose which goals to reduce.`
+          }
+        </DrawerDescription>
+      </DrawerHeader>
 
-          <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
-            {goals.map(goal => {
-              const room = Math.round((amounts[goal._id] + remaining) * 100) / 100
-              const allocateMax = goal.goalType === 'contribution'
-                ? room
-                : Math.min(
-                    Math.round(((goal.targetAmount ?? 0) - goal.allocatedAmount) * 100) / 100,
-                    room,
-                  )
-              const maxForGoal = mode === 'allocate'
-                ? allocateMax
-                : Math.min(goal.allocatedAmount, room)
-              const currentAmount = amounts[goal._id] || 0
-              const rowLabel = mode === 'deallocate'
-                ? `Allocated: ${formatCurrency(goal.allocatedAmount)}`
-                : goal.goalType === 'contribution'
-                  ? `Saved: ${formatCurrency(goal.allocatedAmount)}`
-                  : `${formatCurrency(goal.allocatedAmount)} / ${formatCurrency(goal.targetAmount ?? 0)}`
-
-              return (
-                <div key={goal._id} className="flex flex-col gap-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{goal.name}</span>
-                    <span className="text-muted-foreground">{rowLabel}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Slider
-                      value={[currentAmount]}
-                      min={0}
-                      max={Math.max(maxForGoal, 0)}
-                      step={0.01}
-                      onValueChange={(value) => handleSliderChange(goal._id, Array.isArray(value) ? [...value] : [value])}
-                      className="flex-1"
-                    />
-                    <span className="text-sm font-mono w-20 text-right">
-                      {formatCurrency(currentAmount)}
-                    </span>
-                  </div>
-                </div>
+      <div className="px-4 pb-2 flex flex-col gap-5 max-h-[50vh] overflow-y-auto group-data-[swipe-direction=right]/drawer-popup:max-h-[calc(100dvh-14rem)]">
+        {goals.map(goal => {
+          const room = Math.round((amounts[goal._id] + remaining) * 100) / 100
+          const allocateMax = goal.goalType === 'contribution'
+            ? room
+            : Math.min(
+                Math.round(((goal.targetAmount ?? 0) - goal.allocatedAmount) * 100) / 100,
+                room,
               )
-            })}
-          </div>
+          const maxForGoal = mode === 'allocate'
+            ? allocateMax
+            : Math.min(goal.allocatedAmount, room)
+          const currentAmount = amounts[goal._id] || 0
+          const rowLabel = mode === 'deallocate'
+            ? `Allocated: ${formatCurrency(goal.allocatedAmount)}`
+            : goal.goalType === 'contribution'
+              ? `Saved: ${formatCurrency(goal.allocatedAmount)}`
+              : `${formatCurrency(goal.allocatedAmount)} / ${formatCurrency(goal.targetAmount ?? 0)}`
 
-          <div className="px-4 py-4">
-            <div className="flex justify-between text-sm font-medium border-t pt-4">
-              <span>{mode === 'allocate' ? 'Remaining unallocated' : 'Remaining to adjust'}</span>
-              <span className={mode === 'deallocate' && remaining > 0 ? 'text-destructive' : ''}>
-                {formatCurrency(remaining)}
-              </span>
+          return (
+            <div key={goal._id} className="flex flex-col gap-2">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">{goal.name}</span>
+                <span className="text-muted-foreground">{rowLabel}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={[currentAmount]}
+                  min={0}
+                  max={Math.max(maxForGoal, 0)}
+                  step={0.01}
+                  onValueChange={(value) => handleSliderChange(goal._id, Array.isArray(value) ? [...value] : [value])}
+                  className="flex-1"
+                />
+                <span className="text-sm font-mono w-20 text-right">
+                  {formatCurrency(currentAmount)}
+                </span>
+              </div>
             </div>
-          </div>
+          )
+        })}
+      </div>
 
-          <DrawerFooter className="border-t-0">
-            {mode === 'allocate' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={handleSuggest}
-                  disabled={isSubmitting || !goals.some(g => !!g.targetDate || g.goalType === 'contribution')}
-                >
-                  Suggest
-                </Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting || totalAdjusted === 0}>
-                  {isSubmitting ? 'Allocating...' : 'Allocate'}
-                </Button>
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                  Skip
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? 'Adjusting...' : 'Confirm'}
-                </Button>
-                <Button variant="outline" onClick={handleSpendEvenly} disabled={isSubmitting}>
-                  Spend from all goals evenly
-                </Button>
-              </>
-            )}
-          </DrawerFooter>
+      <div className="px-4 py-4">
+        <div className="flex justify-between text-sm font-medium border-t pt-4">
+          <span>{mode === 'allocate' ? 'Remaining unallocated' : 'Remaining to adjust'}</span>
+          <span className={mode === 'deallocate' && remaining > 0 ? 'text-destructive' : ''}>
+            {formatCurrency(remaining)}
+          </span>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </div>
+
+      <DrawerFooter className="border-t-0">
+        {mode === 'allocate' ? (
+          <>
+            <Button
+              variant="secondary"
+              onClick={handleSuggest}
+              disabled={isSubmitting || !goals.some(g => !!g.targetDate || g.goalType === 'contribution')}
+            >
+              Suggest
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting || totalAdjusted === 0}>
+              {isSubmitting ? 'Allocating...' : 'Allocate'}
+            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Skip
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Adjusting...' : 'Confirm'}
+            </Button>
+            <Button variant="outline" onClick={handleSpendEvenly} disabled={isSubmitting}>
+              Spend from all goals evenly
+            </Button>
+          </>
+        )}
+      </DrawerFooter>
+    </div>
   )
 }

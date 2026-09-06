@@ -30,7 +30,6 @@ describe('FilterPersistenceService', () => {
   describe('saveFilters', () => {
     it('should save filters for a specific page', () => {
       const filters: TransactionFilters = {
-        isLoading: false,
         categoryIds: ['cat1', 'cat2'],
         walletIds: ['wallet1'],
         transactionTypeIds: ['expense'],
@@ -50,11 +49,9 @@ describe('FilterPersistenceService', () => {
 
     it('should preserve filters for other pages', () => {
       const overviewFilters: TransactionFilters = {
-        isLoading: false,
         categoryIds: ['cat1'],
       }
       const transactionsFilters: TransactionFilters = {
-        isLoading: false,
         walletIds: ['wallet1'],
       }
 
@@ -67,7 +64,7 @@ describe('FilterPersistenceService', () => {
     })
 
     it('should update lastUpdated timestamp', () => {
-      const filters: TransactionFilters = { isLoading: false }
+      const filters: TransactionFilters = { categoryIds: ['cat1'] }
       const before = new Date().toISOString()
 
       service.saveFilters('overview', filters)
@@ -84,7 +81,6 @@ describe('FilterPersistenceService', () => {
   describe('loadFilters', () => {
     it('should load filters for a specific page', () => {
       const filters: TransactionFilters = {
-        isLoading: false,
         categoryIds: ['cat1'],
       }
 
@@ -109,12 +105,37 @@ describe('FilterPersistenceService', () => {
       const loaded = service.loadFilters('overview')
       expect(loaded).toBeNull()
     })
+
+    // Filters saved before reads suspended carried a loading flag and a
+    // version stamp; they must not come back as filters.
+    it('drops the loading flag and version stamp an older save carries', () => {
+      mockStorage['money:filters'] = JSON.stringify({
+        overview: {
+          isLoading: false,
+          filterVersion: '1700000000000',
+          categoryIds: ['cat1'],
+          period: { type: 'monthly', currentPeriod: 0, monthDay: 1 },
+        },
+        transactions: null,
+        lastUpdated: new Date().toISOString(),
+        version: '1',
+      })
+
+      const loaded = service.loadFilters('overview')
+
+      expect(loaded).toEqual({
+        categoryIds: ['cat1'],
+        period: { type: 'monthly', currentPeriod: 0, monthDay: 1 },
+      })
+      expect(loaded).not.toHaveProperty('isLoading')
+      expect(loaded).not.toHaveProperty('filterVersion')
+    })
   })
 
   describe('clearAll', () => {
     it('should remove all stored filters', () => {
-      service.saveFilters('overview', { isLoading: false })
-      service.saveFilters('transactions', { isLoading: false })
+      service.saveFilters('overview', { categoryIds: ['cat1'] })
+      service.saveFilters('transactions', { walletIds: ['wallet1'] })
 
       service.clearAll()
 
@@ -128,8 +149,8 @@ describe('FilterPersistenceService', () => {
 
   describe('clearPage', () => {
     it('should clear filters for specific page', () => {
-      service.saveFilters('overview', { isLoading: false, categoryIds: ['cat1'] })
-      service.saveFilters('transactions', { isLoading: false, walletIds: ['wallet1'] })
+      service.saveFilters('overview', { categoryIds: ['cat1'] })
+      service.saveFilters('transactions', { walletIds: ['wallet1'] })
 
       service.clearPage('overview')
 
@@ -147,7 +168,7 @@ describe('FilterPersistenceService', () => {
 
   describe('hasSavedFilters', () => {
     it('should return true if filters exist for page', () => {
-      service.saveFilters('overview', { isLoading: false })
+      service.saveFilters('overview', { categoryIds: ['cat1'] })
       expect(service.hasSavedFilters('overview')).toBe(true)
     })
 
@@ -156,7 +177,7 @@ describe('FilterPersistenceService', () => {
     })
 
     it('should return false after clearing page', () => {
-      service.saveFilters('overview', { isLoading: false })
+      service.saveFilters('overview', { categoryIds: ['cat1'] })
       service.clearPage('overview')
       expect(service.hasSavedFilters('overview')).toBe(false)
     })
@@ -165,7 +186,7 @@ describe('FilterPersistenceService', () => {
   describe('version handling', () => {
     it('should clear storage if version mismatch', () => {
       mockStorage['money:filters'] = JSON.stringify({
-        overview: { isLoading: false },
+        overview: { categoryIds: ['cat1'] },
         transactions: null,
         lastUpdated: new Date().toISOString(),
         version: '0',

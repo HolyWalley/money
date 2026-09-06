@@ -16,7 +16,7 @@ interface CategoriesPickerProps {
 export function CategoriesPicker({ isSubmitting }: CategoriesPickerProps) {
   const form = useFormContext<CreateTransaction>()
   const transactionType = form.watch('transactionType')
-  const { categories } = useLiveCategories(transactionType)
+  const categories = useLiveCategories(transactionType)
 
   return (
     <FormField

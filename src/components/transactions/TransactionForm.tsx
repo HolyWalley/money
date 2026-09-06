@@ -32,22 +32,18 @@ export function TransactionForm({ isSubmitting, transaction, autoFocusAmount }: 
   const transactionType = form.watch('transactionType')
   const walletId = form.watch('walletId')
   const toWalletId = form.watch('toWalletId')
-  const { wallets, isLoading } = useLiveWallets()
+  const wallets = useLiveWallets()
 
   const isTransfer = transactionType === 'transfer'
-  const { current, projected, isLoading: balanceLoading, hasChange } = useProjectedBalance(
+  const { current, projected, hasChange } = useProjectedBalance(
     isTransfer ? undefined : walletId,
     transaction
   )
-  const showBalance = !isTransfer && !!walletId && !balanceLoading
+  const showBalance = !isTransfer && !!walletId
 
   const fromWallet = wallets.find(w => w._id === walletId)
   const toWallet = wallets.find(w => w._id === toWalletId)
   const isSameCurrency = fromWallet?.currency === toWallet?.currency
-
-  if (isLoading) {
-    return null
-  }
 
   return (
     <>

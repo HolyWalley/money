@@ -63,8 +63,8 @@ const YEAR_DAYS = Array.from({ length: 365 }, (_, i) => ({
 }))
 
 export function FiltersDrawer({ isOpen, filters, currentFilters, onClose, onFiltersChange, onExportCsv }: FiltersDrawerProps) {
-  const { categories } = useLiveCategories()
-  const { wallets } = useLiveWallets()
+  const categories = useLiveCategories()
+  const wallets = useLiveWallets()
   const { quickFilters, clearQuickFilters, hasQuickFilters } = useFilterContext()
   const transactionTypes = TRANSACTION_TYPES
 

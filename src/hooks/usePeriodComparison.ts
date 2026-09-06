@@ -4,8 +4,6 @@ import { summarizeCashflow, EMPTY_CASHFLOW, type CashflowSummary } from '@/lib/c
 import { canNavigate, type PeriodSettings } from '@/lib/period-utils'
 import type { TransactionFilters } from './useLiveTransactions'
 
-const IDLE: TransactionFilters = { isLoading: true }
-
 export interface PeriodComparison {
   summary: CashflowSummary
   /**
@@ -36,7 +34,7 @@ export function usePreviousPeriodCashflow(filters: TransactionFilters): PeriodCo
     }
   }, [filters])
 
-  const { transactions, isLoading } = useDecoratedTransactions(previousFilters ?? IDLE)
+  const { transactions, isLoading } = useDecoratedTransactions(previousFilters)
 
   const summary = useMemo(
     () => (previousFilters ? summarizeCashflow(transactions) : EMPTY_CASHFLOW),

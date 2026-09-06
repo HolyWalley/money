@@ -15,7 +15,6 @@ import { PeriodFilter } from './PeriodFilter'
 import { QuickFilterChips } from './QuickFilterChips'
 import { TransactionDrawer } from './TransactionDrawer'
 import { VirtualizedTransactionList } from './VirtualizedTransactionList'
-import { useInitiallyLoaded } from '@/hooks/useInitiallyLoaded'
 import { UpcomingPaymentsSection } from '@/components/recurring/UpcomingPaymentsSection'
 import type { UpcomingPayment } from '@/hooks/useUpcomingPayments'
 import { LogPaymentDrawer } from '@/components/recurring/LogPaymentDrawer'
@@ -29,14 +28,13 @@ import type { CreateTransaction } from '../../../shared/schemas/transaction.sche
 import type { WalletSavingsSuggestion } from '@/lib/savings-suggestion'
 
 function TransactionsPageContent() {
-  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType } = useFilterContext()
-  const { transactions, isLoading } = useDecoratedTransactions(effectiveFilters)
+  const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType, isPending } = useFilterContext()
+  const { transactions } = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
   const wallets = useLiveWallets()
   const categories = useLiveCategories()
-  const { recurringPayments } = useLiveRecurringPayments(false)
-  const initiallyLoaded = useInitiallyLoaded(isLoading)
+  const recurringPayments = useLiveRecurringPayments(false)
   const [logPaymentDrawerOpen, setLogPaymentDrawerOpen] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<UpcomingPayment | null>(null)
   const [makeRecurringDrawerOpen, setMakeRecurringDrawerOpen] = useState(false)
@@ -83,12 +81,9 @@ function TransactionsPageContent() {
     return undefined
   }, [recurringPayments, recurringPaymentsById])
 
-  const periodDates = useMemo(() => {
-    if (!effectiveFilters.period) {
-      return { start: new Date(), end: new Date() }
-    }
-    return getPeriodDates(effectiveFilters.period)
-  }, [effectiveFilters.period])
+  // The provider seeds every filter set with a period; the type is wider than
+  // the truth.
+  const periodDates = useMemo(() => getPeriodDates(effectiveFilters.period!), [effectiveFilters.period])
 
   const { suggestions, totalsByCurrency } = useSavingsSuggestions(periodDates.start, periodDates.end)
 
@@ -146,8 +141,8 @@ function TransactionsPageContent() {
   }, [])
 
   const handleExportCsv = useCallback(() => {
-    exportTransactionsToCsv(visibleTransactions, categories.categories, wallets.wallets, baseCurrency)
-  }, [visibleTransactions, categories.categories, wallets.wallets, baseCurrency])
+    exportTransactionsToCsv(visibleTransactions, categories, wallets, baseCurrency)
+  }, [visibleTransactions, categories, wallets, baseCurrency])
 
   // A search that finds nothing in this period is usually a search for
   // something older, and widening is the same act as changing the period by
@@ -167,10 +162,6 @@ function TransactionsPageContent() {
     }
   }, [getRecurringForTransaction])
 
-  if (!initiallyLoaded) {
-    return null
-  }
-
   return (
     <>
       <div className="h-full flex flex-col">
@@ -178,6 +169,7 @@ function TransactionsPageContent() {
           <PeriodFilter
             filters={effectiveFilters}
             onFiltersChange={handleFiltersChange}
+            isPending={isPending}
             onExportCsv={handleExportCsv}
             subtitle={`${visibleTransactions.length} transaction${visibleTransactions.length !== 1 ? 's' : ''}`}
             searchTerm={searchTerm}
@@ -188,8 +180,8 @@ function TransactionsPageContent() {
         <UpcomingPaymentsSection
           periodStart={periodDates.start}
           periodEnd={periodDates.end}
-          categories={categories.categories}
-          wallets={wallets.wallets}
+          categories={categories}
+          wallets={wallets}
           onLogPayment={handleLogPayment}
           onSkipPayment={handleSkipPayment}
           savingsSuggestions={suggestions}
@@ -199,16 +191,16 @@ function TransactionsPageContent() {
 
         <QuickFilterChips
           quickFilters={quickFilters}
-          wallets={wallets.wallets}
-          categories={categories.categories}
+          wallets={wallets}
+          categories={categories}
           onTypeChange={setQuickFiltersForType}
           onClearAll={clearQuickFilters}
         />
 
         <div className="flex-1 min-h-0 px-4 pb-4">
           <VirtualizedTransactionList
-            wallets={wallets.wallets}
-            categories={categories.categories}
+            wallets={wallets}
+            categories={categories}
             transactions={visibleTransactions}
             isMobile={isMobile}
             baseCurrency={baseCurrency}
