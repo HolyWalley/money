@@ -169,6 +169,7 @@ function OverviewContent() {
           commitments={committed}
           missingCurrencies={unconvertedCurrencies}
           unvaluedHoldings={netWorth.unvaluedHoldings}
+          isLoading={netWorth.isLoading}
         />
 
         <div className="border rounded-lg p-4">

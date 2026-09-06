@@ -362,11 +362,16 @@ describe('the investments page, end to end', () => {
       expect(screen.queryByText('Excludes Vanguard S&P 500 — no symbol chosen yet.')).not.toBeInTheDocument()
     })
 
-    const repriced = within(screen.getByRole('table', { name: 'Open holdings' })).getByRole('row', {
-      name: /Vanguard S&P 500/,
-    })
+    // Re-queried on each attempt: the page renders again as the ledger and the
+    // curve below it take the new symbol, and a row held from before that is
+    // detached by the time it is read.
     // 10 x 80.20
-    expect(within(repriced).getByText('802.00')).toBeInTheDocument()
+    await waitFor(() => {
+      const repriced = within(screen.getByRole('table', { name: 'Open holdings' })).getByRole('row', {
+        name: /Vanguard S&P 500/,
+      })
+      expect(within(repriced).getByText('802.00')).toBeInTheDocument()
+    })
 
     const stored = await db.instruments.where('ticker').equals('VUSA').first()
     expect(stored?.symbol).toBe('VUSA.AS')

@@ -80,6 +80,22 @@ export interface InstrumentPriceRecord {
   fetchedAt: number;
 }
 
+/**
+ * When each symbol was last asked about, and over what range.
+ *
+ * Kept because an answer that legitimately holds nothing - a weekend, a
+ * holiday, an evening before the session's bar is posted - writes no price
+ * rows, so the price cache alone cannot tell "asked, and there was nothing"
+ * from "never asked". In memory that lasted until the tab was reloaded, and
+ * every reload asked the same empty question again.
+ */
+export interface PriceFetchRecord {
+  symbol: string;
+  from: string;
+  to: string;
+  at: number;
+}
+
 const db = new Dexie('MoneyDB') as Dexie & {
   categories: EntityTable<DexieCategory, '_id'>;
   wallets: EntityTable<DexieWallet, '_id'>;
@@ -92,6 +108,7 @@ const db = new Dexie('MoneyDB') as Dexie & {
   instruments: EntityTable<DexieInstrument, '_id'>;
   trades: EntityTable<DexieTrade, '_id'>;
   instrumentPrices: EntityTable<InstrumentPriceRecord, 'key'>;
+  priceFetches: EntityTable<PriceFetchRecord, 'symbol'>;
 }
 
 db.version(1).stores({
@@ -207,6 +224,23 @@ db.version(13).stores({
   instruments: '_id,isin,ticker,symbol,name,currency,kind,createdAt,updatedAt',
   trades: '_id,accountId,instrumentId,kind,date,externalId,createdAt,updatedAt',
   instrumentPrices: 'key,symbol,date',
+});
+
+// Version 14: Remember when each symbol was last asked about, so an answer with
+// nothing in it is not asked for again on every reload
+db.version(14).stores({
+  categories: '_id,name,type,order,createdAt,updatedAt',
+  wallets: '_id,name,type,createdAt,updatedAt,currency,order',
+  transactions: '_id,type,transactionType,amount,currency,toAmount,toCurrency,categoryId,walletId,toWalletId,date,createdAt,updatedAt,recurringPaymentLogId',
+  exchangeRates: 'key,from,to,date,expiresAt',
+  recurringPayments: '_id,isActive,categoryId,walletId,startDate,savingsWalletId,createdAt,updatedAt',
+  recurringPaymentLogs: '_id,recurringPaymentId,scheduledDate,status,transactionId,createdAt',
+  savingGoals: '_id,walletId,name,achieved,order,targetDate,sourceRecurringPaymentId,createdAt,updatedAt',
+  brokerAccounts: '_id,name,broker,order,createdAt,updatedAt',
+  instruments: '_id,isin,ticker,symbol,name,currency,kind,createdAt,updatedAt',
+  trades: '_id,accountId,instrumentId,kind,date,externalId,createdAt,updatedAt',
+  instrumentPrices: 'key,symbol,date',
+  priceFetches: 'symbol',
 });
 
 export { db };

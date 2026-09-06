@@ -54,6 +54,9 @@ async function seed(rows: Array<{ symbol: string; date: string; close: number; f
 
 beforeEach(async () => {
   await db.instrumentPrices.clear()
+  // Part of the same cache, and it now outlives a tab: a question recorded by
+  // one test would otherwise answer for the next one.
+  await db.priceFetches.clear()
   // The client reasons about "today", so pin it rather than letting the range
   // under test drift into the past as the suite ages. Only the clock is faked:
   // faking timers as well would stall Dexie's own transaction plumbing.
@@ -114,6 +117,48 @@ describe('MarketDataClient', () => {
     expect(fetcher.mock.calls.length).toBe(2)
     expect(fetcher.mock.calls[0][0]).toHaveLength(MAX_SYMBOLS_PER_REQUEST)
     expect(fetcher.mock.calls[1][0]).toHaveLength(3)
+  })
+
+  // A weekend, a holiday, an evening before the session's bar is posted: the
+  // answer is empty, so no price row records that anything was asked, and every
+  // reload used to ask the same empty question again.
+  it('remembers asking about a day the market was shut, across a reload', async () => {
+    const fetcher = respondWith({ 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-13': 41.4 } } })
+    await new MarketDataClient(fetcher).getCloses(['FWIA.DE'], FROM, TO)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    // A fresh client is what a reload leaves behind: nothing in memory, and the
+    // same IndexedDB underneath.
+    const afterReload = respondWith({})
+    const { closes } = await new MarketDataClient(afterReload).getCloses(['FWIA.DE'], FROM, TO)
+
+    expect(afterReload).not.toHaveBeenCalled()
+    expect(closes.get('FWIA.DE:2025-03-13')).toBe(41.4)
+  })
+
+  it('asks after a reload once the hour it was told about is up', async () => {
+    await new MarketDataClient(respondWith({})).getCloses(['FWIA.DE'], FROM, TO)
+
+    vi.setSystemTime(new UTCDate('2025-03-14T12:00:00Z').getTime() + TIP_TTL_MS + 1000)
+    const afterReload = respondWith({})
+    await new MarketDataClient(afterReload).getCloses(['FWIA.DE'], FROM, TO)
+
+    expect(afterReload).toHaveBeenCalledTimes(1)
+  })
+
+  // Only the tip is forgiven on the strength of having asked. A range reaching
+  // further back than anything examined is a real hole, whoever asked what.
+  it('still backfills after a reload, however recently the tip was asked about', async () => {
+    await new MarketDataClient(respondWith({})).getCloses(['FWIA.DE'], FROM, TO)
+
+    const afterReload = respondWith({})
+    await new MarketDataClient(afterReload).getCloses(
+      ['FWIA.DE'],
+      new UTCDate('2025-01-06T00:00:00Z'),
+      TO
+    )
+
+    expect(afterReload).toHaveBeenCalledTimes(1)
   })
 
   it('serves a fully cached past range without touching the network', async () => {

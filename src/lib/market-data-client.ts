@@ -10,7 +10,7 @@ import {
   shiftDateKey,
   utcDateKey,
 } from '../../shared/market-data'
-import type { InstrumentPriceRecord } from './db-dexie'
+import type { InstrumentPriceRecord, PriceFetchRecord } from './db-dexie'
 import { db } from './db-dexie'
 import { apiClient, isRetryableFailure } from './api-client'
 import { getConnectionState } from './network-status'
@@ -115,6 +115,7 @@ export class MarketDataClient {
   private attempts = new Map<string, Attempt>()
   private failures = new Map<string, number>()
   private linkWasDown = false
+  private hydrated: Promise<void> | null = null
 
   constructor(fetcher: PriceFetcher = fetchPricesFromApi) {
     this.fetcher = fetcher
@@ -141,6 +142,8 @@ export class MarketDataClient {
     const seedKey = shiftDateKey(fromKey, -CLOSE_LOOKBACK_DAYS)
     const today = utcDateKey(new Date())
     const now = Date.now()
+
+    await this.hydrate()
 
     const cached = await db.instrumentPrices.where('symbol').anyOf(unique).toArray()
 
@@ -213,6 +216,46 @@ export class MarketDataClient {
     return state !== 'offline'
   }
 
+  /**
+   * What was asked of the server before this tab existed.
+   *
+   * Read once and merged under whatever this session already knows, so a
+   * reload starts out aware of the questions the last one asked - including
+   * the ones that came back empty, which leave no price rows to infer it from.
+   */
+  private async hydrate(): Promise<void> {
+    if (!this.hydrated) {
+      this.hydrated = db.priceFetches
+        .toArray()
+        .then(records => {
+          for (const record of records) {
+            if (this.attempts.has(record.symbol)) continue
+            this.attempts.set(record.symbol, { from: record.from, to: record.to, at: record.at })
+          }
+        })
+        .catch(error => {
+          // Worth a wasted request, never a blank chart.
+          console.error('Failed to read what prices were last asked for:', error)
+        })
+    }
+
+    return this.hydrated
+  }
+
+  /** Remembers an answered question, in memory and across reloads alike. */
+  private async remember(symbols: string[], from: string, to: string, at: number): Promise<void> {
+    const records: PriceFetchRecord[] = symbols.map(symbol => ({ symbol, from, to, at }))
+    for (const record of records) {
+      this.attempts.set(record.symbol, { from: record.from, to: record.to, at: record.at })
+    }
+
+    try {
+      await db.priceFetches.bulkPut(records)
+    } catch (error) {
+      console.error('Failed to record what prices were asked for:', error)
+    }
+  }
+
   /** What one answer means for the symbols it covers, and for what to ask next. */
   private async record(
     symbols: string[],
@@ -223,8 +266,8 @@ export class MarketDataClient {
     cached: InstrumentPriceRecord[]
   ): Promise<void> {
     if (outcome.ok) {
+      await this.remember(symbols, from, to, now)
       for (const symbol of symbols) {
-        this.attempts.set(symbol, { from, to, at: now })
         this.failures.delete(symbol)
       }
       const records = toRecords(outcome.prices, nextFetchStamp())
@@ -248,9 +291,7 @@ export class MarketDataClient {
     // Sending it again unchanged gets the same answer, so this counts as having
     // asked: the hour-long, range-scoped brake applies, and a narrower request
     // is still free to go out immediately.
-    for (const symbol of symbols) {
-      this.attempts.set(symbol, { from, to, at: now })
-    }
+    await this.remember(symbols, from, to, now)
   }
 
   private needsFetch(
@@ -274,6 +315,12 @@ export class MarketDataClient {
     // We already asked the server for this range, or a wider one, moments ago.
     // Asking again cannot produce anything new - not even for a symbol the
     // server could not price at all, which would otherwise refetch forever.
+    //
+    // This is what a reload leans on. A session that has not happened - a
+    // weekend, a holiday, an evening before the bar is posted - answers with
+    // nothing and writes no price row, so nothing in the price cache records
+    // that the question was ever asked. Held only in memory, that knowledge
+    // died with the tab and every reload asked again.
     const attempt = this.attempts.get(symbol)
     if (attempt && attempt.at > now - TIP_TTL_MS && attempt.from <= from && attempt.to >= to) {
       return false

@@ -11,7 +11,9 @@ import { db as moneyDb } from './db-dexie'
 import { updatesDb } from './updates-db'
 
 // Every table gets the same row: Dexie takes whichever key it is indexed on and
-// ignores the rest, so one shape seeds them all without naming any by hand.
+// ignores the rest, so one shape seeds them all without naming any by hand. A
+// table keyed on something new needs its key adding here, or Dexie rejects the
+// row rather than storing it under a key it has not got.
 async function seedEveryTable() {
   const now = new Date()
   await Promise.all(
@@ -19,6 +21,7 @@ async function seedEveryTable() {
       table.put({
         _id: `seed-${table.name}`,
         key: `seed-${table.name}`,
+        symbol: `seed-${table.name}`,
         createdAt: now,
         updatedAt: now,
       })
