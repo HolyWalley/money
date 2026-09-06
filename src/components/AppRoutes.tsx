@@ -34,8 +34,17 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="bg-background text-foreground flex">
       <AppSidebar />
       {/* pb-safe-20 rather than pb-20: AppSidebarMobile grows itself by the home
-          indicator inset, so a flat 5rem leaves the last row under the nav. */}
-      <div className={`flex-1 min-h-[calc(100dvh)] pt-safe ${isMobile ? 'pb-safe-20' : 'pl-24'}`}>{children}</div>
+          indicator inset, so a flat 5rem leaves the last row under the nav.
+
+          min-w-0 because a flex item's automatic minimum size is its content's,
+          so one wide child - a chart measuring itself against a column that is
+          growing to fit it - widens this column past the screen and takes the
+          whole page with it. */}
+      <div
+        className={`min-w-0 flex-1 min-h-[calc(100dvh)] pt-safe ${isMobile ? 'pb-safe-20' : 'pl-24'}`}
+      >
+        {children}
+      </div>
       <SavingsNotificationListener />
       <RecurringGoalLinkSubscriber />
       <SyncNotificationListener status={sync.status} />

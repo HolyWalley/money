@@ -109,7 +109,7 @@ const ACCOUNT: BrokerAccount = {
 }
 
 function renderDrawer() {
-  return render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+  return render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
 }
 
 /** The rows a default import of the DeGiro fixture stores, as this account would already hold them. */
@@ -362,7 +362,7 @@ describe('confirming the import', () => {
   // The page keeps the drawer mounted so it can animate out, so without a reset
   // the next import opens on the last one's result screen.
   it('reads a statement dropped onto the zone, not only one picked through the dialog', async () => {
-    render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
     const zone = screen.getByText('Drop the CSV your broker exported, or choose it.').parentElement!
     const file = csvFile(DEGIRO_FIXTURE, fixture(DEGIRO_FIXTURE))
 
@@ -372,7 +372,7 @@ describe('confirming the import', () => {
   })
 
   it('cancels the drag events, because the browser would otherwise navigate away from the page', () => {
-    render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
     const zone = screen.getByText('Drop the CSV your broker exported, or choose it.').parentElement!
 
     const dragOver = createDragEvent('dragover')
@@ -387,7 +387,7 @@ describe('confirming the import', () => {
   })
 
   it('lights the zone up while a file is over it, and settles again when it leaves', () => {
-    render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
     const zone = screen.getByText('Drop the CSV your broker exported, or choose it.').parentElement!
 
     fireEvent.dragEnter(zone, { dataTransfer: { files: [], types: ['Files'] } })
@@ -400,7 +400,7 @@ describe('confirming the import', () => {
   it('ignores a drag passing over the icon inside the zone', () => {
     // dragleave fires on the parent when the pointer crosses a child, so a naive
     // handler drops the highlight while the file is still over the zone.
-    render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
     const zone = screen.getByText('Drop the CSV your broker exported, or choose it.').parentElement!
     fireEvent.dragEnter(zone, { dataTransfer: { files: [], types: ['Files'] } })
 
@@ -414,7 +414,7 @@ describe('confirming the import', () => {
   })
 
   it('does nothing when a drop carries no file', () => {
-    render(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    render(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
     const zone = screen.getByText('Drop the CSV your broker exported, or choose it.').parentElement!
 
     fireEvent.drop(zone, { dataTransfer: { files: [], types: ['Files'] } })
@@ -424,14 +424,14 @@ describe('confirming the import', () => {
 
   it('starts again from the file picker the next time it is opened', async () => {
     const { rerender } = render(
-      <ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />
+      <ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />
     )
     const user = await uploadFixture(DEGIRO_FIXTURE)
     await user.click(await screen.findByRole('button', { name: /^Import \d+ rows$/ }))
     expect(await screen.findByText(/rows added to DEGIRO/)).toBeInTheDocument()
 
-    rerender(<ImportStatementDrawer account={ACCOUNT} open={false} onOpenChange={vi.fn()} />)
-    rerender(<ImportStatementDrawer account={ACCOUNT} open onOpenChange={vi.fn()} />)
+    rerender(<ImportStatementDrawer accounts={[ACCOUNT]} open={false} onOpenChange={vi.fn()} />)
+    rerender(<ImportStatementDrawer accounts={[ACCOUNT]} open onOpenChange={vi.fn()} />)
 
     expect(await screen.findByText('Drop the CSV your broker exported, or choose it.')).toBeInTheDocument()
     expect(screen.queryByText(/rows added to DEGIRO/)).not.toBeInTheDocument()
@@ -454,5 +454,127 @@ describe('previewing a Revolut statement', () => {
     await uploadFixture(REVOLUT_FIXTURE)
 
     expect(await screen.findByText('No cash wallet is linked to this account')).toBeInTheDocument()
+  })
+})
+
+describe('choosing which account the file belongs to', () => {
+  const REVOLUT_ACCOUNT: BrokerAccount = {
+    ...ACCOUNT,
+    _id: 'acc-revolut',
+    name: 'Revolut Invest',
+    broker: 'revolut',
+    cashWalletId: undefined,
+  }
+
+  const SECOND_DEGIRO: BrokerAccount = {
+    ...ACCOUNT,
+    _id: 'acc-2',
+    name: 'DEGIRO Custody',
+    cashWalletId: undefined,
+  }
+
+  async function importEverythingOffered() {
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /^Import \d+ rows$/ }))
+    await waitFor(() => expect(mocks.importTrades).toHaveBeenCalledTimes(1))
+    return mocks.importTrades.mock.calls[0][0] as string
+  }
+
+  it('sends the file to the one account its broker names', async () => {
+    render(
+      <ImportStatementDrawer accounts={[ACCOUNT, REVOLUT_ACCOUNT]} open onOpenChange={vi.fn()} />
+    )
+    await uploadFixture(DEGIRO_FIXTURE)
+
+    expect(await screen.findByText(/rows read from your DEGIRO statement/)).toBeInTheDocument()
+    expect(await importEverythingOffered()).toBe(ACCOUNT._id)
+  })
+
+  it('reads a file from the other broker into the other account', async () => {
+    mocks.wallets = []
+    render(
+      <ImportStatementDrawer accounts={[ACCOUNT, REVOLUT_ACCOUNT]} open onOpenChange={vi.fn()} />
+    )
+    await uploadFixture(REVOLUT_FIXTURE)
+
+    expect(await screen.findByText(/rows read from your Revolut statement/)).toBeInTheDocument()
+    expect(await importEverythingOffered()).toBe(REVOLUT_ACCOUNT._id)
+  })
+
+  // Two accounts at the same broker is the one case the file cannot settle, so
+  // it is also the only one worth interrupting the import to ask about.
+  it('asks which one when two accounts are held at that broker', async () => {
+    render(
+      <ImportStatementDrawer accounts={[ACCOUNT, SECOND_DEGIRO]} open onOpenChange={vi.fn()} />
+    )
+    const user = await uploadFixture(DEGIRO_FIXTURE)
+
+    expect(
+      await screen.findByText('This is a DEGIRO statement. Which account is it from?')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/rows read from your DEGIRO statement/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /DEGIRO Custody/ }))
+
+    expect(await screen.findByText(/rows read from your DEGIRO statement/)).toBeInTheDocument()
+    expect(await importEverythingOffered()).toBe(SECOND_DEGIRO._id)
+  })
+
+  // The only account there is takes the file whatever the broker on it says,
+  // because there is nothing else the import could mean.
+  it('falls back to the only account when no broker matches', async () => {
+    const other: BrokerAccount = { ...ACCOUNT, broker: 'other' }
+    render(<ImportStatementDrawer accounts={[other]} open onOpenChange={vi.fn()} />)
+    await uploadFixture(DEGIRO_FIXTURE)
+
+    expect(await screen.findByText(/rows read from your DEGIRO statement/)).toBeInTheDocument()
+    expect(await importEverythingOffered()).toBe(other._id)
+  })
+
+  it('keeps the account the import was started from, whatever the file says', async () => {
+    mocks.wallets = []
+    render(
+      <ImportStatementDrawer
+        accounts={[ACCOUNT, REVOLUT_ACCOUNT]}
+        account={REVOLUT_ACCOUNT}
+        open
+        onOpenChange={vi.fn()}
+      />
+    )
+    await uploadFixture(DEGIRO_FIXTURE)
+
+    expect(await screen.findByText(/rows read from your DEGIRO statement/)).toBeInTheDocument()
+    expect(await importEverythingOffered()).toBe(REVOLUT_ACCOUNT._id)
+  })
+
+  it('lets the account it worked out be changed from the preview', async () => {
+    mocks.wallets = []
+    render(
+      <ImportStatementDrawer accounts={[ACCOUNT, REVOLUT_ACCOUNT]} open onOpenChange={vi.fn()} />
+    )
+    const user = await uploadFixture(DEGIRO_FIXTURE)
+
+    await user.click(await screen.findByRole('button', { name: 'Change account' }))
+    await user.click(await screen.findByRole('button', { name: /Revolut Invest/ }))
+
+    expect(await importEverythingOffered()).toBe(REVOLUT_ACCOUNT._id)
+  })
+
+  // A file picked second must be free to land somewhere else, so the account
+  // the first one implied cannot outlive it.
+  it('works the account out again for the next file', async () => {
+    render(
+      <ImportStatementDrawer accounts={[ACCOUNT, SECOND_DEGIRO]} open onOpenChange={vi.fn()} />
+    )
+    const user = await uploadFixture(DEGIRO_FIXTURE)
+    await user.click(await screen.findByRole('button', { name: /DEGIRO Custody/ }))
+    expect(await screen.findByText(/rows read from your DEGIRO statement/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Choose another file' }))
+    await uploadFixture(DEGIRO_FIXTURE)
+
+    expect(
+      await screen.findByText('This is a DEGIRO statement. Which account is it from?')
+    ).toBeInTheDocument()
   })
 })

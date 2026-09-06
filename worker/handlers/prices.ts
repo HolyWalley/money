@@ -1,7 +1,15 @@
 import type { CloudflareEnv } from "../types/cloudflare";
 import type { MarketDataProvider, PricesResponse, SymbolPrices } from "../../shared/market-data";
 import type { StoredClose, StoredInstrument, SymbolFetchRange } from "../durable-objects/MarketObject";
-import { CLOSE_LOOKBACK_DAYS, isSettledBar, refreshableFrom, shiftDateKey, utcDateKey } from "../../shared/market-data";
+import {
+  CLOSE_LOOKBACK_DAYS,
+  MAX_RANGE_DAYS,
+  MAX_SYMBOLS_PER_REQUEST,
+  isSettledBar,
+  refreshableFrom,
+  shiftDateKey,
+  utcDateKey,
+} from "../../shared/market-data";
 import { YahooMarketDataProvider } from "../../shared/market-data-provider-yahoo";
 import { ResponseUtils } from "../utils/response";
 
@@ -16,18 +24,11 @@ import { ResponseUtils } from "../utils/response";
 const MARKET_OBJECT_NAME = 'global';
 
 /**
- * All three caps exist to bound fan-out: a worker invocation only gets so many
- * subrequests, and one request turns into MAX_FETCHES_PER_SYMBOL provider calls
- * per symbol plus the durable object calls. A client with more holdings pages
- * instead.
- *
- * The day cap is measured over the window actually fetched, which starts
- * CLOSE_LOOKBACK_DAYS before the requested `from` (see seedFrom), and carries
- * those extra days so that asking for a full year is not refused over a seed
- * the caller never asked for.
+ * The request caps, defined beside the response shape they belong to: the
+ * client has to split a long history into windows this endpoint will accept,
+ * so the two ends must agree on the numbers.
  */
-export const MAX_SYMBOLS_PER_REQUEST = 12;
-export const MAX_RANGE_DAYS = 400 + CLOSE_LOOKBACK_DAYS;
+export { MAX_RANGE_DAYS, MAX_SYMBOLS_PER_REQUEST } from "../../shared/market-data";
 
 /**
  * How many provider calls one symbol may cost.

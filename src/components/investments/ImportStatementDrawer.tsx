@@ -20,7 +20,8 @@ import {
   tradeKindOf,
   type CashWalletSummary,
 } from './ImportPreview'
-import { parseStatement, supportedBrokers } from '@/lib/import'
+import { brokerName, parseStatement, supportedBrokers } from '@/lib/import'
+import { brokerLabel } from './BrokerAccountForm'
 import type { ParsedRow, ParsedRowKind, ParsedStatement } from '@/lib/import/types'
 import { useLiveTrades } from '@/hooks/useLiveTrades'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
@@ -30,13 +31,21 @@ import { investmentService, type ImportTradeRow, type ImportTradesSummary } from
 import type { BrokerAccount } from '../../../shared/schemas/broker-account.schema'
 
 export interface ImportStatementDrawerProps {
-  /** The account the statement's rows are imported into. */
-  account: BrokerAccount
+  /**
+   * Every account a statement could be imported into. The broker the file
+   * names picks one of them, so the ordinary import never has to ask.
+   */
+  accounts: BrokerAccount[]
+  /**
+   * Preselected when the import was started from one account in particular,
+   * which then stands whatever broker the file turns out to name.
+   */
+  account?: BrokerAccount | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-type Stage = 'choose' | 'preview' | 'done'
+type Stage = 'choose' | 'account' | 'preview' | 'done'
 
 /** Trimmed, because a note is read in a list and a DeGiro line runs past 100 characters. */
 const NOTE_LENGTH = 120
@@ -109,9 +118,15 @@ function SummaryLine({ label, value, note }: { label: string; value: number; not
   )
 }
 
-export function ImportStatementDrawer({ account, open, onOpenChange }: ImportStatementDrawerProps) {
+export function ImportStatementDrawer({
+  accounts,
+  account = null,
+  open,
+  onOpenChange,
+}: ImportStatementDrawerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<Stage>('choose')
+  const [accountId, setAccountId] = useState<string | null>(account?._id ?? null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [statement, setStatement] = useState<ParsedStatement | null>(null)
   const [selectedKinds, setSelectedKinds] = useState<ReadonlySet<ParsedRowKind>>(
@@ -122,11 +137,13 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
   const [isBusy, setIsBusy] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
-  const { trades } = useLiveTrades(account._id)
+  const target = accounts.find(candidate => candidate._id === accountId) ?? null
+
+  const { trades } = useLiveTrades(target?._id)
   const { wallets } = useLiveWallets()
   const { balances } = useWalletBalances()
 
-  const wallet = account.cashWalletId ? wallets.find(candidate => candidate._id === account.cashWalletId) : undefined
+  const wallet = target?.cashWalletId ? wallets.find(candidate => candidate._id === target.cashWalletId) : undefined
   const cashWallet: CashWalletSummary | null = wallet
     ? {
         name: wallet.name,
@@ -141,6 +158,7 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
   useEffect(() => {
     if (!open) return
     setStage('choose')
+    setAccountId(account?._id ?? null)
     setFileName(null)
     setStatement(null)
     setSelectedKinds(new Set(DEFAULT_SELECTED_KINDS))
@@ -148,7 +166,23 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
     setError(null)
     setIsBusy(false)
     setIsDragging(false)
-  }, [open, account._id])
+  }, [open, account?._id])
+
+  /**
+   * Which account a parsed file belongs to, or null when only the user can say.
+   *
+   * An import started from one account's own menu stays there whatever the file
+   * says. Otherwise the broker the statement names picks the account, and the
+   * question is only put when that leaves a real choice - two DEGIRO accounts,
+   * or a file from a broker none of them is set to.
+   */
+  const accountFor = (parsed: ParsedStatement): BrokerAccount | null => {
+    if (target) return target
+
+    const matching = accounts.filter(candidate => candidate.broker === parsed.broker)
+    const candidates = matching.length > 0 ? matching : accounts
+    return candidates.length === 1 ? candidates[0] : null
+  }
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -173,7 +207,10 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
       }
       setStatement(result.statement)
       setSelectedKinds(new Set(DEFAULT_SELECTED_KINDS))
-      setStage('preview')
+
+      const chosen = accountFor(result.statement)
+      if (chosen) setAccountId(chosen._id)
+      setStage(chosen ? 'preview' : 'account')
     } catch {
       setStatement(null)
       setError('That file could not be read.')
@@ -236,7 +273,7 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
   const newRowCount = selectedRows.filter(row => !storedIds.has(row.externalId)).length
 
   const handleImport = async () => {
-    if (!statement) return
+    if (!statement || !target) return
 
     setIsBusy(true)
     setError(null)
@@ -244,7 +281,7 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
     try {
       const instrumentIds = await resolveInstruments(selectedRows)
       const result = await investmentService.importTrades(
-        account._id,
+        target._id,
         selectedRows.map(row => toTradeRow(row, instrumentIds))
       )
       setSummary(result)
@@ -262,6 +299,22 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
     setSummary(null)
     setFileName(null)
     setError(null)
+    // Only an account the caller preselected survives: one worked out from the
+    // last file must not decide where the next file goes.
+    setAccountId(account?._id ?? null)
+  }
+
+  const pickAccount = (candidate: BrokerAccount) => {
+    setAccountId(candidate._id)
+    setStage('preview')
+  }
+
+  const describeImport = (): string => {
+    // On the account stage the target is what is being changed, so naming it
+    // there would answer the question the stage is asking.
+    if (fileName) return target && stage !== 'account' ? `${fileName} → ${target.name}` : fileName
+    if (target) return `Add trades to ${target.name} from a broker CSV.`
+    return 'Add trades from a broker CSV, into the account it belongs to.'
   }
 
   return (
@@ -271,7 +324,18 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
           <DrawerHeader>
             <DrawerTitle>Import statement</DrawerTitle>
             <DrawerDescription>
-              {fileName ? `${fileName} → ${account.name}` : `Add trades to ${account.name} from a broker CSV.`}
+              {describeImport()}
+              {stage === 'preview' && accounts.length > 1 && (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="ml-2 h-auto p-0 align-baseline"
+                  onClick={() => setStage('account')}
+                >
+                  Change account
+                </Button>
+              )}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -338,7 +402,37 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
               </div>
             )}
 
-            {stage === 'preview' && statement && (
+            {stage === 'account' && statement && (
+              <div className="space-y-3">
+                <p className="text-muted-foreground">
+                  {accounts.length === 0
+                    ? 'Add a broker account first — an import has to land in one.'
+                    : `This is a ${brokerName(statement.broker)} statement. Which account is it from?`}
+                </p>
+                <div className="space-y-2">
+                  {accounts.map(candidate => (
+                    <button
+                      key={candidate._id}
+                      type="button"
+                      onClick={() => pickAccount(candidate)}
+                      className="hover:bg-muted/50 flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left transition-colors"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{candidate.name}</span>
+                        <span className="text-muted-foreground block truncate text-xs">
+                          {brokerLabel(candidate.broker)}
+                        </span>
+                      </span>
+                      {candidate.broker === statement.broker && (
+                        <span className="text-muted-foreground shrink-0 text-xs">Matches this file</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {stage === 'preview' && statement && target && (
               <div className="space-y-4">
                 <ImportPreview
                   statement={statement}
@@ -346,7 +440,7 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
                   selectedKinds={selectedKinds}
                   onToggleKind={toggleKind}
                   cashWallet={cashWallet}
-              onAdjustOpeningBalance={adjustOpeningBalance}
+                  onAdjustOpeningBalance={adjustOpeningBalance}
                 />
                 {error && (
                   <Alert variant="destructive">
@@ -358,12 +452,12 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
               </div>
             )}
 
-            {stage === 'done' && summary && (
+            {stage === 'done' && summary && target && (
               <div className="space-y-3">
                 <Alert>
                   <CheckCircle2 aria-hidden="true" />
                   <AlertTitle>
-                    {summary.inserted} {summary.inserted === 1 ? 'row' : 'rows'} added to {account.name}
+                    {summary.inserted} {summary.inserted === 1 ? 'row' : 'rows'} added to {target.name}
                   </AlertTitle>
                 </Alert>
 
@@ -400,6 +494,12 @@ export function ImportStatementDrawer({ account, open, onOpenChange }: ImportSta
           </div>
 
           <DrawerFooter>
+            {stage === 'account' && (
+              <Button type="button" variant="outline" size="lg" onClick={startOver}>
+                Choose another file
+              </Button>
+            )}
+
             {stage === 'preview' && (
               <>
                 <Button type="button" size="lg" onClick={handleImport} disabled={isBusy || newRowCount === 0}>

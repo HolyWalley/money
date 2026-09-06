@@ -43,9 +43,26 @@ const mocks = vi.hoisted(() => ({
   searchSymbols: vi.fn(),
 }))
 
+// recharts measures its container, and jsdom lays nothing out, so every chart
+// on the page would otherwise render at zero and warn about it once per pass.
+// The curve's own figures are covered where they are computed.
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts')
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  }
+})
+
 vi.mock('@/lib/market-data-client', () => ({
   marketDataClient: { getCloses: mocks.getCloses },
   searchSymbols: mocks.searchSymbols,
+}))
+
+// The daily rates the history curve converts with. One currency throughout, so
+// there is nothing to convert and nothing to fetch.
+vi.mock('@/hooks/useExchangeRates', () => ({
+  useExchangeRates: () => ({ rates: new Map(), isLoading: false, error: null }),
 }))
 
 // One currency throughout, so a figure on screen is the figure the engine
@@ -134,14 +151,19 @@ async function seedPortfolio() {
 beforeEach(async () => {
   vi.clearAllMocks()
 
-  mocks.getCloses.mockImplementation(async (symbols: string[], _from: Date, to: Date) => {
+  // Every day of the range, not only its last: the history curve values what
+  // was held on each day in turn, and a feed answering for one day would leave
+  // it reporting the past as unpriced.
+  mocks.getCloses.mockImplementation(async (symbols: string[], from: Date, to: Date) => {
     const closes = new Map<string, number>()
     const currencies = new Map<string, string>()
     for (const symbol of symbols) {
       const price = PRICES[symbol]
       if (!price) continue
-      closes.set(createPriceCacheKey(symbol, utcDateKey(to)), price.close)
       currencies.set(symbol, price.currency)
+      for (let day = new Date(from); day <= to; day.setUTCDate(day.getUTCDate() + 1)) {
+        closes.set(createPriceCacheKey(symbol, utcDateKey(day)), price.close)
+      }
     }
     return { closes, currencies }
   })
@@ -177,22 +199,65 @@ describe('the investments page, end to end', () => {
 
     render(<InvestmentsPage />)
 
-    // The account is the entry point to everything else on the page.
-    expect(await screen.findByText('DEGIRO Custody')).toBeInTheDocument()
+    // The holdings are what the page is for; the account behind them is folded
+    // away until someone goes looking for it.
+    expect(await screen.findByRole('button', { name: /Broker accounts/ })).toHaveTextContent('(1)')
+    expect(screen.queryByRole('button', { name: 'Open DEGIRO Custody menu' })).not.toBeInTheDocument()
 
-    const holding = await screen.findByRole('row', { name: /iShares Core MSCI World/ })
+    await screen.findAllByRole('row', { name: /iShares Core MSCI World/ })
+    const holdings = within(screen.getByRole('table', { name: 'Open holdings' }))
+    const holding = holdings.getByRole('row', { name: /iShares Core MSCI World/ })
 
     // 40.53125 shares, exact - not 40.53, and not padded to eight places.
     expect(within(holding).getByText('40.53125')).toBeInTheDocument()
     // 40.53125 x 110.00
     expect(within(holding).getByText('4,458.44')).toBeInTheDocument()
-    // 4,458.44 market value against 4,053.13 paid.
-    expect(within(holding).getByText('+405.31')).toBeInTheDocument()
-    expect(within(holding).getByText('25.00')).toBeInTheDocument()
+    // 4,458.44 market value against 4,053.13 paid, plus the 25.00 dividend the
+    // return is made of and says so.
+    expect(within(holding).getByText('+430.31')).toBeInTheDocument()
+    expect(within(holding).getByText(/incl\. 25\.00 in dividends/)).toBeInTheDocument()
 
     // The same figure again as the portfolio's own total, since this is the
     // only holding carrying a value.
     expect(screen.getAllByText('4,458.44').length).toBeGreaterThan(1)
+  })
+
+  // The curve is derived from the stored trades and the daily closes, so it
+  // exists for every day since the first buy without anything being snapshotted.
+  it('draws the value of what was held on every day since the first trade', async () => {
+    await seedPortfolio()
+
+    render(<InvestmentsPage />)
+
+    await screen.findByText('40.53125')
+
+    // The block is on the page from the first render; the curve and its windows
+    // arrive with the closes, so the wait is for one of those.
+    await screen.findByRole('button', { name: 'Performance' })
+    const chart = within(screen.getByRole('region', { name: 'Portfolio' }))
+
+    // Every window the history is long enough to fill, and the whole of it.
+    expect(chart.getByRole('button', { name: 'All' })).toBeInTheDocument()
+    expect(chart.getByRole('button', { name: '1Y' })).toBeInTheDocument()
+
+    // The holding with no symbol cannot be valued on any day, and the curve
+    // says so rather than reading as a smaller portfolio.
+    expect(
+      chart.getByText(/The curve leaves out Vanguard S&P 500 — no symbol chosen yet/)
+    ).toBeInTheDocument()
+  })
+
+  // The dividend was stored as an ordinary trade row; nothing else records it.
+  it('counts the stored dividend in the year it was paid', async () => {
+    await seedPortfolio()
+
+    render(<InvestmentsPage />)
+
+    await screen.findByText('40.53125')
+
+    const dividends = within(await screen.findByRole('region', { name: 'Dividends' }))
+    expect(dividends.getByText(/25.00 EUR in total/)).toBeInTheDocument()
+    expect(dividends.getByRole('button', { name: '2025' })).toBeInTheDocument()
   })
 
   it('says which holding is missing from the total, and why', async () => {
@@ -202,15 +267,33 @@ describe('the investments page, end to end', () => {
 
     // Held, and deliberately not counted as worthless: the shares and what they
     // cost are still on the row.
-    const unresolved = await screen.findByRole('row', { name: /Vanguard S&P 500/ })
+    // Both tables name the holding now, so the row is waited for first and then
+    // taken from the one that values it.
+    await screen.findAllByRole('row', { name: /Vanguard S&P 500/ })
+    const holdings = within(screen.getByRole('table', { name: 'Open holdings' }))
+    const unresolved = holdings.getByRole('row', { name: /Vanguard S&P 500/ })
     expect(within(unresolved).getByText('10')).toBeInTheDocument()
 
-    expect(
-      await screen.findByText('Excludes Vanguard S&P 500 — no symbol chosen yet.')
-    ).toBeInTheDocument()
+    // Re-queried on each attempt rather than captured once: the page renders
+    // again as the ledger below it fills, and a node held from before that is
+    // detached by the time it is asserted on.
+    await waitFor(() =>
+      expect(screen.getAllByText(/Excludes Vanguard S&P 500 — no symbol chosen yet/).length)
+        .toBeGreaterThan(0)
+    )
   })
 
-  it('opens the import drawer for the account the user picked', async () => {
+  // Before the first account there is nothing to value and nowhere to import
+  // to, so the page asks for the one thing it needs.
+  it('asks for an account before it offers anything else', async () => {
+    render(<InvestmentsPage />)
+
+    expect(await screen.findByText('No broker accounts yet')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Portfolio' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Import statement' })).not.toBeInTheDocument()
+  })
+
+  it('opens the import drawer from the portfolio itself', async () => {
     const user = userEvent.setup()
     await seedPortfolio()
 
@@ -222,10 +305,29 @@ describe('the investments page, end to end', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Import statement' }))
 
+    // No account named yet: the file itself says which broker it is from, and
+    // the drawer works the account out from that.
+    expect(
+      await screen.findByText('Add trades from a broker CSV, into the account it belongs to.')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeInTheDocument()
+  })
+
+  it('still imports into one named account when started from that account', async () => {
+    const user = userEvent.setup()
+    await seedPortfolio()
+
+    render(<InvestmentsPage />)
+
+    await screen.findByText('40.53125')
+
+    await user.click(await screen.findByRole('button', { name: /Broker accounts/ }))
+    await user.click(await screen.findByRole('button', { name: 'Open DEGIRO Custody menu' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Import statement' }))
+
     expect(
       await screen.findByText('Add trades to DEGIRO Custody from a broker CSV.')
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Choose file' })).toBeInTheDocument()
   })
 
   it('reprices the holding once its symbol is resolved in the picker', async () => {
@@ -260,7 +362,9 @@ describe('the investments page, end to end', () => {
       expect(screen.queryByText('Excludes Vanguard S&P 500 — no symbol chosen yet.')).not.toBeInTheDocument()
     })
 
-    const repriced = await screen.findByRole('row', { name: /Vanguard S&P 500/ })
+    const repriced = within(screen.getByRole('table', { name: 'Open holdings' })).getByRole('row', {
+      name: /Vanguard S&P 500/,
+    })
     // 10 x 80.20
     expect(within(repriced).getByText('802.00')).toBeInTheDocument()
 

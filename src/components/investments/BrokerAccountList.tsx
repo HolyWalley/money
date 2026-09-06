@@ -1,15 +1,11 @@
 import { useState } from 'react'
-import { Landmark, MoreHorizontal, Pencil, Plus, Trash, Upload, Wallet } from 'lucide-react'
+import { ChevronDown, ChevronRight, Landmark, MoreHorizontal, Pencil, Plus, Trash, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +24,9 @@ import type { Wallet as WalletType } from '../../../shared/schemas/wallet.schema
 
 export interface BrokerAccountListProps {
   /**
-   * Starts a statement import for one account. The list owns the entry point
-   * because an import is always into a particular account; the page owns the
-   * drawer it opens.
+   * Starts a statement import into one particular account, for the rare file
+   * whose broker cannot pick the account by itself. The ordinary way in is the
+   * portfolio's own import button, which reads the broker off the file.
    */
   onImport: (account: BrokerAccount) => void
 }
@@ -66,6 +62,7 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
   const { brokerAccounts, isLoading } = useLiveBrokerAccounts()
   const { wallets } = useLiveWallets()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<BrokerAccount | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
 
@@ -109,22 +106,7 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
   if (isLoading) return null
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Broker accounts</h2>
-          <p className="text-sm text-muted-foreground">
-            The positions you hold at each broker
-          </p>
-        </div>
-        {brokerAccounts.length > 0 && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Add Account
-          </Button>
-        )}
-      </div>
-
+    <section>
       {brokerAccounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 text-center">
           <Landmark className="mb-4 h-10 w-10 text-muted-foreground" />
@@ -138,13 +120,34 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {brokerAccounts.map((account) => (
-            <Card key={account._id}>
-              <CardHeader>
-                <CardTitle>{account.name}</CardTitle>
-                <CardDescription>{brokerLabel(account.broker)}</CardDescription>
-                <CardAction>
+        // Folded away by default: an account is set up once and then only
+        // corrected, so it earns none of the room the holdings need.
+        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+          <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center justify-between rounded-lg border px-4 py-2 text-sm transition-colors">
+            <span>
+              Broker accounts{' '}
+              <span className="text-muted-foreground">({brokerAccounts.length})</span>
+            </span>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 pt-2">
+            <div className="divide-y rounded-lg border">
+              {brokerAccounts.map((account) => (
+                <div key={account._id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{account.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      <span>{brokerLabel(account.broker)}</span>
+                      {/* Not hidden from assistive tech: hiding it runs the two
+                          labels together into one unreadable word. */}
+                      <span> · </span>
+                      <span>{cashWalletLabel(account, wallets)}</span>
+                    </p>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={<Button variant="ghost" size="icon-sm" />}
@@ -153,6 +156,10 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
                       <span className="sr-only">{`Open ${account.name} menu`}</span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onImport(account)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import statement
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openEdit(account)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
@@ -166,28 +173,15 @@ export function BrokerAccountList({ onImport }: BrokerAccountListProps) {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Wallet className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{cashWalletLabel(account, wallets)}</span>
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => onImport(account)}
-                >
-                  <Upload className="h-4 w-4" />
-                  Import statement
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" className="w-full" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Add Account
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       <BrokerAccountDialog

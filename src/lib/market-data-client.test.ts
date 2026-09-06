@@ -5,9 +5,11 @@ import {
   RETRY_AFTER_FAILURE_MS,
   TIP_TTL_MS,
   searchSymbols,
+  type PriceFetcher,
   type PriceFetchOutcome,
   type PricesResponse,
 } from './market-data-client'
+import { FETCH_WINDOW_DAYS, MAX_SYMBOLS_PER_REQUEST } from '../../shared/market-data'
 import { db } from './db-dexie'
 import { reportRequestOutcome, resetNetworkStatus } from './network-status'
 
@@ -15,17 +17,26 @@ const FROM = new UTCDate('2025-03-10T00:00:00Z')
 const TO = new UTCDate('2025-03-14T00:00:00Z')
 
 function respondWith(response: PricesResponse) {
-  return vi.fn(async (): Promise<PriceFetchOutcome> => ({ ok: true, prices: response }))
+  // Typed as the fetcher it stands in for, so a test can read back the symbols
+  // and the range it was actually asked for.
+  return vi.fn<PriceFetcher>(async () => ({ ok: true, prices: response }))
 }
 
 /** A transport failure: nothing was answered, and the next render should retry. */
 function failing() {
-  return vi.fn(async (): Promise<PriceFetchOutcome> => ({ ok: false, retryable: true }))
+  return vi.fn<PriceFetcher>(async () => ({ ok: false, retryable: true }))
 }
 
 /** A request the server understood and refused; sending it again changes nothing. */
 function refusing() {
-  return vi.fn(async (): Promise<PriceFetchOutcome> => ({ ok: false, retryable: false }))
+  return vi.fn<PriceFetcher>(async () => ({ ok: false, retryable: false }))
+}
+
+/** Both ends included, the way the server measures the range it is sent. */
+function rangeDays(from: string, to: string): number {
+  const start = new UTCDate(`${from}T00:00:00.000Z`).getTime()
+  const end = new UTCDate(`${to}T00:00:00.000Z`).getTime()
+  return Math.round((end - start) / 86400000) + 1
 }
 
 async function seed(rows: Array<{ symbol: string; date: string; close: number; fetchedAt?: number }>) {
@@ -73,6 +84,36 @@ describe('MarketDataClient', () => {
     expect(closes.get('FWIA.DE:2025-03-14')).toBe(41.9)
     expect(currencies.get('FWIA.DE')).toBe('EUR')
     expect(await db.instrumentPrices.count()).toBe(2)
+  })
+
+  // The server refuses anything past its day cap, so a chart reaching years
+  // back has to be asked for in windows - and one call here still answers for
+  // the whole of it.
+  it('asks for a multi-year history in windows the server will accept', async () => {
+    const fetcher = respondWith({ 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } })
+    const client = new MarketDataClient(fetcher)
+
+    const { closes } = await client.getCloses(['FWIA.DE'], new UTCDate('2023-01-01T00:00:00Z'), TO)
+
+    expect(fetcher.mock.calls.length).toBeGreaterThan(1)
+    expect(fetcher.mock.calls[0][1]).toBe('2023-01-01')
+    expect(fetcher.mock.calls[fetcher.mock.calls.length - 1][2]).toBe('2025-03-14')
+    for (const [, from, to] of fetcher.mock.calls) {
+      expect(rangeDays(from, to)).toBeLessThanOrEqual(FETCH_WINDOW_DAYS)
+    }
+    expect(closes.get('FWIA.DE:2025-03-14')).toBe(41.9)
+  })
+
+  it('asks for more symbols than one request may name in batches', async () => {
+    const symbols = Array.from({ length: MAX_SYMBOLS_PER_REQUEST + 3 }, (_, index) => `SYM${index}.DE`)
+    const fetcher = respondWith({})
+    const client = new MarketDataClient(fetcher)
+
+    await client.getCloses(symbols, FROM, TO)
+
+    expect(fetcher.mock.calls.length).toBe(2)
+    expect(fetcher.mock.calls[0][0]).toHaveLength(MAX_SYMBOLS_PER_REQUEST)
+    expect(fetcher.mock.calls[1][0]).toHaveLength(3)
   })
 
   it('serves a fully cached past range without touching the network', async () => {

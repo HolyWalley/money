@@ -43,6 +43,68 @@ function formatMoneyOrNothing(amount: number | null): string {
   return amount === null ? NOTHING : formatMoney(amount)
 }
 
+/**
+ * How much of the portfolio this one holding is, as a fraction.
+ *
+ * Measured in the base currency against the same total the summary states, so
+ * the shares of everything priced add up to one. A holding with no value in the
+ * base currency has no share to state, and a closed one has none left to hold.
+ */
+export function allocationShare(
+  position: PortfolioPosition,
+  portfolioValue: number
+): number | null {
+  if (position.isClosed || position.marketValueInBase === null || portfolioValue <= 0) {
+    return null
+  }
+
+  return position.marketValueInBase / portfolioValue
+}
+
+export function formatAllocation(share: number): string {
+  return `${(share * 100).toFixed(1)}%`
+}
+
+/**
+ * The share of the portfolio, drawn.
+ *
+ * Hidden from assistive technology on purpose: the same figure is stated in
+ * words in its own column, and a bar reads as nothing at all.
+ */
+function AllocationBar({ share }: { share: number | null }) {
+  if (share === null) return null
+
+  return (
+    <div
+      className="bg-muted mt-1.5 h-1 w-full max-w-[10rem] overflow-hidden rounded-full"
+      aria-hidden="true"
+      data-testid="allocation-bar"
+    >
+      <div
+        className="bg-primary/70 h-full rounded-full"
+        style={{ width: `${Math.min(share, 1) * 100}%` }}
+      />
+    </div>
+  )
+}
+
+/**
+ * What the return is made of, where it is made of more than the price moving.
+ *
+ * Only the rows with income carry it, so the common holding - an accumulating
+ * ETF that has paid nothing and sold nothing - stays two lines tall.
+ */
+function IncomeNote({ position }: { position: PortfolioPosition }) {
+  const parts: string[] = []
+
+  if (position.dividends !== 0) parts.push(`${formatMoney(position.dividends)} in dividends`)
+  if (position.realised !== 0) parts.push(`${formatSignedMoney(position.realised)} realised`)
+
+  if (parts.length === 0) return null
+
+  return <div className="text-muted-foreground text-xs">incl. {parts.join(', ')}</div>
+}
+
 const EXCLUSION_REASONS: Record<ExclusionReason, string> = {
   'unreadable-date': 'an unreadable date',
   'foreign-currency': 'another currency',
@@ -92,6 +154,12 @@ function PositionWarnings({ position }: { position: PortfolioPosition }) {
   )
 }
 
+/** The two cells that can open the symbol search; neither needs the rest of a row. */
+interface SymbolCellProps {
+  position: PortfolioPosition
+  onResolveSymbol: (instrument: Instrument) => void
+}
+
 /**
  * The listing this holding is priced from, and the currency its figures are in.
  *
@@ -102,7 +170,7 @@ function PositionWarnings({ position }: { position: PortfolioPosition }) {
  * that it has to stay correctable. Left as plain text it would misprice the
  * holding for good.
  */
-function InstrumentSubtitle({ position, onResolveSymbol }: PositionRowProps) {
+function InstrumentSubtitle({ position, onResolveSymbol }: SymbolCellProps) {
   const identifier = position.symbol ?? position.instrument?.ticker ?? position.instrument?.isin ?? null
   const instrument = position.instrument
 
@@ -130,7 +198,7 @@ function InstrumentSubtitle({ position, onResolveSymbol }: PositionRowProps) {
  * The close, or why there is none. An unresolved symbol is the one gap the user
  * can close themselves, so it is offered as an action rather than a dash.
  */
-function PriceCell({ position, onResolveSymbol }: PositionRowProps) {
+function PriceCell({ position, onResolveSymbol }: SymbolCellProps) {
   if (position.status === 'needs-symbol' && position.instrument) {
     const instrument = position.instrument
     return (
@@ -156,6 +224,8 @@ export interface PositionRowProps {
   position: PortfolioPosition
   /** Opens the symbol search for a holding whose price feed was never resolved. */
   onResolveSymbol: (instrument: Instrument) => void
+  /** The portfolio's whole value in the base currency, which this holding is a share of. */
+  portfolioValue: number
 }
 
 function name(position: PortfolioPosition): string {
@@ -167,53 +237,61 @@ function quantityText(position: PortfolioPosition): string {
   return position.isClosed ? NOTHING : formatQuantity(position.quantity)
 }
 
+/** Nothing per share where there are no shares: a closed holding, or an uncounted one. */
 function averageCostText(position: PortfolioPosition): string {
-  return position.isClosed ? NOTHING : formatPrice(position.averageCost)
+  return position.quantity === 0 ? NOTHING : formatPrice(position.averageCost)
 }
 
-/** One holding as a row of the wide table. */
-export function PositionRow({ position, onResolveSymbol }: PositionRowProps) {
-  const percent = returnPercent(position.unrealised, position.cost)
+function investedText(position: PortfolioPosition): string {
+  return position.isClosed ? NOTHING : formatMoney(position.cost)
+}
+
+/**
+ * One holding as a row of the wide table, two lines deep.
+ *
+ * Each money column carries its total above and the per-share figure it comes
+ * from below - what was put in over what a share cost, what it is worth over
+ * what a share closed at - so the pair is read at a glance instead of across
+ * four separate columns.
+ */
+export function PositionRow({ position, onResolveSymbol, portfolioValue }: PositionRowProps) {
+  const percent = returnPercent(position.totalReturn, position.cost)
+  const share = allocationShare(position, portfolioValue)
 
   return (
     <TableRow>
-      <TableCell className="max-w-[16rem] whitespace-normal">
+      <TableCell className="max-w-[18rem] whitespace-normal align-top">
         <div className="font-medium">{name(position)}</div>
         <div className="text-muted-foreground text-xs">
           <InstrumentSubtitle position={position} onResolveSymbol={onResolveSymbol} />
         </div>
+        <AllocationBar share={share} />
         <PositionWarnings position={position} />
       </TableCell>
-      <TableCell className="text-right tabular-nums">{quantityText(position)}</TableCell>
-      <TableCell className="text-right tabular-nums">{averageCostText(position)}</TableCell>
-      <TableCell className="text-right tabular-nums">
-        <PriceCell position={position} onResolveSymbol={onResolveSymbol} />
+      <TableCell className="text-right align-top tabular-nums">{quantityText(position)}</TableCell>
+      <TableCell className="text-right align-top tabular-nums">
+        <div>{investedText(position)}</div>
+        <div className="text-muted-foreground text-xs">{averageCostText(position)}</div>
       </TableCell>
-      <TableCell className="text-right font-medium tabular-nums">
-        {formatMoneyOrNothing(position.marketValue)}
+      <TableCell className="text-right align-top tabular-nums">
+        <div className="font-medium">{formatMoneyOrNothing(position.marketValue)}</div>
+        <div className="text-muted-foreground text-xs">
+          <PriceCell position={position} onResolveSymbol={onResolveSymbol} />
+        </div>
       </TableCell>
-      <TableCell className={`text-right tabular-nums ${gainClass(position.unrealised)}`}>
-        {position.unrealised === null ? (
-          NOTHING
-        ) : (
-          <>
-            {formatSignedMoney(position.unrealised)}
-            {percent !== null && <span className="ml-1 text-xs">{formatPercent(percent)}</span>}
-          </>
+      <TableCell className="text-right align-top tabular-nums">
+        <div className={`font-medium ${gainClass(position.totalReturn)}`}>
+          {position.totalReturn === null ? NOTHING : formatSignedMoney(position.totalReturn)}
+        </div>
+        {percent !== null && (
+          <div className={`text-xs ${gainClass(position.totalReturn)}`}>
+            {formatPercent(percent)}
+          </div>
         )}
+        <IncomeNote position={position} />
       </TableCell>
-      <TableCell className={`text-right tabular-nums ${gainClass(position.realised)}`}>
-        {formatSignedMoney(position.realised)}
-      </TableCell>
-      <TableCell
-        className={`text-right tabular-nums ${position.dividends === 0 ? 'text-muted-foreground' : ''}`}
-      >
-        {formatMoney(position.dividends)}
-      </TableCell>
-      <TableCell
-        className={`text-right font-medium tabular-nums ${gainClass(position.totalReturn)}`}
-      >
-        {position.totalReturn === null ? NOTHING : formatSignedMoney(position.totalReturn)}
+      <TableCell className="text-right align-top tabular-nums">
+        {share === null ? NOTHING : formatAllocation(share)}
       </TableCell>
     </TableRow>
   )
@@ -228,9 +306,10 @@ function Figure({ label, value, className }: { label: string; value: string; cla
   )
 }
 
-/** The same holding on a phone, where nine columns have nowhere to go. */
-export function PositionCard({ position, onResolveSymbol }: PositionRowProps) {
-  const percent = returnPercent(position.unrealised, position.cost)
+/** The same holding on a phone, where six columns have nowhere to go. */
+export function PositionCard({ position, onResolveSymbol, portfolioValue }: PositionRowProps) {
+  const percent = returnPercent(position.totalReturn, position.cost)
+  const share = allocationShare(position, portfolioValue)
 
   return (
     <div className="rounded-lg border p-3">
@@ -238,25 +317,35 @@ export function PositionCard({ position, onResolveSymbol }: PositionRowProps) {
         <div className="min-w-0">
           <div className="truncate font-medium">{name(position)}</div>
           <div className="text-muted-foreground text-xs">
-          <InstrumentSubtitle position={position} onResolveSymbol={onResolveSymbol} />
-        </div>
+            <InstrumentSubtitle position={position} onResolveSymbol={onResolveSymbol} />
+          </div>
         </div>
         <div className="text-right">
           <div className="font-semibold tabular-nums">
             {formatMoneyOrNothing(position.marketValue)}
           </div>
-          <div className={`text-xs tabular-nums ${gainClass(position.unrealised)}`}>
-            {position.unrealised === null
+          <div className={`text-xs tabular-nums ${gainClass(position.totalReturn)}`}>
+            {position.totalReturn === null
               ? NOTHING
-              : `${formatSignedMoney(position.unrealised)}${percent === null ? '' : ` (${formatPercent(percent)})`}`}
+              : `${formatSignedMoney(position.totalReturn)}${percent === null ? '' : ` (${formatPercent(percent)})`}`}
           </div>
         </div>
       </div>
+
+      {share !== null && (
+        <div className="mt-2 flex items-center gap-2">
+          <AllocationBar share={share} />
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {formatAllocation(share)} of the portfolio
+          </span>
+        </div>
+      )}
 
       <PositionWarnings position={position} />
 
       <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
         <Figure label="Quantity" value={quantityText(position)} />
+        <Figure label="Invested" value={investedText(position)} />
         <Figure label="Avg cost" value={averageCostText(position)} />
         <div>
           <dt className="text-muted-foreground text-xs">Close</dt>
@@ -273,11 +362,6 @@ export function PositionCard({ position, onResolveSymbol }: PositionRowProps) {
           label="Dividends"
           value={formatMoney(position.dividends)}
           className={position.dividends === 0 ? 'text-muted-foreground' : ''}
-        />
-        <Figure
-          label="Total return"
-          value={position.totalReturn === null ? NOTHING : formatSignedMoney(position.totalReturn)}
-          className={gainClass(position.totalReturn)}
         />
       </dl>
     </div>

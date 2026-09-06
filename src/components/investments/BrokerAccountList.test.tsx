@@ -101,8 +101,14 @@ function renderList(accounts: BrokerAccount[], onImport = vi.fn()) {
   return { onImport }
 }
 
+/** The list is folded away until it is asked for, so everything in it is a click behind the trigger. */
+async function expandList(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Broker accounts/ }))
+}
+
 async function openMenu(user: ReturnType<typeof userEvent.setup>, accountName: string) {
-  await user.click(screen.getByRole('button', { name: `Open ${accountName} menu` }))
+  await expandList(user)
+  await user.click(await screen.findByRole('button', { name: `Open ${accountName} menu` }))
 }
 
 describe('BrokerAccountList', () => {
@@ -118,11 +124,25 @@ describe('BrokerAccountList', () => {
     expect(screen.getByRole('button', { name: /Add Account/ })).toBeInTheDocument()
   })
 
-  it('shows each account with its broker and the wallet its cash sits in', () => {
+  // Set up once and then only ever corrected, so the list stays out of the way
+  // of the holdings until someone asks for it.
+  it('keeps the accounts folded away behind their count', () => {
     renderList([
       makeAccount({ cashWalletId: 'w-cash' }),
       makeAccount({ _id: 'acc-2', name: 'Revolut Invest', broker: 'revolut' }),
     ])
+
+    expect(screen.getByRole('button', { name: /Broker accounts/ })).toHaveTextContent('(2)')
+    expect(screen.queryByText('DEGIRO Custody')).not.toBeInTheDocument()
+  })
+
+  it('shows each account with its broker and the wallet its cash sits in', async () => {
+    const user = userEvent.setup()
+    renderList([
+      makeAccount({ cashWalletId: 'w-cash' }),
+      makeAccount({ _id: 'acc-2', name: 'Revolut Invest', broker: 'revolut' }),
+    ])
+    await expandList(user)
 
     expect(screen.getByText('DEGIRO Custody')).toBeInTheDocument()
     expect(screen.getByText('DEGIRO')).toBeInTheDocument()
@@ -133,12 +153,15 @@ describe('BrokerAccountList', () => {
     expect(screen.getByText('No cash wallet linked')).toBeInTheDocument()
   })
 
-  it('hands the account over when an import is started', async () => {
+  // The portfolio's own import button reads the broker off the file, so this
+  // one only exists for the account the file cannot pick by itself.
+  it('hands the account over when an import is started from its menu', async () => {
     const user = userEvent.setup()
     const account = makeAccount()
     const { onImport } = renderList([account])
 
-    await user.click(screen.getByRole('button', { name: /Import statement/ }))
+    await openMenu(user, 'DEGIRO Custody')
+    await user.click(await screen.findByRole('menuitem', { name: 'Import statement' }))
 
     expect(onImport).toHaveBeenCalledWith(account)
   })
@@ -218,9 +241,10 @@ describe('BrokerAccountList', () => {
     await waitFor(() => expect(screen.queryByText(/has no imported trades/)).not.toBeInTheDocument())
   })
 
-  it('offers the next account from the header once one exists', async () => {
+  it('offers the next account from the list once one exists', async () => {
     const user = userEvent.setup()
     renderList([makeAccount()])
+    await expandList(user)
 
     await user.click(screen.getByRole('button', { name: /Add Account/ }))
 
@@ -230,8 +254,10 @@ describe('BrokerAccountList', () => {
 
   // Nothing clears cashWalletId when the wallet itself is deleted, so a card
   // has to survive pointing at a wallet that is gone.
-  it('says so when the linked cash wallet no longer exists', () => {
+  it('says so when the linked cash wallet no longer exists', async () => {
+    const user = userEvent.setup()
     renderList([makeAccount({ cashWalletId: 'w-deleted' })])
+    await expandList(user)
 
     expect(screen.getByText('Unknown Wallet')).toBeInTheDocument()
   })

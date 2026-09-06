@@ -354,6 +354,17 @@ function utcDayStart(date: Date): number {
  * caches key on, so a value and the rate it is converted with belong to the
  * same day.
  */
+/**
+ * The currency each instrument's figures are kept in, over a whole trade list.
+ *
+ * Exported so that anything else deriving from the same history - the value
+ * curve, say - sets aside exactly the rows `computePositions` sets aside, and
+ * the two cannot end up telling different stories about one holding.
+ */
+export function positionCurrencies(trades: PositionTrade[]): Map<string, string> {
+  return settleCurrencies(holdingRows(trades))
+}
+
 export function createQuantityLookup(trades: PositionTrade[]): QuantityLookup {
   const rows = holdingRows(trades)
   const currencies = settleCurrencies(rows)

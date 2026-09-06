@@ -33,16 +33,19 @@ import type { Instrument } from '../../../shared/schemas/instrument.schema'
 /** Exactly what usePortfolio() hands back, so the page can spread it in. */
 export type PositionsTableProps = UsePortfolioResult
 
+/**
+ * Six columns rather than nine, because each money column carries its total
+ * over the per-share figure underneath it: what went in over what a share cost,
+ * what it is worth over what a share closed at, the whole return over the
+ * percentage it works out to.
+ */
 const COLUMNS = [
   { key: 'instrument', label: 'Holding', align: 'text-left' },
   { key: 'quantity', label: 'Quantity', align: 'text-right' },
-  { key: 'averageCost', label: 'Avg cost', align: 'text-right' },
-  { key: 'close', label: 'Close', align: 'text-right' },
-  { key: 'marketValue', label: 'Market value', align: 'text-right' },
-  { key: 'unrealised', label: 'Unrealised', align: 'text-right' },
-  { key: 'realised', label: 'Realised', align: 'text-right' },
-  { key: 'dividends', label: 'Dividends', align: 'text-right' },
-  { key: 'totalReturn', label: 'Total return', align: 'text-right' },
+  { key: 'invested', label: 'Invested', sub: 'per share', align: 'text-right' },
+  { key: 'value', label: 'Value', sub: 'per share', align: 'text-right' },
+  { key: 'return', label: 'Return', sub: '% of cost', align: 'text-right' },
+  { key: 'allocation', label: 'Allocation', align: 'text-right' },
 ] as const
 
 function nameList(instrumentIds: string[], nameOf: (instrumentId: string) => string): string {
@@ -117,7 +120,7 @@ interface TotalsProps {
 
 /** The column totals where there are no columns to line them up under. */
 function TotalsCard({ summary, baseCurrency }: TotalsProps) {
-  const percent = returnPercent(summary.unrealised, summary.cost)
+  const percent = returnPercent(summary.totalReturn, summary.cost)
 
   return (
     <dl
@@ -125,17 +128,14 @@ function TotalsCard({ summary, baseCurrency }: TotalsProps) {
       data-testid="portfolio-totals"
     >
       <div>
+        <dt className="text-muted-foreground text-xs">Invested</dt>
+        <dd className="tabular-nums">{formatMoney(summary.cost)}</dd>
+      </div>
+      <div>
         <dt className="text-muted-foreground text-xs">Market value</dt>
         <dd className="font-semibold tabular-nums">
           {formatMoney(summary.marketValue)}{' '}
           <span className="text-muted-foreground text-xs font-normal">{baseCurrency}</span>
-        </dd>
-      </div>
-      <div>
-        <dt className="text-muted-foreground text-xs">Unrealised</dt>
-        <dd className={`font-semibold tabular-nums ${gainClass(summary.unrealised)}`}>
-          {formatSignedMoney(summary.unrealised)}
-          {percent !== null && <span className="ml-1 text-xs">{formatPercent(percent)}</span>}
         </dd>
       </div>
       <div>
@@ -152,6 +152,7 @@ function TotalsCard({ summary, baseCurrency }: TotalsProps) {
         <dt className="text-muted-foreground text-xs">Total return</dt>
         <dd className={`font-semibold tabular-nums ${gainClass(summary.totalReturn)}`}>
           {formatSignedMoney(summary.totalReturn)}
+          {percent !== null && <span className="ml-1 text-xs">{formatPercent(percent)}</span>}
         </dd>
       </div>
     </dl>
@@ -159,7 +160,7 @@ function TotalsCard({ summary, baseCurrency }: TotalsProps) {
 }
 
 function TotalsRow({ summary, baseCurrency }: TotalsProps) {
-  const percent = returnPercent(summary.unrealised, summary.cost)
+  const percent = returnPercent(summary.totalReturn, summary.cost)
 
   return (
     <TableRow data-testid="portfolio-totals">
@@ -167,21 +168,18 @@ function TotalsRow({ summary, baseCurrency }: TotalsProps) {
         Total{' '}
         <span className="text-muted-foreground text-xs font-normal">{baseCurrency}</span>
       </TableCell>
-      <TableCell colSpan={3} />
+      <TableCell />
+      <TableCell className="text-right tabular-nums">{formatMoney(summary.cost)}</TableCell>
       <TableCell className="text-right font-semibold tabular-nums">
         {formatMoney(summary.marketValue)}
       </TableCell>
-      <TableCell className={`text-right font-semibold tabular-nums ${gainClass(summary.unrealised)}`}>
-        {formatSignedMoney(summary.unrealised)}
-        {percent !== null && <span className="ml-1 text-xs">{formatPercent(percent)}</span>}
-      </TableCell>
-      <TableCell className={`text-right tabular-nums ${gainClass(summary.realised)}`}>
-        {formatSignedMoney(summary.realised)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">{formatMoney(summary.dividends)}</TableCell>
       <TableCell className={`text-right font-semibold tabular-nums ${gainClass(summary.totalReturn)}`}>
         {formatSignedMoney(summary.totalReturn)}
+        {percent !== null && <span className="ml-1 text-xs">{formatPercent(percent)}</span>}
       </TableCell>
+      {/* Everything priced is in the total the shares are measured against, so
+          they add up to the whole of it. */}
+      <TableCell className="text-muted-foreground text-right tabular-nums">100%</TableCell>
     </TableRow>
   )
 }
@@ -190,12 +188,14 @@ interface HoldingsProps {
   rows: PortfolioPosition[]
   isMobile: boolean
   onResolveSymbol: (instrument: Instrument) => void
+  /** What each holding's share of the portfolio is measured against. */
+  portfolioValue: number
   /** Rendered under the last row; only the open holdings have totals worth stating. */
   totals?: TotalsProps
   label: string
 }
 
-function Holdings({ rows, isMobile, onResolveSymbol, totals, label }: HoldingsProps) {
+function Holdings({ rows, isMobile, onResolveSymbol, portfolioValue, totals, label }: HoldingsProps) {
   if (isMobile) {
     return (
       <div className="space-y-2">
@@ -204,6 +204,7 @@ function Holdings({ rows, isMobile, onResolveSymbol, totals, label }: HoldingsPr
             key={position.instrumentId}
             position={position}
             onResolveSymbol={onResolveSymbol}
+            portfolioValue={portfolioValue}
           />
         ))}
       </div>
@@ -216,8 +217,13 @@ function Holdings({ rows, isMobile, onResolveSymbol, totals, label }: HoldingsPr
         <TableHeader>
           <TableRow>
             {COLUMNS.map(column => (
-              <TableHead key={column.key} className={column.align}>
+              <TableHead key={column.key} className={`${column.align} h-auto py-2`}>
                 {column.label}
+                {'sub' in column && (
+                  <span className="text-muted-foreground block text-xs font-normal">
+                    {column.sub}
+                  </span>
+                )}
               </TableHead>
             ))}
           </TableRow>
@@ -228,6 +234,7 @@ function Holdings({ rows, isMobile, onResolveSymbol, totals, label }: HoldingsPr
               key={position.instrumentId}
               position={position}
               onResolveSymbol={onResolveSymbol}
+              portfolioValue={portfolioValue}
             />
           ))}
         </TableBody>
@@ -246,7 +253,6 @@ export function PositionsTable({
   summary,
   needsSymbol,
   baseCurrency,
-  asOf,
   isLoading,
 }: PositionsTableProps) {
   const isMobile = useIsMobile()
@@ -308,27 +314,7 @@ export function PositionsTable({
   const totals = { summary, baseCurrency }
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Portfolio</h2>
-          <p className="text-muted-foreground text-sm">
-            {isLoading ? 'Valuing your holdings...' : `Valued at ${asOf.toLocaleDateString()}`}
-          </p>
-        </div>
-        {!isLoading && positions.length > 0 && (
-          <div className="text-right">
-            <div className="text-2xl font-bold tabular-nums">
-              {formatMoney(summary.marketValue)}{' '}
-              <span className="text-muted-foreground text-sm font-normal">{baseCurrency}</span>
-            </div>
-            <div className={`text-sm font-medium tabular-nums ${gainClass(summary.totalReturn)}`}>
-              {formatSignedMoney(summary.totalReturn)} total return
-            </div>
-          </div>
-        )}
-      </div>
-
+    <section className="space-y-4" aria-label="Holdings">
       {isLoading ? (
         <PositionsSkeleton />
       ) : positions.length === 0 ? (
@@ -350,6 +336,7 @@ export function PositionsTable({
               rows={open}
               isMobile={isMobile}
               onResolveSymbol={startResolving}
+              portfolioValue={summary.marketValue}
               totals={isMobile ? undefined : totals}
               label="Open holdings"
             />
@@ -379,6 +366,7 @@ export function PositionsTable({
                   rows={closed}
                   isMobile={isMobile}
                   onResolveSymbol={startResolving}
+                  portfolioValue={summary.marketValue}
                   label="Closed holdings"
                 />
               </CollapsibleContent>

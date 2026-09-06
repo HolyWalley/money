@@ -46,6 +46,45 @@ export interface MarketDataProvider {
  */
 export const CLOSE_LOOKBACK_DAYS = 7
 
+/**
+ * What one price request may ask for.
+ *
+ * Both caps bound the worker's fan-out: an invocation only gets so many
+ * subrequests, and one request turns into MAX_FETCHES_PER_SYMBOL provider calls
+ * per symbol. They live here rather than in the handler because the client has
+ * to split a longer history into requests the server will actually accept - a
+ * four-year chart asked for in one go would simply be refused.
+ *
+ * The day cap is measured over the window the server actually fetches, which
+ * starts CLOSE_LOOKBACK_DAYS before the requested `from`; FETCH_WINDOW_DAYS is
+ * the widest inclusive range a caller may therefore ask for.
+ */
+export const MAX_SYMBOLS_PER_REQUEST = 12
+
+export const MAX_RANGE_DAYS = 400 + CLOSE_LOOKBACK_DAYS
+
+export const FETCH_WINDOW_DAYS = MAX_RANGE_DAYS - CLOSE_LOOKBACK_DAYS
+
+/**
+ * The [from, to] windows one range has to be asked for in, oldest first.
+ *
+ * A single window where the range fits, which is every ordinary render; only a
+ * chart reaching years back is split.
+ */
+export function fetchWindows(from: string, to: string, windowDays = FETCH_WINDOW_DAYS): DateRange[] {
+  const windows: DateRange[] = []
+  let start = from
+
+  while (start <= to) {
+    const end = shiftDateKey(start, windowDays - 1)
+    windows.push({ from: start, to: end < to ? end : to })
+    if (end >= to) break
+    start = shiftDateKey(end, 1)
+  }
+
+  return windows
+}
+
 /** Mirrors ExchangeRateService.createCacheKey - one key shape per cached fact. */
 export function createPriceCacheKey(symbol: string, date: string): string {
   return `${symbol}:${date}`

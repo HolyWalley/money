@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { UTCDate } from '@date-fns/utc'
 import {
   CLOSE_LOOKBACK_DAYS,
+  FETCH_WINDOW_DAYS,
   createPriceCacheKey,
+  fetchWindows,
   findClose,
   isSettledBar,
   mergeRanges,
@@ -12,6 +14,13 @@ import {
   utcDateKey,
 } from './market-data'
 import type { DateRange, InstrumentCandidate } from './market-data'
+
+/** Both ends included, the way every range in this module is measured. */
+function rangeDays(from: string, to: string): number {
+  const start = new UTCDate(`${from}T00:00:00.000Z`).getTime()
+  const end = new UTCDate(`${to}T00:00:00.000Z`).getTime()
+  return Math.round((end - start) / 86400000) + 1
+}
 
 describe('createPriceCacheKey', () => {
   it('keys a close by symbol and day', () => {
@@ -59,6 +68,42 @@ describe('findClose', () => {
 
   it('returns null for an unknown symbol rather than zero', () => {
     expect(findClose(closes, 'VWCE.DE', new UTCDate('2025-03-14T00:00:00Z'))).toBeNull()
+  })
+})
+
+describe('fetchWindows', () => {
+  it('leaves a range the server will answer in one go alone', () => {
+    expect(fetchWindows('2025-01-01', '2025-03-14')).toEqual([
+      { from: '2025-01-01', to: '2025-03-14' },
+    ])
+  })
+
+  // A chart reaching back years is one call at the client's level and several
+  // at the server's, because the endpoint refuses anything past its day cap.
+  it('splits a longer history into windows the day cap allows', () => {
+    const windows = fetchWindows('2023-01-01', '2025-03-14')
+
+    expect(windows.length).toBeGreaterThan(1)
+    expect(windows[0].from).toBe('2023-01-01')
+    expect(windows[windows.length - 1].to).toBe('2025-03-14')
+
+    for (const window of windows) {
+      expect(rangeDays(window.from, window.to)).toBeLessThanOrEqual(FETCH_WINDOW_DAYS)
+    }
+  })
+
+  // A day falling in no window at all is a hole nothing would ever fill, and
+  // one falling in two is a day fetched twice.
+  it('tiles the range without a gap or an overlap', () => {
+    const windows = fetchWindows('2023-01-01', '2025-03-14')
+
+    for (let index = 1; index < windows.length; index++) {
+      expect(windows[index].from).toBe(shiftDateKey(windows[index - 1].to, 1))
+    }
+  })
+
+  it('has nothing to ask for when the range ends before it starts', () => {
+    expect(fetchWindows('2025-03-14', '2025-03-10')).toEqual([])
   })
 })
 

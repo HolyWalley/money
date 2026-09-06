@@ -65,11 +65,19 @@ const world = makePosition({
   marketValueInBase: 46809.345794,
 })
 
-function renderRow(position: PortfolioPosition, onResolveSymbol = vi.fn()) {
+/** 100,000 as the whole portfolio, so a holding's share reads straight off its value. */
+const PORTFOLIO_VALUE = 100000
+
+function renderRow(position: PortfolioPosition, portfolioValue = PORTFOLIO_VALUE) {
+  const onResolveSymbol = vi.fn()
   const result = render(
     <table>
       <tbody>
-        <PositionRow position={position} onResolveSymbol={onResolveSymbol} />
+        <PositionRow
+          position={position}
+          onResolveSymbol={onResolveSymbol}
+          portfolioValue={portfolioValue}
+        />
       </tbody>
     </table>
   )
@@ -128,11 +136,55 @@ describe('PositionRow', () => {
     expect(screen.getByRole('button', { name: 'IWDA.AS' })).toBeInTheDocument()
     expect(screen.getByText(/· EUR/)).toBeInTheDocument()
     expect(screen.getByText('468.09345794')).toBeInTheDocument()
+    // Each money column states its total over the per-share figure it comes from.
+    expect(screen.getByText('39,000.00')).toBeInTheDocument()
     expect(screen.getByText('83.32')).toBeInTheDocument()
-    expect(screen.getByText('100.00')).toBeInTheDocument()
     expect(screen.getByText('46,809.35')).toBeInTheDocument()
-    expect(screen.getByText('210.50')).toBeInTheDocument()
+    expect(screen.getByText('100.00')).toBeInTheDocument()
     expect(screen.getByText('+8,019.85')).toBeInTheDocument()
+    expect(screen.getByText('+20.6%')).toBeInTheDocument()
+  })
+
+  // The return is not only the price moving, and a row that says so without
+  // saying what else went into it reads as a price that moved further.
+  it('says what the return is made of where it is made of more than price', () => {
+    renderRow(world)
+
+    expect(screen.getByText(/incl\. 210\.50 in dividends/)).toBeInTheDocument()
+  })
+
+  it('leaves the breakdown off a holding that has only ever moved in price', () => {
+    renderRow(makePosition({ ...world, dividends: 0, totalReturn: 7809.345794 }))
+
+    expect(screen.queryByText(/incl\./)).not.toBeInTheDocument()
+  })
+
+  it('measures the holding against the whole portfolio, in words and drawn', () => {
+    const { container } = renderRow(world)
+
+    expect(screen.getByText('46.8%')).toBeInTheDocument()
+    const fill = container.querySelector('[data-testid="allocation-bar"] > div') as HTMLElement
+    expect(parseFloat(fill.style.width)).toBeCloseTo(46.81, 2)
+  })
+
+  // Nothing is held any more, so there is no share of the portfolio to state -
+  // and 0.0% would read as a holding that has shrunk to nothing.
+  it('states no allocation for a holding that has been sold out of', () => {
+    renderRow(
+      makePosition({
+        ...world,
+        isClosed: true,
+        quantity: 0,
+        cost: 0,
+        marketValue: 0,
+        marketValueInBase: 0,
+        status: 'closed',
+      })
+    )
+
+    const cells = screen.getAllByRole('cell')
+    expect(cells[5]).toHaveTextContent('—')
+    expect(screen.queryByTestId('allocation-bar')).not.toBeInTheDocument()
   })
 
   it('colours a loss red and a gain green', () => {
@@ -150,7 +202,11 @@ describe('PositionRow', () => {
     rerender(
       <table>
         <tbody>
-          <PositionRow position={world} onResolveSymbol={vi.fn()} />
+          <PositionRow
+            position={world}
+            onResolveSymbol={vi.fn()}
+            portfolioValue={PORTFOLIO_VALUE}
+          />
         </tbody>
       </table>
     )
@@ -193,7 +249,11 @@ describe('PositionRow', () => {
     expect(screen.getByText('120')).toBeInTheDocument()
     expect(screen.getByText('30.00')).toBeInTheDocument()
 
+    // What it cost is known; what it is worth, what it returned and what share
+    // of the portfolio it is are all unknowable without a close.
     const cells = screen.getAllByRole('cell')
+    expect(within(cells[2]).getByText('3,600.00')).toBeInTheDocument()
+    expect(within(cells[3]).getByText('—')).toBeInTheDocument()
     expect(cells[4]).toHaveTextContent('—')
     expect(cells[5]).toHaveTextContent('—')
   })
@@ -218,9 +278,9 @@ describe('PositionRow', () => {
     )
 
     const cells = screen.getAllByRole('cell')
-    expect(cells[2]).toHaveTextContent('0.003')
-    expect(cells[3]).toHaveTextContent('0.0034')
-    expect(cells[4]).toHaveTextContent('34.00')
+    expect(within(cells[2]).getByText('0.003')).toBeInTheDocument()
+    expect(within(cells[3]).getByText('0.0034')).toBeInTheDocument()
+    expect(within(cells[3]).getByText('34.00')).toBeInTheDocument()
   })
 
   it('names a holding whose instrument record is gone rather than showing an empty row', () => {
@@ -233,19 +293,29 @@ describe('PositionRow', () => {
 
 describe('PositionCard', () => {
   it('carries the same figures where there are no columns', () => {
-    render(<PositionCard position={world} onResolveSymbol={vi.fn()} />)
+    render(
+      <PositionCard
+        position={world}
+        onResolveSymbol={vi.fn()}
+        portfolioValue={PORTFOLIO_VALUE}
+      />
+    )
 
     expect(screen.getByText('iShares Core MSCI World')).toBeInTheDocument()
     expect(screen.getByText('46,809.35')).toBeInTheDocument()
-    expect(screen.getByText('+7,809.35 (+20.0%)')).toBeInTheDocument()
+    expect(screen.getByText('+8,019.85 (+20.6%)')).toBeInTheDocument()
+    expect(screen.getByText('46.8% of the portfolio')).toBeInTheDocument()
 
     const quantity = screen.getByText('Quantity').closest('div') as HTMLElement
     expect(within(quantity).getByText('468.09345794')).toBeInTheDocument()
+    const invested = screen.getByText('Invested').closest('div') as HTMLElement
+    expect(within(invested).getByText('39,000.00')).toBeInTheDocument()
   })
 
   it('keeps a sold-out holding to what is left of it: the gain and the income', () => {
     render(
       <PositionCard
+        portfolioValue={PORTFOLIO_VALUE}
         position={makePosition({
           instrumentId: 'vusa',
           instrument: makeInstrument({ _id: 'vusa', name: 'Vanguard S&P 500' }),

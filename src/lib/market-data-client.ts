@@ -1,7 +1,9 @@
 import type { DateRange, InstrumentCandidate, PricesResponse } from '../../shared/market-data'
 import {
   CLOSE_LOOKBACK_DAYS,
+  MAX_SYMBOLS_PER_REQUEST,
   createPriceCacheKey,
+  fetchWindows,
   mergeRanges,
   planPriceFetch,
   refreshableFrom,
@@ -141,37 +143,28 @@ export class MarketDataClient {
     const now = Date.now()
 
     const cached = await db.instrumentPrices.where('symbol').anyOf(unique).toArray()
-    const stale = this.linkIsUp()
-      ? unique.filter((symbol) =>
-          this.needsFetch(symbol, cached.filter((record) => record.symbol === symbol), fromKey, toKey, today, now)
-        )
-      : []
 
-    if (stale.length > 0) {
-      const outcome = await this.fetcher(stale, fromKey, toKey)
-      if (outcome.ok) {
-        for (const symbol of stale) {
-          this.attempts.set(symbol, { from: fromKey, to: toKey, at: now })
-          this.failures.delete(symbol)
-        }
-        const records = toRecords(outcome.prices, nextFetchStamp())
-        if (records.length > 0) {
-          await db.instrumentPrices.bulkPut(records)
-          cached.push(...records)
-        }
-      } else if (outcome.retryable) {
-        // Not an attempt: nothing was answered, so there is nothing to know for
-        // an hour. Only the short retry pause below applies.
-        for (const symbol of stale) {
-          this.failures.set(symbol, now)
-        }
-      } else {
-        // The server understood and refused - a range past the day cap, say.
-        // Sending it again unchanged gets the same answer, so this counts as
-        // having asked: the hour-long, range-scoped brake applies, and a
-        // narrower request is still free to go out immediately.
-        for (const symbol of stale) {
-          this.attempts.set(symbol, { from: fromKey, to: toKey, at: now })
+    // A history chart asks for years at a time, and the server refuses a range
+    // past its day cap however few symbols it names. Splitting it here keeps
+    // one call at this level answering for a range of any width, and every
+    // window that is already cached costs no request at all.
+    if (this.linkIsUp()) {
+      for (const window of fetchWindows(fromKey, toKey)) {
+        const stale = unique.filter((symbol) =>
+          this.needsFetch(
+            symbol,
+            cached.filter((record) => record.symbol === symbol),
+            window.from,
+            window.to,
+            today,
+            now
+          )
+        )
+
+        for (let start = 0; start < stale.length; start += MAX_SYMBOLS_PER_REQUEST) {
+          const batch = stale.slice(start, start + MAX_SYMBOLS_PER_REQUEST)
+          const outcome = await this.fetcher(batch, window.from, window.to)
+          await this.record(batch, window.from, window.to, outcome, now, cached)
         }
       }
     }
@@ -218,6 +211,46 @@ export class MarketDataClient {
     this.linkWasDown = state !== 'online'
 
     return state !== 'offline'
+  }
+
+  /** What one answer means for the symbols it covers, and for what to ask next. */
+  private async record(
+    symbols: string[],
+    from: string,
+    to: string,
+    outcome: PriceFetchOutcome,
+    now: number,
+    cached: InstrumentPriceRecord[]
+  ): Promise<void> {
+    if (outcome.ok) {
+      for (const symbol of symbols) {
+        this.attempts.set(symbol, { from, to, at: now })
+        this.failures.delete(symbol)
+      }
+      const records = toRecords(outcome.prices, nextFetchStamp())
+      if (records.length > 0) {
+        await db.instrumentPrices.bulkPut(records)
+        cached.push(...records)
+      }
+      return
+    }
+
+    if (outcome.retryable) {
+      // Not an attempt: nothing was answered, so there is nothing to know for
+      // an hour. Only the short retry pause applies.
+      for (const symbol of symbols) {
+        this.failures.set(symbol, now)
+      }
+      return
+    }
+
+    // The server understood and refused - a range past the day cap, say.
+    // Sending it again unchanged gets the same answer, so this counts as having
+    // asked: the hour-long, range-scoped brake applies, and a narrower request
+    // is still free to go out immediately.
+    for (const symbol of symbols) {
+      this.attempts.set(symbol, { from, to, at: now })
+    }
   }
 
   private needsFetch(

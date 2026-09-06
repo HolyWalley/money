@@ -189,7 +189,7 @@ describe('PositionsTable', () => {
   it('holds the figures back while the valuation is still loading', () => {
     renderTable({ positions: [apple], isLoading: true })
 
-    expect(screen.getByText('Valuing your holdings...')).toBeInTheDocument()
+    expect(screen.getByTestId('positions-loading')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
@@ -206,26 +206,28 @@ describe('PositionsTable', () => {
       },
     })
 
+    // Paired down each column: what went in over what a share cost, what it is
+    // worth over what a share closed at, the return over what it works out to.
     const row = screen.getByText('Apple').closest('tr')
-    expect(row).toHaveTextContent('187.50')
+    expect(row).toHaveTextContent('4,000.00')
+    expect(row).toHaveTextContent('125.00')
     expect(row).toHaveTextContent('6,000.00')
-    expect(row).toHaveTextContent('+2,000.00')
-    expect(row).toHaveTextContent('+50.0%')
-    expect(row).toHaveTextContent('45.20')
-    expect(screen.getByText('+2,045.20')).toBeInTheDocument()
+    expect(row).toHaveTextContent('187.50')
+    expect(row).toHaveTextContent('+2,045.20')
+    expect(row).toHaveTextContent('+51.1%')
+    expect(row).toHaveTextContent('45.20 in dividends')
+    // The only holding there is, so it is the whole portfolio.
+    expect(row).toHaveTextContent('100.0%')
 
-    // The headline and the column totals both come from the summary, which is
-    // stated in the base currency rather than the row's.
-    expect(screen.getByText('+2,977.60 total return')).toBeInTheDocument()
-
+    // The column totals come from the summary, which is stated in the base
+    // currency rather than the row's.
     const totals = screen.getByTestId('portfolio-totals')
     expect(totals).toHaveTextContent('Total EUR')
+    expect(totals).toHaveTextContent('4,000.00')
     expect(totals).toHaveTextContent('6,000.00')
-    expect(totals).toHaveTextContent('+2,000.00')
-    expect(totals).toHaveTextContent('+50.0%')
-    expect(totals).toHaveTextContent('+812.40')
-    expect(totals).toHaveTextContent('165.20')
     expect(totals).toHaveTextContent('+2,977.60')
+    expect(totals).toHaveTextContent('+74.4%')
+    expect(totals).toHaveTextContent('100%')
   })
 
   it('states quantities exactly, without money rounding or padding', () => {
@@ -454,11 +456,13 @@ describe('PositionsTable', () => {
     expect(screen.getByText('Apple')).toBeInTheDocument()
     expect(screen.getByText('Quantity')).toBeInTheDocument()
     expect(screen.getByText('32')).toBeInTheDocument()
-    expect(screen.getByText('+2,000.00 (+50.0%)')).toBeInTheDocument()
+    expect(screen.getByText('+2,045.20 (+51.1%)')).toBeInTheDocument()
 
     const totals = screen.getByTestId('portfolio-totals')
     expect(totals).toHaveTextContent('Market value')
     expect(totals).toHaveTextContent('6,000.00')
+    expect(totals).toHaveTextContent('Invested')
+    expect(totals).toHaveTextContent('4,000.00')
     expect(totals).toHaveTextContent('+2,045.20')
   })
 })
