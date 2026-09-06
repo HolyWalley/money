@@ -8,7 +8,7 @@ const NOTHING = '—'
 const EXPLANATIONS = {
   invested: 'What was paid for everything still held, each purchase converted at the rate of the day it was made.',
   performance:
-    'Time-weighted return: how the holdings performed regardless of how much money was in them and when, so paying more in neither helps nor hurts it. It includes dividends, and it will differ from the money-weighted rate above.',
+    'Time-weighted return: how the holdings performed regardless of how much money was in them and when, so paying more in neither helps nor hurts it. It counts dividends and interest received, and the fees it took to earn them, and it will differ from the money-weighted rate above.',
   volatility:
     'The annualised standard deviation of the daily time-weighted returns. Higher means the returns varied more widely, both up and down.',
   realised: 'What the sales in this window made over the cost they released.',

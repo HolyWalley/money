@@ -40,6 +40,10 @@ export interface HistoryPoint {
    * What crossed the portfolio's boundary that day, in the base currency:
    * positive for money paid in, negative for a sale or a dividend paid out.
    *
+   * A cost sits on the positive side of that line. A commission is money the
+   * holdings have to answer for and never earned, so it reads as an inflow the
+   * value did not rise by - which is the drag it is.
+   *
    * Carried per day because every honest measure of return needs it - the
    * time-weighted chain below takes it out of the day's move, and the
    * money-weighted rate is solved from these flows and their dates.
@@ -62,6 +66,9 @@ export interface HistoryPoint {
    * reports. Chaining daily returns with the day's own flow taken out measures
    * the holdings, not the paying-in schedule, which is what makes two
    * portfolios comparable.
+   *
+   * Dividends, interest and costs are all in it: what was earned and what it
+   * took to earn it.
    */
   performance: number
 }
@@ -77,8 +84,20 @@ export interface PortfolioHistory {
   unpriced: string[]
 }
 
-/** Rows that move a holding or pay out of one. Fees and interest move cash, not positions. */
-const HISTORY_KINDS = new Set(['buy', 'sell', 'dividend'])
+/** Rows that move a holding or pay out of one. */
+const POSITION_KINDS = new Set(['buy', 'sell', 'dividend'])
+
+/**
+ * Rows that move no shares but are still the portfolio's own money.
+ *
+ * A commission and a quarterly interest posting say nothing about what is
+ * held, which is why they are not position rows - but leaving them out
+ * altogether reports a return nobody earned, flattered by every fee the
+ * account was ever charged. Many of them name no holding at all: DeGiro's
+ * annual exchange connection fee belongs to the account, not to a share of
+ * anything.
+ */
+const COST_KINDS = new Set(['fee', 'interest'])
 
 /**
  * Quantities are stored to eight decimal places, so anything below a
@@ -109,10 +128,16 @@ function historyRows(
 ): PositionTrade[] {
   return trades
     .filter(trade => {
-      if (!trade.instrumentId || !HISTORY_KINDS.has(trade.kind)) return false
       // A row nobody can place in time cannot be put on a timeline at all, and
       // computePositions sets one aside for the same reason.
       if (Number.isNaN(Date.parse(trade.date))) return false
+
+      // A cost is cash, not shares, so neither test below applies to it: it
+      // needs no holding to belong to, and the currency it settled in is
+      // converted like any other rather than having to match a position's.
+      if (COST_KINDS.has(trade.kind)) return true
+
+      if (!trade.instrumentId || !POSITION_KINDS.has(trade.kind)) return false
       // A row in a currency the position does not settle in is one the table
       // refuses to absorb; counting it here would leave the curve and the
       // holdings disagreeing about the same history.
@@ -150,7 +175,10 @@ function valuableInstruments(
   const rejected = new Set<string>()
 
   for (const row of rows) {
-    const instrumentId = row.instrumentId as string
+    const instrumentId = row.instrumentId
+    // An account-level cost names no instrument, so there is nothing here to
+    // judge: it is neither valuable nor rejected, and it is kept either way.
+    if (!instrumentId) continue
     if (valuable.has(instrumentId) || rejected.has(instrumentId)) continue
 
     const symbol = symbolOf(instrumentId)
@@ -178,11 +206,12 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
   const allRows = historyRows(trades, settleCurrencies)
   const valuable = valuableInstruments(allRows, inputs, settleCurrencies)
 
-  const rows = allRows.filter(row => valuable.has(row.instrumentId as string))
+  const rows = allRows.filter(row => !row.instrumentId || valuable.has(row.instrumentId))
   const holdings = new Map<string, Holding>()
   const unpriced = new Set(
     allRows
-      .map(row => row.instrumentId as string)
+      .map(row => row.instrumentId)
+      .filter((instrumentId): instrumentId is string => Boolean(instrumentId))
       .filter(instrumentId => !valuable.has(instrumentId))
   )
   const points: HistoryPoint[] = []
@@ -199,6 +228,19 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
 
   /** Applies one row and answers what it moved into or out of the holdings, in base. */
   const apply = (trade: PositionTrade): number => {
+    // A cost moves no shares, so all it can do is show up in the day's flow -
+    // as the opposite of what the money did. A commission of -3 is money the
+    // holdings have to answer for and did not earn, which is an inflow of 3
+    // the value never rose by; interest received is an outflow, exactly as a
+    // dividend is. Taken from the signed amount rather than a rule per kind,
+    // so a charge and a refund each land the right way round.
+    if (COST_KINDS.has(trade.kind)) {
+      const amountBase = convertOn(trade.amount, trade.currency, new Date(trade.date))
+      // No rate into the base, and no holding to name in `unpriced` either.
+      // Counting it as zero is what the curve did with every cost until now.
+      return -(amountBase ?? 0)
+    }
+
     const instrumentId = trade.instrumentId as string
     let holding = holdings.get(instrumentId)
     if (!holding) {

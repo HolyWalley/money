@@ -380,6 +380,90 @@ describe('buildPortfolioHistory', () => {
   })
 })
 
+describe('what a cost does to the curve', () => {
+  /** A thousand into one holding that then sits perfectly still, so anything the
+   *  curve does afterwards is the cost doing it. */
+  function withRow(extra: Partial<PositionTrade> & { date: string }) {
+    return build({
+      trades: [
+        trade({ date: '2025-01-02T10:00:00.000Z', quantity: 10, amount: -1000 }),
+        trade(extra),
+      ],
+      closes: closesOf({ 'IWDA.AS': { '2025-01-02': 100, '2025-01-03': 100 } }),
+      from: day('2025-01-02'),
+      to: day('2025-01-03'),
+    })
+  }
+
+  // Left out of the chain entirely, a commission is a return nobody earned:
+  // the money is gone from the account and the curve never hears about it.
+  it('drags the return down by a commission', () => {
+    const { points } = withRow({ date: '2025-01-03T10:00:00.000Z', kind: 'fee', amount: -3 })
+
+    expect(points[1].flow).toBeCloseTo(3, 10)
+    expect(points[1].performance).toBeCloseTo(-0.003, 10)
+  })
+
+  it('lifts it by interest received, exactly as a dividend does', () => {
+    const { points } = withRow({ date: '2025-01-03T10:00:00.000Z', kind: 'interest', amount: 5 })
+
+    expect(points[1].performance).toBeCloseTo(0.005, 10)
+  })
+
+  // DeGiro's annual exchange connection fee belongs to the account rather than
+  // to a share of anything, and dropping it for want of a holding to hang it on
+  // loses a real cost.
+  it('counts a cost that names no holding at all', () => {
+    const { points } = withRow({
+      date: '2025-01-03T10:00:00.000Z',
+      kind: 'fee',
+      amount: -3,
+      instrumentId: undefined,
+    })
+
+    expect(points[1].performance).toBeCloseTo(-0.003, 10)
+  })
+
+  // Read from the sign of the amount rather than from the kind, so the two
+  // rows that run the other way are not read backwards.
+  it('credits a refunded fee and debits interest charged', () => {
+    expect(
+      withRow({ date: '2025-01-03T10:00:00.000Z', kind: 'fee', amount: 3 }).points[1].performance
+    ).toBeCloseTo(0.003, 10)
+    expect(
+      withRow({ date: '2025-01-03T10:00:00.000Z', kind: 'interest', amount: -2 }).points[1]
+        .performance
+    ).toBeCloseTo(-0.002, 10)
+  })
+
+  // The money is really gone, so the profit the window states has to be after
+  // it - the holding is worth exactly what was paid for it and the account is
+  // still down by the commission.
+  it('leaves the window short by what the costs took', () => {
+    const { points } = withRow({ date: '2025-01-03T10:00:00.000Z', kind: 'fee', amount: -3 })
+
+    expect(windowProfit(points)).toBeCloseTo(-3, 10)
+  })
+
+  // An instrument the curve cannot value is out of every figure it states, and
+  // its commission goes with it rather than dragging a curve the holding it
+  // paid for is not on.
+  it('leaves out a cost belonging to a holding it cannot value', () => {
+    const { points } = build({
+      trades: [
+        trade({ date: '2025-01-02T10:00:00.000Z', quantity: 10, amount: -1000 }),
+        trade({ date: '2025-01-03T10:00:00.000Z', instrumentId: 'mystery', kind: 'fee', amount: -3 }),
+      ],
+      closes: closesOf({ 'IWDA.AS': { '2025-01-02': 100, '2025-01-03': 100 } }),
+      from: day('2025-01-02'),
+      to: day('2025-01-03'),
+    })
+
+    expect(points[1].flow).toBe(0)
+    expect(points[1].performance).toBeCloseTo(0, 10)
+  })
+})
+
 describe('the gain a sale realised', () => {
   // Half the holding sold for more than half the basis: 600 back against the
   // 500 that bought it. The rest of the basis stays with what is still held.

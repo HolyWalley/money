@@ -43,7 +43,7 @@ const MAX_POINTS = 260
 
 /** What the yearly figure is, for anyone who hovers it. */
 const MWR_EXPLANATION =
-  'Money-weighted return: what the money itself earned each year, taking into account how much was invested and when, including dividends. Calculated with the XIRR method.'
+  'Money-weighted return: what the money itself earned each year, taking into account how much was invested and when, including dividends, interest and costs. Calculated with the XIRR method.'
 
 const chartConfig = {
   metric: {
