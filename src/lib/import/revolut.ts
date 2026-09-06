@@ -266,7 +266,7 @@ function detect(text: string): boolean {
  * shows the warning instead of crashing on an uncaught error.
  */
 function unreadable(warning: string): ParsedStatement {
-  return { broker: 'revolut', rows: [], currencies: [], warnings: [warning] }
+  return { broker: 'revolut', rows: [], currencies: [], warnings: [warning], statedBalances: [] }
 }
 
 function parse(text: string): ParsedStatement {
@@ -406,7 +406,10 @@ function parse(text: string): ParsedStatement {
     warnings.push('Statement contains no rows')
   }
 
-  return { broker: 'revolut', rows, currencies, warnings }
+  // Revolut's export states no balance at all, so a reconciliation against
+  // this statement can only sum its rows - which is the account's whole history
+  // only when the export was not date-filtered.
+  return { broker: 'revolut', rows, currencies, warnings, statedBalances: [] }
 }
 
 /**

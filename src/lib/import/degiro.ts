@@ -1,4 +1,4 @@
-import { hashParts, makeExternalId, type ParsedRow, type ParsedRowKind, type ParsedStatement, type StatementParser } from './types'
+import { hashParts, makeExternalId, type ParsedRow, type ParsedRowKind, type ParsedStatement, type StatedBalance, type StatementParser } from './types'
 
 /**
  * DeGiro's Account.csv, verified against a Polish-locale export.
@@ -18,6 +18,7 @@ const COLUMN = {
   changeCurrency: 7,
   changeAmount: 8,
   balanceCurrency: 9,
+  balanceAmount: 10,
   orderId: 11,
 } as const
 
@@ -65,6 +66,18 @@ const INTERNAL_CONTAINS = 'cash sweep transfer'
 const FEE_HINTS = ['oplata', 'exchange connection fee']
 const DEPOSIT_DESCRIPTIONS = ['depozyt', 'deposit']
 const INTEREST_HINT = 'interest'
+
+/**
+ * Cash the broker hands over for no security and no service: a signup
+ * promotion, a rebate, a goodwill credit.
+ *
+ * Grouped with interest because that is what it is to a ledger - money that
+ * appeared in the account without a trade behind it - and because leaving it
+ * unclassified is not free. A real statement carried exactly one such row, a
+ * 5,00 EUR 'Promocja rabat', and it is the whole difference between an import
+ * reconciling to the balance DeGiro reports and landing 5,00 short of it.
+ */
+const BROKER_CREDIT_HINTS = ['promocja', 'rabat', 'promotion', 'rebate', 'cashback']
 
 /** Shares are fractional at some brokers, so the derived quantity is never rounded to an integer. */
 const QUANTITY_PRECISION = 1e8
@@ -445,6 +458,10 @@ function parseRow(record: CsvRecord, seen: Map<string, number>): ParsedRow {
     return { ...base, kind: 'interest' }
   }
 
+  if (BROKER_CREDIT_HINTS.some((hint) => normalised.includes(hint))) {
+    return { ...base, kind: 'interest' }
+  }
+
   warnings.push('No rule matched this description, so it was left unclassified')
   return { ...base, kind: 'unknown' }
 }
@@ -463,6 +480,14 @@ export function parseDegiro(text: string): ParsedStatement {
     warnings.push('No DeGiro header found; the file was read with the standard column order')
   }
 
+  // Rows are newest first, so the first balance seen for a currency is the
+  // closing one. Internal rows are skipped because their Balance belongs to the
+  // flatex account the sweep moved money to, not to the trading account every
+  // other row reports on - mixing the two is what makes this column look
+  // unreliable. Read this way it is exact: on the real statement the running
+  // sum of Change matches the stated Balance on all 47 non-internal rows.
+  const statedBalances: StatedBalance[] = []
+
   for (; index < records.length; index++) {
     const record = records[index]
     if (record.fields.every((value) => value.trim() === '')) continue
@@ -470,9 +495,16 @@ export function parseDegiro(text: string): ParsedStatement {
     const row = parseRow(record, seen)
     rows.push(row)
     if (row.currency && !currencies.includes(row.currency)) currencies.push(row.currency)
+
+    if (row.kind === 'internal') continue
+    const balanceCurrency = record.fields[COLUMN.balanceCurrency]?.trim().toUpperCase()
+    const balance = parseDecimal(record.fields[COLUMN.balanceAmount] ?? '')
+    if (!balanceCurrency || balance === null) continue
+    if (statedBalances.some((stated) => stated.currency === balanceCurrency)) continue
+    statedBalances.push({ currency: balanceCurrency, amount: balance })
   }
 
-  return { broker: 'degiro', rows, currencies, warnings }
+  return { broker: 'degiro', rows, currencies, warnings, statedBalances }
 }
 
 export const degiroParser: StatementParser = {

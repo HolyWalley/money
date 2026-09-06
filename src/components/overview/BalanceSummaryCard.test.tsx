@@ -6,17 +6,21 @@ function renderCard(overrides: {
   total?: number
   spendable?: number
   savings?: number
+  investments?: number | null
   commitments?: CommittedAmounts | null
   missingCurrencies?: string[]
+  unvaluedHoldings?: number
 } = {}) {
   return render(
     <BalanceSummaryCard
       total={overrides.total ?? 12480.3}
       spendable={overrides.spendable ?? 4230.1}
       savings={overrides.savings ?? 8250.2}
+      investments={overrides.investments ?? null}
       baseCurrency="EUR"
       commitments={overrides.commitments ?? null}
       missingCurrencies={overrides.missingCurrencies ?? []}
+      unvaluedHoldings={overrides.unvaluedHoldings ?? 0}
     />
   )
 }
@@ -99,5 +103,66 @@ describe('BalanceSummaryCard', () => {
     renderCard()
 
     expect(screen.queryByText(/Excludes/)).not.toBeInTheDocument()
+  })
+
+  it('shows what is invested beside what is spendable and what is saved', () => {
+    renderCard({ total: 14880.3, investments: 2400 })
+
+    expect(screen.getByText('Investments')).toBeInTheDocument()
+    expect(screen.getByText('2,400.00')).toBeInTheDocument()
+    expect(screen.getByText('14,880.30')).toBeInTheDocument()
+  })
+
+  // A holding is not money until it is sold, so it must never fund the month.
+  it('keeps what is free to spend clear of the portfolio', () => {
+    renderCard({ spendable: 4230.1, investments: 90000, commitments: committed(940, 400) })
+
+    expect(screen.getByText('2,890.10')).toBeInTheDocument()
+  })
+
+  it('shows an empty brokerage rather than pretending there is none', () => {
+    renderCard({ investments: 0 })
+
+    expect(screen.getByText('Investments')).toBeInTheDocument()
+  })
+
+  // The common case. Someone who invests through nobody must see exactly the
+  // card they saw before any of this existed - no row, no zero, no note.
+  it('is unchanged for someone with no brokerage at all', () => {
+    const { container } = renderCard({ investments: null, commitments: committed(940, 400) })
+
+    expect(screen.queryByText('Investments')).not.toBeInTheDocument()
+    expect(container.textContent).toBe(
+      'Net worth12,480.30 EURSpendable4,230.10Savings8,250.20Free to spend2,890.10 EURSpendable, less 940.00 recurring and 400.00 to savings'
+    )
+  })
+
+  // Silently dropping a holding nothing could price reads as a smaller net
+  // worth rather than an incomplete one.
+  it('admits when a holding is missing from the total', () => {
+    renderCard({ investments: 2400, unvaluedHoldings: 2 })
+
+    expect(screen.getByText('Excludes 2 holdings — no current value available.')).toBeInTheDocument()
+  })
+
+  it('counts a single unvalued holding in the singular', () => {
+    renderCard({ investments: 2400, unvaluedHoldings: 1 })
+
+    expect(screen.getByText('Excludes 1 holding — no current value available.')).toBeInTheDocument()
+  })
+
+  // Two differently worded warnings read as two unrelated problems; these are
+  // one - the total is partial - said twice.
+  it('says a missing rate and an unvalued holding the same way', () => {
+    renderCard({ investments: 2400, missingCurrencies: ['PLN'], unvaluedHoldings: 1 })
+
+    expect(screen.getByText('Excludes PLN — no exchange rate available.')).toBeInTheDocument()
+    expect(screen.getByText('Excludes 1 holding — no current value available.')).toBeInTheDocument()
+  })
+
+  it('says nothing about unvalued holdings when every one of them is priced', () => {
+    renderCard({ investments: 2400, unvaluedHoldings: 0 })
+
+    expect(screen.queryByText(/holding/)).not.toBeInTheDocument()
   })
 })

@@ -3,6 +3,9 @@ import { addWallet, updateWallet as updateWalletCRDT, deleteWallet } from '../li
 import type { Wallet, CreateWallet, UpdateWallet } from '../../shared/schemas/wallet.schema'
 import { walletSchema, createWalletSchema, updateWalletSchema } from '../../shared/schemas/wallet.schema'
 
+/** `order` is assigned from the end of the list when the caller leaves it out. */
+export type CreateWalletInput = Omit<CreateWallet, 'order'> & { order?: number }
+
 class WalletService {
   async getAllWallets(): Promise<Wallet[]> {
     try {
@@ -35,17 +38,17 @@ class WalletService {
     }
   }
 
-  async createWallet(data: CreateWallet): Promise<Wallet> {
+  async createWallet(data: CreateWalletInput): Promise<Wallet> {
     try {
-      const validatedData = createWalletSchema.parse(data)
-
-      const maxOrder = await this.getMaxOrder()
-      const order = validatedData.order ?? maxOrder + 1
+      // The schema defaults `order` to 0, so what the caller left out has to be
+      // read before validation fills it in - otherwise every wallet lands on
+      // order 0 and the list falls back to uuid order.
+      const order = data.order ?? (await this.getMaxOrder()) + 1
+      const validatedData = createWalletSchema.parse({ ...data, order })
 
       const wallet: Omit<Wallet, '_id'> = {
         type: 'wallet',
         ...validatedData,
-        order,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }

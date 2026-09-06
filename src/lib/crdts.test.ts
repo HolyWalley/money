@@ -198,3 +198,69 @@ describe('savingGoals Dexie mirror', () => {
     throw new Error('cadence change never reached Dexie')
   })
 })
+
+describe('updateSavingGoal optional fields', () => {
+  function datedGoal() {
+    return {
+      walletId: 'w-sav',
+      name: 'Laptop',
+      goalType: 'target' as const,
+      targetAmount: 1000,
+      targetDate: '2026-12-31T00:00:00.000Z',
+      allocatedAmount: 0,
+      achieved: false,
+      order: 0,
+    }
+  }
+
+  // Regression: the '!== undefined' whitelist could set a deadline but never
+  // remove one, so a user who cleared the date found it back on reload.
+  it('clears a deadline the user removed', () => {
+    const id = addSavingGoal(datedGoal())
+
+    updateSavingGoal(id, { targetDate: undefined })
+
+    expect('targetDate' in goalJson(id)).toBe(false)
+  })
+
+  it('leaves the deadline alone when the update never mentions it', () => {
+    const id = addSavingGoal(datedGoal())
+
+    updateSavingGoal(id, { name: 'New laptop' })
+
+    expect(goalJson(id)).toMatchObject({
+      name: 'New laptop',
+      targetDate: '2026-12-31T00:00:00.000Z',
+    })
+  })
+
+  it('replaces a deadline with a later one', () => {
+    const id = addSavingGoal(datedGoal())
+
+    updateSavingGoal(id, { targetDate: '2027-06-30T00:00:00.000Z' })
+
+    expect(goalJson(id).targetDate).toBe('2027-06-30T00:00:00.000Z')
+  })
+
+  it('unlinks a goal from the recurring payment that fed it', () => {
+    const id = addSavingGoal({ ...datedGoal(), sourceRecurringPaymentId: 'rp-1' })
+
+    updateSavingGoal(id, { sourceRecurringPaymentId: undefined })
+
+    expect('sourceRecurringPaymentId' in goalJson(id)).toBe(false)
+  })
+
+  it('drops a cleared deadline from the Dexie mirror too', async () => {
+    const id = addSavingGoal(datedGoal())
+    await waitForDexieGoal(id)
+
+    updateSavingGoal(id, { targetDate: undefined })
+
+    for (let i = 0; i < 50; i++) {
+      const row = await db.savingGoals.get(id)
+      if (row && row.targetDate === undefined) return
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    throw new Error('cleared deadline never reached Dexie')
+  })
+})

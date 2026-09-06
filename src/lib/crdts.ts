@@ -646,8 +646,8 @@ export function updateSavingGoal(id: string, updates: Partial<SavingGoal>) {
     if (updates.allocatedAmount !== undefined) goal.set('allocatedAmount', updates.allocatedAmount)
     if (updates.achieved !== undefined) goal.set('achieved', updates.achieved)
     if (updates.order !== undefined) goal.set('order', updates.order)
-    if (updates.targetDate !== undefined) goal.set('targetDate', updates.targetDate)
-    if (updates.sourceRecurringPaymentId !== undefined) goal.set('sourceRecurringPaymentId', updates.sourceRecurringPaymentId)
+    setOptional(goal, updates, 'targetDate')
+    setOptional(goal, updates, 'sourceRecurringPaymentId')
     goal.set('updatedAt', new Date().toISOString())
   })
 }

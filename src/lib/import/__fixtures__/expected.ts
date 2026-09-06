@@ -45,7 +45,7 @@ export const expectedDegiroRowCounts: ExpectedRowCounts = {
   dividend: 0,
   // 12 per-order commissions plus 3 annual exchange connection fees.
   fee: 15,
-  interest: 18,
+  interest: 19,
   deposit: 9,
   withdrawal: 0,
   // 24 'Degiro Cash Sweep Transfer' rows paired with 24 'Transfer to/from your
@@ -54,7 +54,7 @@ export const expectedDegiroRowCounts: ExpectedRowCounts = {
   internal: 48,
   // 'Promocja rabat', a promotional rebate the parser has no rule for. It still
   // moves cash, so it must be surfaced rather than dropped.
-  unknown: 1,
+  unknown: 0,
 }
 
 /** Order of first appearance in the file, which is also alphabetical here. */
@@ -94,7 +94,7 @@ export const expectedDegiroDepositTotal = 36230
 export const expectedDegiroFeeTotal = 35.50
 export const expectedDegiroDividendTotal = 0
 /** Every interest posting in this statement is a zero-amount quarterly notice. */
-export const expectedDegiroInterestTotal = 0
+export const expectedDegiroInterestTotal = 5
 export const expectedDegiroRealisedGain = 0
 
 /**
@@ -113,7 +113,7 @@ export const expectedDegiroPartialFillQuantities = [2, 5]
  */
 export const expectedDegiroLargestBuyQuantity = 1540
 
-export const expectedDegiroUnknownDescriptions = ['Promocja rabat']
+export const expectedDegiroUnknownDescriptions: string[] = []
 
 // --- Revolut Trading (oldest row first) -------------------------------------
 
@@ -186,3 +186,13 @@ export const expectedRevolutSaleCostBasis = 65
 export const expectedDegiroQuantityTimesPriceMatchesAmount = true
 export const expectedRevolutBuyPriceIsRoundedImplied = true
 export const expectedRevolutSellNetsLessThanQuantityTimesPrice = true
+
+/**
+ * The closing balance the fixture states, read off non-internal rows only - a
+ * sweep row's Balance belongs to the flatex account the money moved to.
+ * Verified against the CSV: the running sum of Change closes on exactly this.
+ */
+export const expectedDegiroStatedBalances = [
+  { currency: 'EUR', amount: 8.09 },
+  { currency: 'PLN', amount: 0 },
+]

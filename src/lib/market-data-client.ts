@@ -92,6 +92,13 @@ function nextFetchStamp(): number {
  */
 export async function searchSymbols(query: string): Promise<InstrumentCandidate[]> {
   const response = await apiClient.searchInstruments(query)
+  // A search that never reached the index is not an index with nothing in it.
+  // Reported as no candidates, it sends the user off to hand-type a symbol
+  // that was there all along - the same mistake the 401 refresh above exists
+  // to prevent, and the caller has an error state for exactly this.
+  if (!response.ok) {
+    throw new Error(response.error ?? 'The symbol search could not be reached')
+  }
   return response.data?.results ?? []
 }
 
@@ -245,8 +252,17 @@ export class MarketDataClient {
     const tipStart = refreshableFrom(today)
     const tipOnly = plan.every((range) => range.from >= tipStart)
     if (tipOnly) {
-      const lastFetchedAt = records.reduce((latest, record) => Math.max(latest, record.fetchedAt), 0)
-      if (lastFetchedAt > now - TIP_TTL_MS) {
+      // Only rows that cover the tip say anything about how fresh the tip is.
+      // Measured across every row of the symbol instead, a fetch of some far
+      // older window marks today as freshly known - which is exactly what the
+      // symbol picker does when it prices candidates on a trade date years ago.
+      // The holding it just resolved then sits unpriced for an hour, with the
+      // stamp in IndexedDB so a reload does not clear it either.
+      const tipFetchedAt = records.reduce(
+        (latest, record) => (record.date >= tipStart ? Math.max(latest, record.fetchedAt) : latest),
+        0
+      )
+      if (tipFetchedAt > now - TIP_TTL_MS) {
         return false
       }
     }

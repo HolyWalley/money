@@ -213,6 +213,27 @@ describe('MarketDataClient', () => {
     expect(closes.get('FWIA.DE:2025-02-03')).toBe(40)
   })
 
+
+  it('still fetches today after a fresh fetch of a window years earlier', async () => {
+    // What the symbol picker leaves behind: to rank candidate listings it
+    // prices each one on the trade date, writing rows for an old window with a
+    // stamp of a moment ago. Judging the tip's freshness across every row of
+    // the symbol then declares today already known, and the holding the user
+    // just resolved shows no close at all - for an hour, and through reloads,
+    // because the stamp is in IndexedDB rather than memory.
+    await seed([
+      { symbol: 'ABEV', date: '2024-07-15', close: 2.1, fetchedAt: Date.now() - 1000 },
+      { symbol: 'ABEV', date: '2024-07-16', close: 2.2, fetchedAt: Date.now() - 1000 },
+    ])
+    const fetcher = respondWith({ 'ABEV': { currency: 'USD', closes: { '2025-03-13': 3.02 } } })
+    const client = new MarketDataClient(fetcher)
+
+    const { closes } = await client.getCloses(['ABEV'], TO, TO)
+
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(closes.get('ABEV:2025-03-13')).toBe(3.02)
+  })
+
   it('does not retry a failure on the very next render', async () => {
     // A 500 leaves the link looking perfectly healthy, so nothing else would
     // stop a re-render from asking again immediately, and again after that.
@@ -387,9 +408,17 @@ describe('reaching the server', () => {
     expect(results).toEqual([candidate])
   })
 
-  it('answers with no candidates when the search fails', async () => {
+  // Answering [] here reads as "no such instrument", and the picker says so:
+  // it invites the user to hand-type a symbol the index would have found.
+  it('reports a failed search rather than answering with no candidates', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: false, error: 'nope' }, 503)))
 
-    expect(await searchSymbols('IE00BHZRQZ17')).toEqual([])
+    await expect(searchSymbols('IE00BHZRQZ17')).rejects.toThrow('nope')
+  })
+
+  it('still answers with no candidates when the index genuinely holds none', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true, data: { results: [] } })))
+
+    expect(await searchSymbols('NOTHINGLISTED')).toEqual([])
   })
 })

@@ -22,6 +22,7 @@ import {
   expectedDegiroPositions,
   expectedDegiroRowCounts,
   expectedDegiroRowTotal,
+  expectedDegiroStatedBalances,
   expectedDegiroUnknownDescriptions,
 } from './__fixtures__/expected'
 
@@ -455,19 +456,59 @@ describe('cash movements', () => {
     expect(row.kind).toBe('withdrawal')
   })
 
-  it('classifies the quarterly interest notices, which are all zero here', () => {
+  it('reads the closing balance the statement states, skipping the sweep rows', () => {
+    // The Balance column interleaves two accounts: a sweep row reports the
+    // flatex balance the money moved to, every other row the trading account.
+    // Read across both it looks unreliable; read off non-internal rows it is
+    // exact, and it is the only thing that says what the account holds when an
+    // export does not reach back to the account's first day.
+    expect(degiro.statedBalances).toEqual(expectedDegiroStatedBalances)
+  })
+
+  it('states no balance for a file whose rows carry none', () => {
+    const { statedBalances } = parseDegiro(
+      [
+        'Date,Time,Value date,Product,ISIN,Description,FX,Change,,Balance,,Order Id',
+        '06-08-2024,09:35,05-08-2024,,,Depozyt,,EUR,"5,00",,,',
+        '',
+      ].join('\n')
+    )
+
+    expect(statedBalances).toEqual([])
+  })
+
+  it('classifies the quarterly interest notices and the broker credit alongside them', () => {
     expect(totalFor(degiro.rows, 'interest')).toBeCloseTo(expectedDegiroInterestTotal, 2)
     expect(totalFor(degiro.rows, 'dividend')).toBeCloseTo(expectedDegiroDividendTotal, 2)
   })
 
-  it('surfaces an unrecognised row with a warning instead of dropping it', () => {
+  it('books a promotional rebate as income rather than leaving it unclassified', () => {
+    // Money the broker hands over for nothing, and the whole difference between
+    // an import reconciling to the balance DeGiro reports and landing short of
+    // it: on the real statement this row is the 5,00 EUR that closes the gap.
+    const [row] = statement(
+      '06-08-2024,09:35,05-08-2024,,,Promocja rabat,,EUR,"5,00",EUR,"11,00",'
+    )
+
+    expect(row.kind).toBe('interest')
+    expect(row.amount).toBe(5)
+    expect(row.warnings).toEqual([])
+  })
+
+  it('leaves a genuinely unfamiliar row unclassified, with a warning rather than a silent drop', () => {
+    const [row] = statement(
+      '06-08-2024,09:35,05-08-2024,,,Korekta ksiegowa,,EUR,"1,23",EUR,"11,00",'
+    )
+
+    expect(row.kind).toBe('unknown')
+    expect(row.amount).toBe(1.23)
+    expect(row.warnings).toEqual(['No rule matched this description, so it was left unclassified'])
+  })
+
+  it('has nothing left unclassified in the fixture statement', () => {
     const unknown = degiro.rows.filter((row) => row.kind === 'unknown')
 
-    expect(unknown).toHaveLength(expectedDegiroUnknownDescriptions.length)
-    expect(expectedDegiroUnknownDescriptions.filter((text) => unknown.some((row) => row.raw.includes(text))))
-      .toEqual(expectedDegiroUnknownDescriptions)
-    expect(unknown[0].amount).toBe(5)
-    expect(unknown[0].warnings).toEqual(['No rule matched this description, so it was left unclassified'])
+    expect(unknown.map((row) => row.raw)).toHaveLength(expectedDegiroUnknownDescriptions.length)
   })
 })
 

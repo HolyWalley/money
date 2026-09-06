@@ -164,9 +164,11 @@ function OverviewContent() {
           total={netWorth.total}
           spendable={netWorth.spendable}
           savings={netWorth.savings}
+          investments={netWorth.investments}
           baseCurrency={baseCurrency}
           commitments={committed}
           missingCurrencies={unconvertedCurrencies}
+          unvaluedHoldings={netWorth.unvaluedHoldings}
         />
 
         <div className="border rounded-lg p-4">

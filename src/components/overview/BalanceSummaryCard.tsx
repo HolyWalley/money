@@ -10,6 +10,11 @@ interface BalanceSummaryCardProps {
   total: number
   spendable: number
   savings: number
+  /**
+   * Holdings at market value, or null when there is no brokerage at all, which
+   * leaves the card exactly as it was before anyone invested anything.
+   */
+  investments: number | null
   baseCurrency: string
   /**
    * What the period still owes, or null when the period is not the one we are
@@ -17,6 +22,8 @@ interface BalanceSummaryCardProps {
    */
   commitments: CommittedAmounts | null
   missingCurrencies: string[]
+  /** How many holdings the total is missing because nothing could value them. */
+  unvaluedHoldings: number
 }
 
 function commitmentsCaption(commitments: CommittedAmounts): string {
@@ -36,17 +43,41 @@ function commitmentsCaption(commitments: CommittedAmounts): string {
   return `Spendable, less ${parts.join(' and ')}`
 }
 
+/**
+ * Everything the headline figure leaves out, each said the same way, because
+ * two differently worded warnings read as two unrelated problems.
+ */
+function exclusions(missingCurrencies: string[], unvaluedHoldings: number): string[] {
+  const notes: string[] = []
+
+  if (missingCurrencies.length > 0) {
+    notes.push(`Excludes ${missingCurrencies.join(', ')} — no exchange rate available.`)
+  }
+  if (unvaluedHoldings > 0) {
+    notes.push(
+      `Excludes ${unvaluedHoldings} holding${unvaluedHoldings === 1 ? '' : 's'} — no current value available.`
+    )
+  }
+
+  return notes
+}
+
 export function BalanceSummaryCard({
   total,
   spendable,
   savings,
+  investments,
   baseCurrency,
   commitments,
   missingCurrencies,
+  unvaluedHoldings,
 }: BalanceSummaryCardProps) {
-  // Savings is money already spoken for. Spending against it is how a month
-  // ends up eating its own emergency fund, so only spendable funds this.
+  // Savings is money already spoken for, and a holding is not money at all
+  // until it is sold. Spending against either is how a month ends up eating its
+  // own emergency fund, so only spendable funds this.
   const free = commitments ? spendable - commitments.total : 0
+
+  const notes = exclusions(missingCurrencies, unvaluedHoldings)
 
   return (
     <div className="border rounded-lg p-4 space-y-3">
@@ -58,8 +89,8 @@ export function BalanceSummaryCard({
         </div>
       </div>
 
-      {/* Kept side by side rather than spread across the card: these two are a
-          breakdown of the figure above them, not two independent statistics. */}
+      {/* Kept side by side rather than spread across the card: these are a
+          breakdown of the figure above them, not independent statistics. */}
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         <div>
           <div className="text-xs text-muted-foreground">Spendable</div>
@@ -69,6 +100,12 @@ export function BalanceSummaryCard({
           <div className="text-xs text-muted-foreground">Savings</div>
           <div className="font-semibold">{formatMoney(savings)}</div>
         </div>
+        {investments !== null && (
+          <div>
+            <div className="text-xs text-muted-foreground">Investments</div>
+            <div className="font-semibold">{formatMoney(investments)}</div>
+          </div>
+        )}
       </div>
 
       {commitments && (
@@ -86,11 +123,11 @@ export function BalanceSummaryCard({
         </div>
       )}
 
-      {missingCurrencies.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Excludes {missingCurrencies.join(', ')} — no exchange rate available.
+      {notes.map(note => (
+        <p key={note} className="text-xs text-muted-foreground">
+          {note}
         </p>
-      )}
+      ))}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatMoney, formatSignedMoney } from './format-money'
+import { formatMoney, formatPrice, formatSignedMoney } from './format-money'
 
 describe('formatMoney', () => {
   it('always shows two decimal places', () => {
@@ -39,5 +39,20 @@ describe('formatSignedMoney', () => {
   it('gives zero no sign at all', () => {
     expect(formatSignedMoney(0)).toBe('0.00')
     expect(formatSignedMoney(-0.001)).toBe('0.00')
+  })
+})
+
+describe('formatPrice', () => {
+  it('formats an ordinary share price as money', () => {
+    expect(formatPrice(187.5)).toBe('187.50')
+    expect(formatPrice(1)).toBe('1.00')
+  })
+
+  // 10,000 shares at 0.003 are worth 30.00, and a price of 0.00 beside that
+  // reads as a broken feed rather than a penny stock.
+  it('keeps a price quoted under a unit legible instead of rounding it away', () => {
+    expect(formatPrice(0.003)).toBe('0.003')
+    expect(formatPrice(0.03444)).toBe('0.03444')
+    expect(formatPrice(0.5)).toBe('0.50')
   })
 })

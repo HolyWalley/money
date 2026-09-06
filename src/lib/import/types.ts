@@ -34,11 +34,29 @@ export interface ParsedRow {
   warnings: string[]
 }
 
+/** What the broker itself says the account held, once its last row had posted. */
+export interface StatedBalance {
+  currency: string
+  amount: number
+}
+
 export interface ParsedStatement {
   broker: BrokerId
   rows: ParsedRow[]       // EVERY source row, including 'internal' ones
   currencies: string[]
   warnings: string[]
+  /**
+   * The closing balance the statement states, where it states one.
+   *
+   * Worth carrying because summing the rows only gives the same answer for an
+   * export that reaches back to the account's first day. A statement filtered
+   * to one year sums to that year's change, and a reconciliation that treats
+   * the sum as the balance is then wrong by everything that came before -
+   * which matters most exactly when it is used to set an opening balance.
+   *
+   * Empty where the format states no balance at all, as Revolut's does not.
+   */
+  statedBalances: StatedBalance[]
 }
 
 export interface StatementParser {

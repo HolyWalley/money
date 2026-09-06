@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Overview } from '@/components/Overview'
 import { WalletsPage } from '@/components/wallets/WalletsPage'
+import { InvestmentsPage } from '@/components/investments/InvestmentsPage'
 import { SavingsPage } from '@/components/savings/SavingsPage'
 import { SavingsNotificationListener } from '@/components/savings/SavingsNotificationListener'
 import { RecurringGoalLinkSubscriber } from '@/components/recurring/RecurringGoalLinkSubscriber'
@@ -55,6 +56,7 @@ export function AppRoutes() {
                 <Routes>
                   <Route path="/dashboard" element={<Overview />} />
                   <Route path="/wallets" element={<WalletsPage />} />
+                  <Route path="/investments" element={<InvestmentsPage />} />
                   <Route path="/savings" element={<SavingsPage />} />
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
