@@ -14,11 +14,14 @@ import { revolutParser } from '@/lib/import/revolut'
 import type { ParsedRow } from '@/lib/import/types'
 import { computePositions, type PositionTrade } from '@/lib/positions'
 import { investmentService, type ImportTradeRow } from '@/services/investmentService'
+import { transactionService } from '@/services/transactionService'
 import type { TradeKind } from '../../../shared/schemas/trade.schema'
 import {
   DEGIRO_FIXTURE,
   REVOLUT_FIXTURE,
+  expectedDegiroCashBalance,
   expectedDegiroPositions,
+  expectedRevolutCashBalance,
   expectedRevolutPositions,
   expectedRevolutRealisedGain,
 } from '@/lib/import/__fixtures__/expected'
@@ -96,6 +99,8 @@ beforeEach(async () => {
   await db.trades.clear()
   await db.instruments.clear()
   await db.brokerAccounts.clear()
+  await db.wallets.clear()
+  await db.transactions.clear()
 })
 
 describe('a parsed statement stored and read back', () => {
@@ -241,4 +246,89 @@ describe('positions computed from what was stored', () => {
     expect(closed.oversold).toBe(false)
     expect(closed.realised).toBeCloseTo(expectedRevolutRealisedGain, 2)
   })
+})
+
+/**
+ * What a statement leaves in the wallet holding the broker's cash.
+ *
+ * Nothing writes a transaction when a buy settles - the rows are stored as
+ * trades - so the wallet is funded only by the user's own deposit transfers.
+ * Unless the broker's own rows come back out of it, it reads as everything
+ * ever deposited rather than as what is left to buy something with, and net
+ * worth counts that money once as cash and again as the shares it bought.
+ */
+describe('the cash a statement leaves behind', () => {
+  const cases = [
+    {
+      broker: 'degiro' as const,
+      parsed: degiroParser.parse(fixture(DEGIRO_FIXTURE)),
+      currency: 'EUR',
+      // 36,230.00 of deposits, against which the file spends all but this.
+      stated: expectedDegiroCashBalance.EUR,
+    },
+    {
+      broker: 'revolut' as const,
+      parsed: revolutParser.parse(fixture(REVOLUT_FIXTURE)),
+      currency: 'USD',
+      stated: expectedRevolutCashBalance.USD,
+    },
+  ]
+
+  it.each(cases)(
+    'leaves the wallet holding what $broker says the account holds',
+    async ({ broker, parsed, currency, stated }) => {
+      const walletId = `wallet-${broker}`
+      const accountId = `acc-${broker}`
+      const deposited = parsed.rows
+        .filter((row) => row.kind === 'deposit' && row.currency === currency)
+        .reduce((total, row) => total + row.amount, 0)
+
+      await db.wallets.put({
+        _id: walletId,
+        type: 'wallet',
+        name: `${broker} cash`,
+        currency,
+        initialBalance: 0,
+        isSavings: false,
+        order: 0,
+        createdAt: new Date('2020-01-01'),
+        updatedAt: new Date('2020-01-01'),
+      })
+      // The user's own transfers in, which is the only way this wallet is ever
+      // paid: the import leaves deposits unticked precisely because of them.
+      await db.transactions.put({
+        _id: `deposits-${broker}`,
+        type: 'transaction',
+        transactionType: 'income',
+        amount: deposited,
+        currency,
+        categoryId: 'category-1',
+        walletId,
+        date: new Date('2020-01-02'),
+        createdAt: new Date('2020-01-02'),
+        updatedAt: new Date('2020-01-02'),
+      })
+      await db.brokerAccounts.put({
+        _id: accountId,
+        type: 'brokerAccount',
+        name: broker,
+        broker,
+        cashWalletId: walletId,
+        order: 0,
+        createdAt: new Date('2020-01-01'),
+        updatedAt: new Date('2020-01-01'),
+      })
+
+      const rows = toImportRows(parsed.rows)
+      await investmentService.importTrades(accountId, rows)
+      await waitForProjection(accountId, rows.length)
+
+      const balance = await transactionService.getWalletBalance(walletId)
+
+      expect(Math.round(balance * 100) / 100).toBe(stated)
+      // The point of the exercise: it is not the deposits, which is what a
+      // wallet the trades never reached would still be reading.
+      expect(deposited).toBeGreaterThan(stated)
+    }
+  )
 })

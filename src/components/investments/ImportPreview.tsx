@@ -92,20 +92,24 @@ export interface StatementInstrument {
 export interface CashWalletSummary {
   name: string
   currency: string
-  /** What the wallet holds in the user's own ledger, before this import. */
+  /**
+   * What the wallet holds today: its opening balance, the user's own transfers,
+   * and every row already imported onto the accounts it is the cash for.
+   */
   balance: number
   /** Its current opening balance, which the reconciliation offers to correct. */
   initialBalance: number
 }
 
-export type ExistingTrade = Pick<Trade, 'externalId' | 'amount' | 'currency'>
+export type ExistingTrade = Pick<Trade, 'externalId'>
 
 export interface ImportPreviewProps {
   statement: ParsedStatement
   /**
-   * The trades this account already holds. Their ids are what makes a
-   * re-uploaded statement read as "12 new, 92 already imported"; their amounts
-   * are what keeps the reconciliation right on that second upload.
+   * The trades this account already holds, which is what makes a re-uploaded
+   * statement read as "12 new, 92 already imported". Only their ids are wanted
+   * here: their cash is already in the wallet's balance, which is derived from
+   * them.
    */
   existingTrades: readonly ExistingTrade[]
   selectedKinds: ReadonlySet<ParsedRowKind>
@@ -318,16 +322,14 @@ function GroupCard({
 function ReconciliationPanel({
   statement,
   newSelectedRows,
-  existingTrades,
   cashWallet,
   onToggleKind,
   onAdjustOpeningBalance,
   depositsSelected,
 }: {
   statement: ParsedStatement
-  /** Only the rows a confirm would actually add - the rest are already in `existingTrades`. */
+  /** Only the rows a confirm would actually add - the rest are already in the wallet's balance. */
   newSelectedRows: readonly ParsedRow[]
-  existingTrades: readonly ExistingTrade[]
   cashWallet: CashWalletSummary | null
   onAdjustOpeningBalance: (delta: number) => void
   onToggleKind: (kind: ParsedRowKind, checked: boolean) => void
@@ -386,9 +388,10 @@ function ReconciliationPanel({
     )
   }
 
-  const alreadyImportedCash = sumIn(existingTrades, currency)
   const selectedCash = sumIn(newSelectedRows, currency)
-  const computed = cashWallet.balance + alreadyImportedCash + selectedCash
+  // The wallet's balance already answers for every row imported before now, so
+  // only what a confirm would add is still to come.
+  const computed = cashWallet.balance + selectedCash
   // The broker's own closing balance where it gives one, because summing the
   // rows only equals it for an export reaching back to the account's first day.
   // A statement filtered to one year sums to that year's change, and treating
@@ -414,11 +417,8 @@ function ReconciliationPanel({
 
   const lines: Array<{ label: string; value: number }> = [
     { label: `${cashWallet.name} today`, value: cashWallet.balance },
+    { label: 'Rows selected above', value: selectedCash },
   ]
-  if (Math.abs(alreadyImportedCash) >= 0.005) {
-    lines.push({ label: 'Rows already imported', value: alreadyImportedCash })
-  }
-  lines.push({ label: 'Rows selected above', value: selectedCash })
 
   return (
     <section className="space-y-2 rounded-lg border border-border p-3">
@@ -609,12 +609,11 @@ export function ImportPreview({
       )}
 
       <ReconciliationPanel
-          onAdjustOpeningBalance={onAdjustOpeningBalance}
         statement={statement}
         newSelectedRows={newSelected}
-        existingTrades={existingTrades}
         cashWallet={cashWallet}
         onToggleKind={onToggleKind}
+        onAdjustOpeningBalance={onAdjustOpeningBalance}
         depositsSelected={selectedKinds.has('deposit')}
       />
     </div>

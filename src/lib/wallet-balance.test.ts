@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { getWalletBalanceDelta, projectWalletBalance, type BalanceTransaction } from './wallet-balance'
+import {
+  computeBrokerCash,
+  getWalletBalanceDelta,
+  projectWalletBalance,
+  type BalanceTrade,
+  type BalanceTransaction,
+  type CashLinkedAccount,
+  type CashWallet,
+} from './wallet-balance'
 
 function tx(overrides: Partial<BalanceTransaction> = {}): BalanceTransaction {
   return {
@@ -107,5 +115,58 @@ describe('projectWalletBalance', () => {
     it('avoids floating point drift', () => {
       expect(projectWalletBalance(0.3, 'wallet-1', tx({ amount: 0.1 }), tx({ amount: 0.2 }))).toBe(0.4)
     })
+  })
+})
+
+const brokerCash: CashWallet = { _id: 'wallet-1', currency: 'EUR' }
+const degiro: CashLinkedAccount = { _id: 'broker-1', cashWalletId: 'wallet-1' }
+
+function trade(overrides: Partial<BalanceTrade> = {}): BalanceTrade {
+  return { accountId: 'broker-1', amount: -100, currency: 'EUR', ...overrides }
+}
+
+describe('computeBrokerCash', () => {
+  it('sums what a broker moved through the wallet holding its cash', () => {
+    const cash = computeBrokerCash([brokerCash], [degiro], [
+      trade({ amount: -1000 }),
+      trade({ amount: -3 }),
+      trade({ amount: 12 }),
+    ])
+
+    expect(cash.get('wallet-1')).toBe(-991)
+  })
+
+  it('leaves a wallet no account names as its cash out of it entirely', () => {
+    const cash = computeBrokerCash([brokerCash], [{ _id: 'broker-1' }], [trade()])
+
+    expect(cash.has('wallet-1')).toBe(false)
+  })
+
+  // A wallet holds one currency and a statement can move several. Converting a
+  // USD dividend into a EUR wallet would put a figure there the broker never
+  // stated, which is what the import's own reconciliation refuses to do.
+  it('counts only the rows denominated in the currency the wallet holds', () => {
+    const cash = computeBrokerCash([brokerCash], [degiro], [
+      trade({ amount: -1000 }),
+      trade({ amount: 50, currency: 'USD' }),
+    ])
+
+    expect(cash.get('wallet-1')).toBe(-1000)
+  })
+
+  it('adds up every account that shares one cash wallet', () => {
+    const cash = computeBrokerCash(
+      [brokerCash],
+      [degiro, { _id: 'broker-2', cashWalletId: 'wallet-1' }],
+      [trade({ amount: -1000 }), trade({ accountId: 'broker-2', amount: -500 })]
+    )
+
+    expect(cash.get('wallet-1')).toBe(-1500)
+  })
+
+  it('ignores an account pointing at a wallet that is not there', () => {
+    const cash = computeBrokerCash([], [degiro], [trade()])
+
+    expect(cash.size).toBe(0)
   })
 })

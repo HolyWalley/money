@@ -309,10 +309,11 @@ describe('ImportPreview reconciliation', () => {
 })
 
 describe('ImportPreview on a second upload of an overlapping statement', () => {
-  const alreadyStored: ExistingTrade[] = [
-    { externalId: 'buy-1', amount: -1000, currency: 'EUR' },
-    { externalId: 'fee-1', amount: -3, currency: 'EUR' },
-  ]
+  const alreadyStored: ExistingTrade[] = [{ externalId: 'buy-1' }, { externalId: 'fee-1' }]
+
+  // The wallet's balance is derived from the trades, so the buy and its
+  // commission have already come out of it: 2,000.00 of deposits less 1,003.00.
+  const afterFirstUpload: CashWalletSummary = { ...RECORDED_EVERY_DEPOSIT, balance: 997 }
 
   it('reads as new versus already imported rather than as a duplicate import', () => {
     render(<Harness existingTrades={alreadyStored} />)
@@ -327,10 +328,14 @@ describe('ImportPreview on a second upload of an overlapping statement', () => {
     expect(screen.getAllByText('1 row · 1 already imported')).toHaveLength(2)
   })
 
-  it('does not count an already imported row twice in the reconciliation', () => {
-    render(<Harness existingTrades={alreadyStored} />)
+  // Adding the imported rows back on top of a balance that already answers for
+  // them would count them twice, and land the panel 1,003.00 short.
+  it('adds only what is still to come to a wallet that already holds the rest', () => {
+    render(<Harness existingTrades={alreadyStored} cashWallet={afterFirstUpload} />)
 
+    expect(screen.getByText('Rows selected above').nextSibling).toHaveTextContent('+12.00')
     expect(screen.getByText('Balance after import').nextSibling).toHaveTextContent('1,009.00')
+    expect(screen.getByText(/lands exactly on what the statement accounts for/)).toBeInTheDocument()
   })
 })
 

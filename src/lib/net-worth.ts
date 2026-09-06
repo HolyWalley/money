@@ -1,4 +1,10 @@
-import { getWalletBalanceDelta, type BalanceTransaction } from './wallet-balance'
+import {
+  computeBrokerCash,
+  getWalletBalanceDelta,
+  type BalanceTrade,
+  type BalanceTransaction,
+  type CashLinkedAccount,
+} from './wallet-balance'
 import type { Converter } from './currency-conversion'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 
@@ -39,10 +45,16 @@ export interface NetWorthSummary {
  *
  * The per-wallet query costs an index scan each, and net worth needs all of
  * them at once, so this reads the ledger once rather than once per wallet.
+ *
+ * `accounts` and `trades` are what a broker's own rows do to the wallet
+ * holding its cash. They default to none, which is what a ledger with no
+ * brokerage in it has.
  */
 export function computeWalletBalances(
   wallets: BalanceWallet[],
-  transactions: BalanceTransaction[]
+  transactions: BalanceTransaction[],
+  accounts: CashLinkedAccount[] = [],
+  trades: BalanceTrade[] = []
 ): Map<string, number> {
   const balances = new Map<string, number>()
 
@@ -65,6 +77,10 @@ export function computeWalletBalances(
     if (to !== undefined) {
       balances.set(toWalletId, to + getWalletBalanceDelta(transaction, toWalletId))
     }
+  }
+
+  for (const [walletId, cash] of computeBrokerCash(wallets, accounts, trades)) {
+    balances.set(walletId, (balances.get(walletId) ?? 0) + cash)
   }
 
   return balances

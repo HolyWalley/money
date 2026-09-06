@@ -5,7 +5,7 @@ import {
   type BalanceWallet,
   type InvestmentHoldings,
 } from './net-worth'
-import type { BalanceTransaction } from './wallet-balance'
+import type { BalanceTrade, BalanceTransaction, CashLinkedAccount } from './wallet-balance'
 import type { Converter } from './currency-conversion'
 
 const everyday: BalanceWallet = { _id: 'w-1', currency: 'EUR', initialBalance: 100, isSavings: false }
@@ -32,6 +32,33 @@ const convert: Converter = (amount, currency) => {
 }
 
 describe('computeWalletBalances', () => {
+  // A wallet linked as a broker's cash is only ever paid into by the user's own
+  // transfers - the statement is stored as trades - so without them it reads as
+  // everything ever deposited rather than as what is left to buy something with.
+  it('spends a linked wallet down by the broker rows that never became transactions', () => {
+    const degiro: CashLinkedAccount = { _id: 'broker-1', cashWalletId: 'w-1' }
+    const trades: BalanceTrade[] = [
+      { accountId: 'broker-1', amount: -60, currency: 'EUR' },
+      { accountId: 'broker-1', amount: 5, currency: 'EUR' },
+    ]
+
+    const balances = computeWalletBalances([everyday, vault], [income('w-1', 100)], [degiro], trades)
+
+    expect(balances.get('w-1')).toBe(145)
+    expect(balances.get('w-2')).toBe(500)
+  })
+
+  it('leaves every balance alone when no account names a cash wallet', () => {
+    const balances = computeWalletBalances(
+      [everyday],
+      [],
+      [{ _id: 'broker-1' }],
+      [{ accountId: 'broker-1', amount: -60, currency: 'EUR' }]
+    )
+
+    expect(balances.get('w-1')).toBe(100)
+  })
+
   it('starts every wallet at its initial balance', () => {
     const balances = computeWalletBalances([everyday, vault], [])
 

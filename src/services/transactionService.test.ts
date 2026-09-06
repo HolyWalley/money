@@ -6,7 +6,13 @@ vi.mock('../lib/crdts', () => ({
   deleteTransaction: vi.fn(),
 }))
 
-import { db, type DexieTransaction, type DexieWallet } from '../lib/db-dexie'
+import {
+  db,
+  type DexieBrokerAccount,
+  type DexieTrade,
+  type DexieTransaction,
+  type DexieWallet,
+} from '../lib/db-dexie'
 import { transactionService } from './transactionService'
 
 function makeWallet(overrides: Partial<DexieWallet> = {}): DexieWallet {
@@ -40,9 +46,42 @@ function makeTransaction(overrides: Partial<DexieTransaction> = {}): DexieTransa
   } as DexieTransaction
 }
 
+function makeBrokerAccount(overrides: Partial<DexieBrokerAccount> = {}): DexieBrokerAccount {
+  return {
+    _id: 'broker-1',
+    type: 'brokerAccount',
+    name: 'Degiro',
+    broker: 'degiro',
+    cashWalletId: 'wallet-1',
+    order: 0,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+    ...overrides,
+  } as DexieBrokerAccount
+}
+
+function makeTrade(overrides: Partial<DexieTrade> & { _id: string }): DexieTrade {
+  return {
+    type: 'trade',
+    accountId: 'broker-1',
+    kind: 'buy',
+    date: new Date('2026-02-01'),
+    quantity: 0,
+    amount: 0,
+    currency: 'USD',
+    fee: 0,
+    externalId: overrides._id,
+    createdAt: new Date('2026-02-01'),
+    updatedAt: new Date('2026-02-01'),
+    ...overrides,
+  } as DexieTrade
+}
+
 beforeEach(async () => {
   await db.wallets.clear()
   await db.transactions.clear()
+  await db.brokerAccounts.clear()
+  await db.trades.clear()
 })
 
 describe('getWalletBalance', () => {
@@ -132,6 +171,53 @@ describe('getWalletBalance', () => {
       toWalletId: 'wallet-1',
       toCurrency: 'USD',
     }))
+
+    expect(await transactionService.getWalletBalance('wallet-1')).toBe(100)
+  })
+
+  // A statement is stored as trades, never as transactions, so nothing else
+  // takes the money a buy spent out of the wallet the broker holds it in.
+  it('takes the broker rows out of the wallet holding its cash', async () => {
+    await db.wallets.put(makeWallet({ initialBalance: 1000 }))
+    await db.brokerAccounts.put(makeBrokerAccount())
+    await db.trades.bulkPut([
+      makeTrade({ _id: 'trade-1', amount: -900 }),
+      makeTrade({ _id: 'trade-2', kind: 'fee', amount: -3 }),
+      makeTrade({ _id: 'trade-3', kind: 'dividend', amount: 12 }),
+    ])
+
+    expect(await transactionService.getWalletBalance('wallet-1')).toBe(109)
+  })
+
+  it('leaves a wallet no broker account claims as its cash alone', async () => {
+    await db.wallets.put(makeWallet({ initialBalance: 1000 }))
+    await db.brokerAccounts.put(makeBrokerAccount({ cashWalletId: undefined }))
+    await db.trades.put(makeTrade({ _id: 'trade-1', amount: -900 }))
+
+    expect(await transactionService.getWalletBalance('wallet-1')).toBe(1000)
+  })
+
+  it('ignores a broker row denominated in another currency', async () => {
+    await db.wallets.put(makeWallet({ currency: 'USD', initialBalance: 1000 }))
+    await db.brokerAccounts.put(makeBrokerAccount())
+    await db.trades.bulkPut([
+      makeTrade({ _id: 'trade-1', amount: -900 }),
+      makeTrade({ _id: 'trade-2', kind: 'dividend', amount: 50, currency: 'EUR' }),
+    ])
+
+    expect(await transactionService.getWalletBalance('wallet-1')).toBe(100)
+  })
+
+  it('ignores the trades of an account that keeps its cash elsewhere', async () => {
+    await db.wallets.put(makeWallet({ initialBalance: 1000 }))
+    await db.brokerAccounts.bulkPut([
+      makeBrokerAccount(),
+      makeBrokerAccount({ _id: 'broker-2', name: 'Revolut', broker: 'revolut', cashWalletId: 'wallet-2' }),
+    ])
+    await db.trades.bulkPut([
+      makeTrade({ _id: 'trade-1', amount: -900 }),
+      makeTrade({ _id: 'trade-2', accountId: 'broker-2', amount: -500 }),
+    ])
 
     expect(await transactionService.getWalletBalance('wallet-1')).toBe(100)
   })

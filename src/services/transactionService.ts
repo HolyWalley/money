@@ -1,5 +1,5 @@
-import { db } from '../lib/db-dexie'
-import { getWalletBalanceDelta } from '../lib/wallet-balance'
+import { db, type DexieWallet } from '../lib/db-dexie'
+import { computeBrokerCash, getWalletBalanceDelta } from '../lib/wallet-balance'
 import { addTransaction, updateTransaction, deleteTransaction } from '../lib/crdts'
 import { eventBus } from '../lib/event-bus'
 import type { Transaction, CreateTransaction, UpdateTransaction } from '../../shared/schemas/transaction.schema'
@@ -175,12 +175,36 @@ class TransactionService {
         transactionBalance += getWalletBalanceDelta(transaction, walletId)
       }
 
-      // Return initial balance + transaction balance
-      return wallet.initialBalance + transactionBalance
+      return wallet.initialBalance + transactionBalance + (await this.getBrokerCash(wallet))
     } catch (error) {
       console.error('Error calculating wallet balance:', error)
       throw error
     }
+  }
+
+  /**
+   * What a broker's own rows have spent from the wallet holding its cash.
+   *
+   * Zero for the wallets that are nobody's broker cash, which is nearly all of
+   * them - but a linked one is only ever paid into by the user's transfers, so
+   * without this it reads as everything ever deposited rather than as what is
+   * left to buy something with.
+   *
+   * cashWalletId carries no index, so the accounts are read whole and matched
+   * here. There are only ever a handful of them.
+   */
+  private async getBrokerCash(wallet: DexieWallet): Promise<number> {
+    const accounts = (await db.brokerAccounts.toArray()).filter(
+      account => account.cashWalletId === wallet._id
+    )
+    if (accounts.length === 0) return 0
+
+    const trades = await db.trades
+      .where('accountId')
+      .anyOf(accounts.map(account => account._id))
+      .toArray()
+
+    return computeBrokerCash([wallet], accounts, trades).get(wallet._id) ?? 0
   }
 
   async getCategoryTotal(categoryId: string, startDate?: string, endDate?: string): Promise<number> {
