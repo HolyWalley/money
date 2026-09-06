@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { PortfolioMetrics } from './PortfolioMetrics'
 import { formatMoney, formatSignedMoney } from '@/lib/format-money'
 import { formatPercent, gainClass } from './PositionRow'
 import {
@@ -145,6 +146,9 @@ export function PortfolioOverview({
   )
 
   const window = useMemo(() => sliceHistory(points, period, asOf), [points, period, asOf])
+  // Asked of the whole history rather than the window, so the tile does not
+  // appear and vanish as the periods are pressed.
+  const hasSales = useMemo(() => points.some(point => point.realised !== 0), [points])
   const drawn = useMemo(() => downsample(window, MAX_POINTS), [window])
 
   const data = useMemo(
@@ -266,6 +270,10 @@ export function PortfolioOverview({
           )
         )}
       </div>
+
+      {!isLoading && hasCurve && (
+        <PortfolioMetrics window={window} hasSales={hasSales} baseCurrency={baseCurrency} />
+      )}
     </section>
   )
 }

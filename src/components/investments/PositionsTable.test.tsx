@@ -193,7 +193,7 @@ describe('PositionsTable', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
-  it('shows each open holding with its gain and the portfolio totals', () => {
+  it('shows each open holding with its gain', () => {
     renderTable({
       positions: [apple],
       summary: {
@@ -219,15 +219,21 @@ describe('PositionsTable', () => {
     // The only holding there is, so it is the whole portfolio.
     expect(row).toHaveTextContent('100.0%')
 
-    // The column totals come from the summary, which is stated in the base
-    // currency rather than the row's.
-    const totals = screen.getByTestId('portfolio-totals')
-    expect(totals).toHaveTextContent('Total EUR')
-    expect(totals).toHaveTextContent('4,000.00')
-    expect(totals).toHaveTextContent('6,000.00')
-    expect(totals).toHaveTextContent('+2,977.60')
-    expect(totals).toHaveTextContent('+74.4%')
-    expect(totals).toHaveTextContent('100%')
+  })
+
+  // The footer sat under the open holdings and summed something else: every
+  // figure in it was converted into the base currency the rows are not stated
+  // in, and its return carried the realised gains and dividends of closed
+  // holdings that are not in the table at all. The portfolio states itself
+  // above the chart now, once.
+  it('leaves the totals to the block that states the whole portfolio', () => {
+    renderTable({
+      positions: [apple],
+      summary: { cost: 4000, marketValue: 6000, unrealised: 2000, totalReturn: 2977.6 },
+    })
+
+    expect(screen.queryByTestId('portfolio-totals')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Total/)).not.toBeInTheDocument()
   })
 
   it('states quantities exactly, without money rounding or padding', () => {
@@ -444,7 +450,7 @@ describe('PositionsTable', () => {
     )
   })
 
-  it('lays the holdings out as cards on a phone, totals included', () => {
+  it('lays the holdings out as cards on a phone', () => {
     setViewport(375)
 
     renderTable({
@@ -457,12 +463,6 @@ describe('PositionsTable', () => {
     expect(screen.getByText('Quantity')).toBeInTheDocument()
     expect(screen.getByText('32')).toBeInTheDocument()
     expect(screen.getByText('+2,045.20 (+51.1%)')).toBeInTheDocument()
-
-    const totals = screen.getByTestId('portfolio-totals')
-    expect(totals).toHaveTextContent('Market value')
-    expect(totals).toHaveTextContent('6,000.00')
-    expect(totals).toHaveTextContent('Invested')
-    expect(totals).toHaveTextContent('4,000.00')
-    expect(totals).toHaveTextContent('+2,045.20')
+    expect(screen.queryByTestId('portfolio-totals')).not.toBeInTheDocument()
   })
 })

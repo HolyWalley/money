@@ -1,10 +1,12 @@
 import { UTCDate } from '@date-fns/utc'
 import { describe, it, expect } from 'vitest'
 import {
+  annualisedVolatility,
   axisTickLabel,
   buildPortfolioHistory,
   moneyWeightedReturn,
   windowProfit,
+  windowRealised,
   xirr,
   downsample,
   rebasePerformance,
@@ -378,11 +380,100 @@ describe('buildPortfolioHistory', () => {
   })
 })
 
+describe('the gain a sale realised', () => {
+  // Half the holding sold for more than half the basis: 600 back against the
+  // 500 that bought it. The rest of the basis stays with what is still held.
+  it('is what came back less the basis the sale released', () => {
+    const { points } = build({
+      trades: [
+        trade({ date: '2025-01-02T10:00:00.000Z', quantity: 10, amount: -1000 }),
+        trade({ date: '2025-01-03T10:00:00.000Z', kind: 'sell', quantity: 5, amount: 600 }),
+      ],
+      closes: closesOf({ 'IWDA.AS': { '2025-01-02': 100, '2025-01-03': 120, '2025-01-04': 120 } }),
+      from: day('2025-01-02'),
+      to: day('2025-01-04'),
+    })
+
+    expect(points.map(point => point.realised)).toEqual([0, 100, 0])
+    expect(points.map(point => point.invested)).toEqual([1000, 500, 500])
+  })
+
+  // Average and FIFO agree exactly on a full exit, and the whole remaining
+  // basis has to go with it rather than leaving atto-units behind.
+  it('releases the whole basis when the position is closed out', () => {
+    const { points } = build({
+      trades: [
+        trade({ date: '2025-01-02T10:00:00.000Z', quantity: 10, amount: -1000 }),
+        trade({ date: '2025-01-03T10:00:00.000Z', kind: 'sell', quantity: 10, amount: 1150 }),
+      ],
+      closes: closesOf({ 'IWDA.AS': { '2025-01-02': 100, '2025-01-03': 115 } }),
+      from: day('2025-01-02'),
+      to: day('2025-01-03'),
+    })
+
+    expect(windowRealised(points)).toBeCloseTo(150, 10)
+    expect(points[points.length - 1].invested).toBeCloseTo(0, 10)
+  })
+
+  it('says nothing about a window with no days in it', () => {
+    expect(windowRealised([])).toBeNull()
+  })
+})
+
+describe('annualisedVolatility', () => {
+  /** `days` of the same return every day, which has no spread at all. */
+  function steady(days: number, daily: number): HistoryPoint[] {
+    return Array.from({ length: days }, (_, index) => ({
+      date: `2025-01-${String(index + 1).padStart(2, '0')}`,
+      value: 100 * (1 + daily) ** index,
+      invested: 100,
+      gain: 0,
+      flow: 0,
+      realised: 0,
+      performance: (1 + daily) ** index - 1,
+    }))
+  }
+
+  it('is zero for a curve that returns the same every day', () => {
+    expect(annualisedVolatility(steady(60, 0.001))).toBeCloseTo(0, 10)
+  })
+
+  // A series alternating +1% and -1% has a daily standard deviation of 1%, and
+  // a year of calendar days multiplies its variance by 365.
+  it('states the daily spread as a yearly figure', () => {
+    const points: HistoryPoint[] = []
+    let index = 1
+    for (let day = 0; day < 60; day++) {
+      index *= day % 2 === 0 ? 1.01 : 1 / 1.01
+      points.push({
+        date: `2025-${String(Math.floor(day / 28) + 1).padStart(2, '0')}-${String((day % 28) + 1).padStart(2, '0')}`,
+        value: 100 * index,
+        invested: 100,
+        gain: 0,
+        flow: 0,
+        realised: 0,
+        performance: index - 1,
+      })
+    }
+
+    const volatility = annualisedVolatility(points)
+    expect(volatility).not.toBeNull()
+    expect(volatility as number).toBeCloseTo(0.01 * Math.sqrt(365), 2)
+  })
+
+  // Three days of a portfolio say nothing about how much it moves, and a
+  // figure stated from them would be read as though they did.
+  it('says nothing over a window too short to measure', () => {
+    expect(annualisedVolatility(steady(10, 0.001))).toBeNull()
+    expect(annualisedVolatility([])).toBeNull()
+  })
+})
+
 describe('rebasePerformance', () => {
   it('measures the window from its own first day', () => {
     const points = [
-      { date: '2025-03-01', value: 110, invested: 100, gain: 10, flow: 0, performance: 0.1 },
-      { date: '2025-03-02', value: 121, invested: 100, gain: 21, flow: 0, performance: 0.21 },
+      { date: '2025-03-01', value: 110, invested: 100, gain: 10, flow: 0, realised: 0, performance: 0.1 },
+      { date: '2025-03-02', value: 121, invested: 100, gain: 21, flow: 0, realised: 0, performance: 0.21 },
     ]
 
     const rebased = rebasePerformance(points)
@@ -400,7 +491,7 @@ describe('rebasePerformance', () => {
 
 
 function point(date: string, performance = 0): HistoryPoint {
-  return { date, value: 100, invested: 100, gain: 0, flow: 0, performance }
+  return { date, value: 100, invested: 100, gain: 0, flow: 0, realised: 0, performance }
 }
 
 describe('windowStart', () => {
@@ -520,8 +611,8 @@ describe('xirr', () => {
 describe('windowProfit and moneyWeightedReturn', () => {
   /** A year of holding, bought on day one and worth a tenth more at the end. */
   const year: HistoryPoint[] = [
-    { date: '2025-01-01', value: 1000, invested: 1000, gain: 0, flow: 1000, performance: 0 },
-    { date: '2026-01-01', value: 1100, invested: 1000, gain: 100, flow: 0, performance: 0.1 },
+    { date: '2025-01-01', value: 1000, invested: 1000, gain: 0, flow: 1000, realised: 0, performance: 0 },
+    { date: '2026-01-01', value: 1100, invested: 1000, gain: 100, flow: 0, realised: 0, performance: 0.1 },
   ]
 
   it('counts everything that came out against everything that went in', () => {
@@ -532,7 +623,7 @@ describe('windowProfit and moneyWeightedReturn', () => {
   it('counts a dividend taken out as money made', () => {
     const withIncome: HistoryPoint[] = [
       year[0],
-      { date: '2025-06-01', value: 1000, invested: 1000, gain: 0, flow: -40, performance: 0 },
+      { date: '2025-06-01', value: 1000, invested: 1000, gain: 0, flow: -40, realised: 0, performance: 0 },
       year[1],
     ]
 
@@ -541,8 +632,8 @@ describe('windowProfit and moneyWeightedReturn', () => {
 
   it('measures a window that opens on a portfolio already held', () => {
     const later: HistoryPoint[] = [
-      { date: '2025-06-01', value: 5000, invested: 4000, gain: 1000, flow: 0, performance: 0.2 },
-      { date: '2025-12-01', value: 5500, invested: 4000, gain: 1500, flow: 0, performance: 0.32 },
+      { date: '2025-06-01', value: 5000, invested: 4000, gain: 1000, flow: 0, realised: 0, performance: 0.2 },
+      { date: '2025-12-01', value: 5500, invested: 4000, gain: 1500, flow: 0, realised: 0, performance: 0.32 },
     ]
 
     // Only what happened inside the window: the 1,000 it was already up on the
@@ -558,7 +649,7 @@ describe('windowProfit and moneyWeightedReturn', () => {
     expect(
       moneyWeightedReturn([
         year[0],
-        { date: '2025-01-10', value: 1100, invested: 1000, gain: 100, flow: 0, performance: 0.1 },
+        { date: '2025-01-10', value: 1100, invested: 1000, gain: 100, flow: 0, realised: 0, performance: 0.1 },
       ])
     ).toBeNull()
   })

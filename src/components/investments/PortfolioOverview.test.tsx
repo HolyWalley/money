@@ -30,6 +30,7 @@ function series(days: number, end: { value: number; invested: number; performanc
       // Everything was paid in on the first day, so the money-weighted rate
       // and the time-weighted one agree.
       flow: offset === days - 1 ? end.invested : 0,
+      realised: 0,
       performance: end.performance * progress,
     })
   }
@@ -104,12 +105,44 @@ describe('PortfolioOverview', () => {
   it('heads the page with what it is worth and what the window earned', () => {
     renderChart()
 
-    expect(screen.getByText('12,500.00')).toBeInTheDocument()
-    expect(screen.getByText('EUR')).toBeInTheDocument()
+    // Scoped to the headline: the metrics below state a currency of their own.
+    expect(screen.getByTitle(/^Valued at/)).toHaveTextContent('12,500.00 EUR')
     // 10,000 in on day one, 12,500 at the end of 399 days.
     expect(screen.getByText(/%\/year/)).toHaveTextContent('+22.6%/year')
     expect(screen.getByText('(+2,500.00)')).toBeInTheDocument()
     expect(screen.getByText(/since Feb 2025/)).toBeInTheDocument()
+  })
+
+  // The block that replaced the holdings table's footer, which summed the base
+  // currency under rows stated in their own and carried closed holdings the
+  // table did not show.
+  it('states what the window is made of under the curve', () => {
+    renderChart()
+
+    expect(screen.getByText('Invested')).toBeInTheDocument()
+    expect(screen.getByText('Time-weighted return')).toBeInTheDocument()
+    expect(screen.getByText('Volatility')).toBeInTheDocument()
+  })
+
+  it('restates them for the window the periods choose', async () => {
+    const user = userEvent.setup()
+    renderChart()
+
+    const performance = () =>
+      screen.getByText('Time-weighted return').nextElementSibling?.textContent
+    expect(performance()).toBe('+25.0%')
+
+    await user.click(screen.getByRole('button', { name: '1M' }))
+
+    // The last 28 days of a 400-day climb to +25%, measured from the first day
+    // of the window rather than from the portfolio's own.
+    expect(performance()).toBe('+1.4%')
+  })
+
+  it('states nothing of the kind while the history is still being valued', () => {
+    renderChart({ isLoading: true })
+
+    expect(screen.queryByText('Volatility')).not.toBeInTheDocument()
   })
 
   // What the holdings returned is the question a portfolio page is opened with.
@@ -196,9 +229,9 @@ describe('PortfolioOverview', () => {
   it('states the rate the money itself earned, not the one the holdings did', () => {
     renderChart({
       points: [
-        { date: dayKey(399), value: 5000, invested: 5000, gain: 0, flow: 5000, performance: 0 },
-        { date: dayKey(200), value: 10500, invested: 10000, gain: 500, flow: 5000, performance: 0.1 },
-        { date: dayKey(0), value: 12000, invested: 10000, gain: 2000, flow: 0, performance: 0.25 },
+        { date: dayKey(399), value: 5000, invested: 5000, gain: 0, flow: 5000, realised: 0, performance: 0 },
+        { date: dayKey(200), value: 10500, invested: 10000, gain: 500, flow: 5000, realised: 0, performance: 0.1 },
+        { date: dayKey(0), value: 12000, invested: 10000, gain: 2000, flow: 0, realised: 0, performance: 0.25 },
       ],
     })
 

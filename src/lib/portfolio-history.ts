@@ -46,6 +46,14 @@ export interface HistoryPoint {
    */
   flow: number
   /**
+   * What that day's sales made over the basis they released, in the base
+   * currency, each side converted at the rate of the day it happened.
+   *
+   * Per day rather than cumulative, like `flow`, so any window is the sum of
+   * its own days and a sale on the window's first day belongs to it.
+   */
+  realised: number
+  /**
    * Time-weighted return since the first day, as a fraction: 0.27 is +27%.
    *
    * Time-weighted rather than a plain value/invested ratio because that ratio
@@ -185,6 +193,7 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
 
   let cursor = 0
   let investedBase = 0
+  let realisedBase = 0
   let performanceIndex = 1
   let previousValue: number | null = null
 
@@ -219,9 +228,11 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
       // basis; deriving it from the average would strand atto-units of cost.
       const closesOut = held - sold <= QUANTITY_EPSILON
       const share = held > 0 ? sold / held : 0
+      const released = closesOut ? holding.costBase : holding.costBase * share
 
+      realisedBase += (cashBase ?? 0) - released
       holding.cost = closesOut ? 0 : holding.cost - holding.cost * share
-      holding.costBase = closesOut ? 0 : holding.costBase - holding.costBase * share
+      holding.costBase = closesOut ? 0 : holding.costBase - released
       holding.quantity = closesOut ? 0 : held - sold
       return -(cashBase ?? 0)
     }
@@ -240,6 +251,10 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
 
   const days = Math.min(Math.floor((endDay - startDay) / DAY_MS), MAX_DAYS)
 
+  // Sales before the window opened released their basis without belonging to
+  // any day in it, so the running total starts from where they left it.
+  let realisedBefore = realisedBase
+
   for (let offset = 0; offset <= days; offset++) {
     const day = startDay + offset * DAY_MS
     const date = new Date(day)
@@ -249,6 +264,9 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
       flow += apply(rows[cursor])
       cursor++
     }
+
+    const realised = realisedBase - realisedBefore
+    realisedBefore = realisedBase
 
     investedBase = 0
     let value = 0
@@ -291,6 +309,7 @@ export function buildPortfolioHistory(inputs: HistoryInputs): PortfolioHistory {
       invested: investedBase,
       gain: value - investedBase,
       flow,
+      realised,
       performance: performanceIndex - 1,
     })
   }
@@ -464,6 +483,63 @@ export function windowProfit(points: HistoryPoint[]): number | null {
   const net = points.reduce((total, point) => total + point.flow, 0)
 
   return last.value - opening - net
+}
+
+/**
+ * What the window's sales made, in the base currency.
+ *
+ * Every day's own figure added up, so a sale on the window's first day counts
+ * inside it - the same convention `windowProfit` uses for that day's flows.
+ */
+export function windowRealised(points: HistoryPoint[]): number | null {
+  if (points.length === 0) return null
+
+  return points.reduce((total, point) => total + point.realised, 0)
+}
+
+/**
+ * Below this many daily returns a standard deviation is noise about noise: the
+ * shortest window on offer is a month, which clears it with a fortnight over.
+ */
+const MIN_VOLATILITY_DAYS = 20
+
+/**
+ * Calendar days, because the curve is walked day by day rather than session by
+ * session. That is not an approximation of the trading-day convention but the
+ * same answer by another route: a weekend contributes a zero return, which
+ * dilutes the daily variance by exactly the fraction of days the market was
+ * shut, and multiplying by 365 puts it back.
+ */
+const DAYS_PER_YEAR = 365
+
+/**
+ * How widely the daily return varied, as a yearly figure.
+ *
+ * Measured on the time-weighted chain rather than on the value, so a day money
+ * was paid in does not read as a day the portfolio jumped. Null over a window
+ * too short to say anything about, which is honest: three days of a portfolio
+ * tell you nothing about how much it moves.
+ */
+export function annualisedVolatility(points: HistoryPoint[]): number | null {
+  const returns: number[] = []
+
+  for (let index = 1; index < points.length; index++) {
+    const previous = 1 + points[index - 1].performance
+    // A chain that has not started, or one a bad day knocked to nothing, has
+    // no return to take from it.
+    if (previous <= 0) continue
+    returns.push((1 + points[index].performance) / previous - 1)
+  }
+
+  if (returns.length < MIN_VOLATILITY_DAYS) return null
+
+  const mean = returns.reduce((total, value) => total + value, 0) / returns.length
+  // Sample variance: the mean is estimated from the same series, so dividing
+  // by the count would understate the spread.
+  const variance =
+    returns.reduce((total, value) => total + (value - mean) ** 2, 0) / (returns.length - 1)
+
+  return Math.sqrt(variance * DAYS_PER_YEAR)
 }
 
 interface Cashflow {
