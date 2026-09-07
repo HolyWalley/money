@@ -5,6 +5,10 @@ import { PortfolioOverview } from './PortfolioOverview'
 import type { HistoryPoint } from '@/lib/portfolio-history'
 import type { Instrument } from '../../../shared/schemas/instrument.schema'
 
+const mocks = vi.hoisted(() => ({ isMobile: false }))
+
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.isMobile }))
+
 const asOf = new Date('2026-03-15T00:00:00.000Z')
 
 function dayKey(offsetFromEnd: number): string {
@@ -257,6 +261,24 @@ describe('PortfolioOverview', () => {
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('shows the value axis on a wide screen', () => {
+    mocks.isMobile = false
+    renderChart()
+
+    expect(screen.getByTestId('value-axis')).toHaveAttribute('data-hidden', 'false')
+  })
+
+  it('hides the value axis on a phone, where the tooltip names the value', () => {
+    mocks.isMobile = true
+    try {
+      renderChart()
+
+      expect(screen.getByTestId('value-axis')).toHaveAttribute('data-hidden', 'true')
+    } finally {
+      mocks.isMobile = false
+    }
+  })
+
   it('reads a portfolio that has lost money as a loss', () => {
     renderChart({ points: series(200, { value: 8000, invested: 10000, performance: -0.2 }) })
 
@@ -271,5 +293,18 @@ describe('PortfolioOverview', () => {
 // covered where they are computed, in portfolio-history.
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts')
-  return { ...actual, ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    // The chart draws nothing without a laid-out container, so the pieces
+    // inside it are stood in for: the axis reports whether it is shown, the
+    // rest render nothing.
+    AreaChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    YAxis: ({ hide }: { hide?: boolean }) => <div data-testid="value-axis" data-hidden={hide ? 'true' : 'false'} />,
+    XAxis: () => null,
+    Area: () => null,
+    CartesianGrid: () => null,
+    ReferenceLine: () => null,
+    Tooltip: () => null,
+  }
 })

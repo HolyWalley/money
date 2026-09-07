@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'rec
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { PortfolioMetrics } from './PortfolioMetrics'
 import { formatMoney, formatSignedMoney } from '@/lib/format-money'
 import { formatPercent, gainClass } from './PositionRow'
@@ -317,6 +318,7 @@ interface CurveProps {
 
 function Curve({ data, mode, baseCurrency, first, last }: CurveProps) {
   const isPercent = mode === 'performance'
+  const isMobile = useIsMobile()
   const days = daysBetween(first.date, last.date)
 
   // The y range the curve is drawn against, computed here rather than left to
@@ -385,7 +387,11 @@ function Curve({ data, mode, baseCurrency, first, last }: CurveProps) {
           minTickGap={48}
           tickFormatter={value => axisTickLabel(String(value), days)}
         />
+        {/* Hidden on a phone: the axis takes a fifth of the width there, and
+            the tooltip names the exact value at any point. The domain is
+            still computed above, so the curve is drawn the same. */}
         <YAxis
+          hide={isMobile}
           orientation="right"
           tickLine={false}
           axisLine={false}
