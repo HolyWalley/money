@@ -46,7 +46,8 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
    */
   private getExpirationForDate(date: Date, hasRealData: boolean): number | null {
     const dateStr = this.formatDate(date);
-    const todayStr = this.formatDate(new Date());
+    const now = new Date();
+    const todayStr = this.formatDate(now);
 
     // Past dates never expire, regardless of whether they're forward-filled
     if (dateStr < todayStr) {
@@ -55,16 +56,11 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
 
     // For today
     if (dateStr === todayStr) {
-      const now = new Date();
-      const nowCET = this.convertToCET(now);
-      const cetHour = nowCET.getHours();
+      const publishedAt = this.publicationInstant(now);
 
       // Before 16:00 CET: expire at 17:00 CET today
-      if (cetHour < 16) {
-        const expiration = new Date(now);
-        const cetOffset = this.getCETOffset(now);
-        expiration.setHours(17 - cetOffset, 0, 0, 0);
-        return expiration.getTime();
+      if (now.getTime() < publishedAt - 60 * 60 * 1000) {
+        return publishedAt;
       }
 
       // After 16:00 CET but no real data yet: expire in 1 hour
@@ -77,34 +73,39 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     }
 
     // Future dates: expire at 17:00 CET on that date
-    const futureDate = new Date(date);
-    const cetOffset = this.getCETOffset(futureDate);
-    futureDate.setHours(17 - cetOffset, 0, 0, 0);
-    return futureDate.getTime();
+    return this.publicationInstant(date);
   }
 
   /**
-   * Convert date to CET timezone
+   * 17:00 CET on the UTC day of `date`, as an instant.
+   *
+   * From the UTC components rather than setHours, which sets the LOCAL hour:
+   * that instant was right only for a browser running in UTC. In Warsaw's
+   * summer it came out at 15:00 local, so a row written between 15:00 and
+   * 16:00 was expired the moment it was stored, and every read in that hour
+   * went back to the provider.
    */
-  private convertToCET(date: Date): Date {
-    const offset = this.getCETOffset(date);
-    const utc = date.getTime() + date.getTimezoneOffset() * 60000;
-    return new Date(utc + 3600000 * offset);
+  private publicationInstant(date: Date): number {
+    const cetOffset = this.getCETOffset(date);
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 17 - cetOffset, 0, 0, 0);
   }
 
   /**
    * Get CET offset (+1 or +2 depending on DST)
    */
   private getCETOffset(date: Date): number {
-    // CET is UTC+1 in winter, UTC+2 in summer (CEST)
-    // Simple approximation: last Sunday of March to last Sunday of October is CEST
-    const year = date.getFullYear();
-    const marchLast = new Date(year, 2, 31);
-    marchLast.setDate(31 - marchLast.getDay());
-    const octoberLast = new Date(year, 9, 31);
-    octoberLast.setDate(31 - octoberLast.getDay());
+    // CET is UTC+1 in winter, UTC+2 in summer (CEST): from the last Sunday of
+    // March to the last Sunday of October, switching at 01:00 UTC. In UTC
+    // terms throughout, so the answer is the same in every zone.
+    const year = date.getUTCFullYear();
+    const lastSundayAtOne = (month: number) => {
+      const day = new Date(Date.UTC(year, month, 31, 1));
+      day.setUTCDate(31 - day.getUTCDay());
+      return day.getTime();
+    };
 
-    return date >= marchLast && date < octoberLast ? 2 : 1;
+    const time = date.getTime();
+    return time >= lastSundayAtOne(2) && time < lastSundayAtOne(9) ? 2 : 1;
   }
 
   async getRate(from: string, to: string, date: Date): Promise<ExchangeRateValue> {

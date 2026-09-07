@@ -413,5 +413,99 @@ describe('FrankfurterExchangeRateProvider', () => {
       });
     }
   });
-});
 
+  // Expiry is an instant on the CET clock, whatever zone the browser keeps.
+  // Set from the local hour it landed an hour or two off outside UTC, and in
+  // Warsaw's summer a row stored between 15:00 and 16:00 was born expired.
+  describe('expiry', () => {
+    const originalTZ = process.env.TZ;
+
+    function answering(rates: Record<string, Record<string, number>>) {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ amount: 1.0, base: 'USD', rates }),
+      });
+    }
+
+    async function expiryOf(day: string) {
+      const at = new Date(`${day}T00:00:00.000Z`);
+      const rates = await provider.getRates('USD', ['EUR'], at, at);
+      return rates.get(`USD:EUR:${day}`)?.expiresAt;
+    }
+
+    afterEach(() => {
+      process.env.TZ = originalTZ;
+      vi.useRealTimers();
+    });
+
+    for (const tz of ['UTC', 'Europe/Warsaw', 'America/New_York']) {
+      it(`expires today's rate at 17:00 CEST in summer under ${tz}`, async () => {
+        process.env.TZ = tz;
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-07-15T07:30:00.000Z'));
+        answering({ '2026-07-14': { EUR: 0.9 } });
+
+        expect(await expiryOf('2026-07-15')).toBe(Date.UTC(2026, 6, 15, 15));
+      });
+
+      it(`expires today's rate at 17:00 CET in winter under ${tz}`, async () => {
+        process.env.TZ = tz;
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-01-15T08:00:00.000Z'));
+        answering({ '2026-01-14': { EUR: 0.9 } });
+
+        expect(await expiryOf('2026-01-15')).toBe(Date.UTC(2026, 0, 15, 16));
+      });
+
+      it(`stores a row written at 15:30 CEST as still valid under ${tz}`, async () => {
+        process.env.TZ = tz;
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-07-15T13:30:00.000Z'));
+        answering({ '2026-07-14': { EUR: 0.9 } });
+
+        const expiresAt = await expiryOf('2026-07-15');
+        expect(expiresAt).toBe(Date.UTC(2026, 6, 15, 15));
+        expect(expiresAt).toBeGreaterThan(Date.now());
+      });
+    }
+
+    it('expires a future day at 17:00 CET on that day', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-15T07:30:00.000Z'));
+      answering({ '2026-07-15': { EUR: 0.9 } });
+
+      const rates = await provider.getRates(
+        'USD',
+        ['EUR'],
+        new Date('2026-07-15T00:00:00.000Z'),
+        new Date('2026-07-16T00:00:00.000Z')
+      );
+      expect(rates.get('USD:EUR:2026-07-16')?.expiresAt).toBe(Date.UTC(2026, 6, 16, 15));
+    });
+
+    it('keeps a published rate for good after 16:00 CET, and a forward-filled one for an hour', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-15T14:30:00.000Z'));
+
+      answering({ '2026-07-15': { EUR: 0.9 } });
+      expect(await expiryOf('2026-07-15')).toBeNull();
+
+      answering({ '2026-07-14': { EUR: 0.9 } });
+      expect(await expiryOf('2026-07-15')).toBe(Date.now() + 60 * 60 * 1000);
+    });
+
+    it('reads the day late in the UTC evening as already published', async () => {
+      // 23:30Z is 01:30 CEST of the next day: the UTC day's rate is long out,
+      // so a real one stands and a forward-filled one is retried in an hour,
+      // never stamped with an expiry hours in the past.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-15T23:30:00.000Z'));
+
+      answering({ '2026-07-15': { EUR: 0.9 } });
+      expect(await expiryOf('2026-07-15')).toBeNull();
+
+      answering({ '2026-07-14': { EUR: 0.9 } });
+      expect(await expiryOf('2026-07-15')).toBe(Date.now() + 60 * 60 * 1000);
+    });
+  });
+});
