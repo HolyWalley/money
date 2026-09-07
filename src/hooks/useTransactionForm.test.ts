@@ -112,6 +112,30 @@ describe('useTransactionForm', () => {
     expect(result.current.form.getValues('date')).toBe('2026-01-01T00:00:00.000Z')
   })
 
+  // The amount input takes the form's value once, as it mounts, in the same
+  // render as this hook: a value that only the reset effect brings is one
+  // render too late for it.
+  it('holds the edited transaction from its first render', () => {
+    const transaction = {
+      _id: 't1',
+      transactionType: 'expense',
+      amount: 12.5,
+      currency: 'PLN',
+      categoryId: 'c1',
+      walletId: 'w3',
+      date: '2026-01-01T00:00:00.000Z',
+    } as Transaction
+    const amounts: number[] = []
+
+    renderHook(() => {
+      const result = useTransactionForm(transaction)
+      amounts.push(result.form.getValues('amount'))
+      return result
+    })
+
+    expect(amounts[0]).toBe(12.5)
+  })
+
   describe('resetForNextEntry', () => {
     it('keeps the type, wallet and date, and clears the entry', async () => {
       const { result } = renderHook(() => useTransactionForm())

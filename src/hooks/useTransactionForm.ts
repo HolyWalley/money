@@ -6,6 +6,38 @@ import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { formDefaults, resolveWalletDefaults } from '@/lib/form-defaults'
 import { createTransactionSchema, type CreateTransaction, type Transaction } from '../../shared/schemas/transaction.schema'
 import { type Currency } from '../../shared/schemas/user_settings.schema'
+import type { Wallet } from '../../shared/schemas/wallet.schema'
+
+function editValues(transaction: Transaction): CreateTransaction {
+  return {
+    transactionType: transaction.transactionType,
+    amount: transaction.amount,
+    currency: transaction.currency,
+    note: transaction.note || '',
+    walletId: transaction.walletId,
+    toWalletId: transaction.toWalletId,
+    toAmount: transaction.toAmount,
+    toCurrency: transaction.toCurrency,
+    categoryId: transaction.categoryId,
+    date: transaction.date,
+    split: transaction.split,
+    parts: transaction.parts,
+    reimbursement: transaction.reimbursement,
+  }
+}
+
+function newEntryValues(wallets: Wallet[], defaultCurrency: Currency) {
+  return {
+    transactionType: 'expense' as const,
+    amount: undefined as unknown as number,
+    note: '',
+    // Falls back to now once the remembered date is no longer from today.
+    date: formDefaults.loadDate() ?? new Date().toISOString(),
+    split: false,
+    parts: [],
+    ...resolveWalletDefaults('expense', wallets, defaultCurrency),
+  }
+}
 
 export function useTransactionForm(
   transaction?: Transaction | null,
@@ -17,29 +49,19 @@ export function useTransactionForm(
 
   const form = useForm<CreateTransaction>({
     resolver: zodResolver(createTransactionSchema),
-    defaultValues: {
-      transactionType: 'expense',
-      amount: undefined as unknown as number,
-      currency: defaultCurrency,
-      note: '',
-      walletId: '',
-      date: new Date().toISOString(),
-      split: false,
-      parts: [],
-      ...(initialValues ?? {}),
-    },
+    // Seeded here, before the first render, rather than left to the reset
+    // effect below: the amount input takes the form's value once, as it
+    // mounts, and the drawer mounts it in the same render as this hook. A
+    // value that arrives with the effect is one render too late for it.
+    defaultValues: transaction
+      ? editValues(transaction)
+      : { ...newEntryValues(wallets, defaultCurrency), ...(initialValues ?? {}) },
   })
 
-  const getDefaultValues = useCallback(() => ({
-    transactionType: 'expense' as const,
-    amount: undefined as unknown as number,
-    note: '',
-    // Falls back to now once the remembered date is no longer from today.
-    date: formDefaults.loadDate() ?? new Date().toISOString(),
-    split: false,
-    parts: [],
-    ...resolveWalletDefaults('expense', wallets, defaultCurrency),
-  }), [defaultCurrency, wallets])
+  const getDefaultValues = useCallback(
+    () => newEntryValues(wallets, defaultCurrency),
+    [defaultCurrency, wallets],
+  )
 
   const resetToDefaults = useCallback(() => {
     form.reset(getDefaultValues())
@@ -70,21 +92,7 @@ export function useTransactionForm(
 
   useEffect(() => {
     if (transaction) {
-      form.reset({
-        transactionType: transaction.transactionType,
-        amount: transaction.amount,
-        currency: transaction.currency,
-        note: transaction.note || '',
-        walletId: transaction.walletId,
-        toWalletId: transaction.toWalletId,
-        toAmount: transaction.toAmount,
-        toCurrency: transaction.toCurrency,
-        categoryId: transaction.categoryId,
-        date: transaction.date,
-        split: transaction.split,
-        parts: transaction.parts,
-        reimbursement: transaction.reimbursement,
-      })
+      form.reset(editValues(transaction))
     } else if (!transaction && wallets.length > 0) {
       form.reset({
         ...getDefaultValues(),
