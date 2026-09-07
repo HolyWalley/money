@@ -135,6 +135,54 @@ describe('IndexedDBExchangeRateCache', () => {
     });
   });
 
+  describe('getManyWithExpiry', () => {
+    it('tells fresh rows from expired ones and leaves absent keys out of both', async () => {
+      const expiredTime = Date.now() - 1000;
+      const futureTime = Date.now() + 60000;
+
+      await cache.setMany([
+        { from: 'USD', to: 'EUR', date: '2024-01-15', rate: 1.25, expiresAt: null },
+        { from: 'USD', to: 'GBP', date: '2024-01-15', rate: 0.85, expiresAt: futureTime },
+        { from: 'USD', to: 'EUR', date: '2024-01-16', rate: 1.26, expiresAt: expiredTime },
+      ]);
+
+      const { fresh, expired } = await cache.getManyWithExpiry([
+        'USD:EUR:2024-01-15',
+        'USD:GBP:2024-01-15',
+        'USD:EUR:2024-01-16',
+        'USD:JPY:2024-01-15',
+      ]);
+
+      expect(fresh).toEqual(new Map([['USD:EUR:2024-01-15', 1.25], ['USD:GBP:2024-01-15', 0.85]]));
+      expect(expired).toEqual(new Map([['USD:EUR:2024-01-16', 1.26]]));
+    });
+
+    // A tombstone is a row like any other: it is what stops a currency the
+    // provider never publishes from being asked for on every read.
+    it('returns a tombstone as a row', async () => {
+      await cache.set('USD', 'GBp', '2024-01-15', 0, Date.now() + 60000);
+
+      const { fresh, expired } = await cache.getManyWithExpiry(['USD:GBp:2024-01-15']);
+
+      expect(fresh.get('USD:GBp:2024-01-15')).toBe(0);
+      expect(expired.size).toBe(0);
+    });
+
+    it('is what getMany reads its fresh rows from', async () => {
+      const expiredTime = Date.now() - 1000;
+
+      await cache.setMany([
+        { from: 'USD', to: 'EUR', date: '2024-01-15', rate: 1.25, expiresAt: null },
+        { from: 'USD', to: 'GBP', date: '2024-01-15', rate: 0.85, expiresAt: expiredTime },
+      ]);
+
+      const keys = ['USD:EUR:2024-01-15', 'USD:GBP:2024-01-15'];
+      const { fresh } = await cache.getManyWithExpiry(keys);
+
+      expect(await cache.getMany(keys)).toEqual(fresh);
+    });
+  });
+
   describe('set', () => {
     it('should store rate in cache', async () => {
       await cache.set('USD', 'EUR', '2024-01-15', 1.25, null);

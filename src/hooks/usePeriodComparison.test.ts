@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./useDecoratedTransactions', () => ({
   useDecoratedTransactions: (filters: TransactionFilters | null) => {
     mocks.lastFilters = filters
-    return { transactions: filters ? mocks.transactions : [], isLoading: false }
+    return filters ? mocks.transactions : []
   },
 }))
 
@@ -109,11 +109,5 @@ describe('usePreviousPeriodCashflow', () => {
     const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last30days' } }))
 
     expect(result.current.summary.expense).toBe(0)
-  })
-
-  it('is not loading when there is nothing to load', () => {
-    const { result } = renderHook(() => usePreviousPeriodCashflow({ period: { type: 'last7days' } }))
-
-    expect(result.current.isLoading).toBe(false)
   })
 })

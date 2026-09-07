@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/lib/db-dexie'
@@ -9,9 +9,10 @@ import {
   trades as yTrades,
 } from '@/lib/crdts'
 import { resetSharedLiveQueries } from '@/lib/shared-live-query'
+import { resetResources } from '@/lib/suspense-resource'
 import { investmentService, type ImportTradeRow } from '@/services/investmentService'
 import { InvestmentsPage } from '@/components/investments/InvestmentsPage'
-import { mountSuspended } from '@/test/suspense'
+import { deferred, mountSuspended } from '@/test/suspense'
 import { createPriceCacheKey, utcDateKey, type InstrumentCandidate } from '../../../shared/market-data'
 
 /**
@@ -21,10 +22,10 @@ import { createPriceCacheKey, utcDateKey, type InstrumentCandidate } from '../..
  * Five components were built against one another's contracts without ever
  * running together: the page, the broker-account list, the positions table, the
  * import drawer and the symbol picker. Everything here is the real thing except
- * the two network boundaries - the price feed and the symbol index - so what is
- * under test is the seam between them: trades stored as CRDT updates coming
- * back out as priced rows a user can read, and a symbol resolved in the picker
- * actually repricing the holding behind it.
+ * the session and the two network boundaries - the price feed and the symbol
+ * index - so what is under test is the seam between them: trades stored as CRDT
+ * updates coming back out as priced rows a user can read, and a symbol resolved
+ * in the picker actually repricing the holding behind it.
  */
 
 const PRICES: Record<string, { close: number; currency: string }> = {
@@ -56,25 +57,38 @@ vi.mock('recharts', async () => {
   }
 })
 
-vi.mock('@/lib/market-data-client', () => ({
-  marketDataClient: { getCloses: mocks.getCloses },
-  searchSymbols: mocks.searchSymbols,
-}))
+// The price cache is cold throughout: the page reads it, finds nothing it can
+// show, and every close comes from the feed. The resource above the client is
+// real, so a holding whose close is not cached renders unpriced and fills in.
+vi.mock('@/lib/market-data-client', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/market-data-client')>(
+    '@/lib/market-data-client'
+  )
+  return {
+    ...actual,
+    marketDataClient: {
+      readCloses: async () => ({
+        closes: new Map<string, number>(),
+        currencies: new Map<string, string>(),
+        complete: false,
+        stale: true,
+      }),
+      refreshCloses: async (symbols: string[], from: Date, to: Date) => ({
+        ...(await mocks.getCloses(symbols, from, to)),
+        complete: true,
+      }),
+      getCloses: mocks.getCloses,
+    },
+    searchSymbols: mocks.searchSymbols,
+  }
+})
 
-// The daily rates the history curve converts with. One currency throughout, so
-// there is nothing to convert and nothing to fetch.
-vi.mock('@/hooks/useExchangeRates', () => ({
-  useExchangeRates: () => ({ rates: new Map(), isLoading: false, error: null }),
-}))
-
-// One currency throughout, so a figure on screen is the figure the engine
-// computed rather than the product of a rate this test invented.
-vi.mock('@/hooks/useCurrentRates', () => ({
-  useCurrentRates: () => ({
-    convert: (amount: number, currency: string) => (currency === 'EUR' ? amount : null),
-    baseCurrency: 'EUR',
-    isLoading: false,
-  }),
+// The base currency the page converts into. One currency throughout, so a
+// figure on screen is the figure the engine computed rather than the product
+// of a rate this test invented - and the rate hooks, running for real, have
+// nothing to ask for.
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { settings: { defaultCurrency: 'EUR' } } }),
 }))
 
 const BUY_DATE = '2025-02-11T09:30:00.000Z'
@@ -153,6 +167,7 @@ async function seedPortfolio() {
 beforeEach(async () => {
   vi.clearAllMocks()
   resetSharedLiveQueries()
+  resetResources()
 
   // Every day of the range, not only its last: the history curve values what
   // was held on each day in turn, and a feed answering for one day would leave
@@ -223,6 +238,37 @@ describe('the investments page, end to end', () => {
     // The same figure again as the portfolio's own total, since this is the
     // only holding carrying a value.
     expect(screen.getAllByText('4,458.44').length).toBeGreaterThan(1)
+  })
+
+  // Read one hook after the other, the curve's prices would not be asked for
+  // until the positions had answered, and a cold start would pay one round trip
+  // after the other on the one page allowed a spinner.
+  it('asks for the curve prices while the positions are still being read', async () => {
+    await seedPortfolio()
+
+    const gate = deferred<void>()
+    mocks.getCloses.mockImplementation(async () => {
+      await gate.promise
+      return { closes: new Map<string, number>(), currencies: new Map<string, string>() }
+    })
+
+    await mountSuspended(<InvestmentsPage />)
+
+    // Both windows out at once, and the page still waiting: today alone for
+    // what is held, and the whole run since the first trade for the curve.
+    await waitFor(() => expect(mocks.getCloses).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('fallback')).toBeInTheDocument()
+
+    const windows = mocks.getCloses.mock.calls.map(
+      ([, from, to]: [string[], Date, Date]) => `${utcDateKey(from)}..${utcDateKey(to)}`
+    )
+    const today = utcDateKey(new Date())
+    expect(windows).toContain(`${today}..${today}`)
+    expect(windows).toContain(`${utcDateKey(new Date(BUY_DATE))}..${today}`)
+
+    await act(async () => {
+      gate.resolve()
+    })
   })
 
   // The curve is derived from the stored trades and the daily closes, so it
@@ -368,9 +414,10 @@ describe('the investments page, end to end', () => {
       expect(screen.queryByText('Excludes Vanguard S&P 500 — no symbol chosen yet.')).not.toBeInTheDocument()
     })
 
-    // Re-queried on each attempt: the page renders again as the ledger and the
-    // curve below it take the new symbol, and a row held from before that is
-    // detached by the time it is read.
+    // The new symbol changes the key the closes are read under, and the read
+    // is deferred: the row is on screen at once, unpriced, and takes its value
+    // once the feed has answered for the new key. Re-queried on each attempt,
+    // since a row held from before is detached by the time it is read.
     // 10 x 80.20
     await waitFor(() => {
       const repriced = within(screen.getByRole('table', { name: 'Open holdings' })).getByRole('row', {

@@ -6,7 +6,6 @@ import type { Converter } from '@/lib/currency-conversion'
 const mocks = vi.hoisted(() => ({
   recurringTotals: new Map<string, number>(),
   savingsTotals: new Map<string, number>(),
-  ratesLoading: false,
   currenciesAsked: [] as string[],
 }))
 
@@ -28,7 +27,7 @@ const convert: Converter = (amount, currency) => {
 vi.mock('./useCurrentRates', () => ({
   useCurrentRates: (currencies: string[]) => {
     mocks.currenciesAsked = currencies
-    return { convert, baseCurrency: 'EUR', isLoading: mocks.ratesLoading }
+    return { convert, baseCurrency: 'EUR' }
   },
 }))
 
@@ -41,7 +40,6 @@ describe('usePeriodCommitments', () => {
   beforeEach(() => {
     mocks.recurringTotals = new Map()
     mocks.savingsTotals = new Map()
-    mocks.ratesLoading = false
     mocks.currenciesAsked = []
   })
 
@@ -89,11 +87,5 @@ describe('usePeriodCommitments', () => {
 
     expect(current.total).toBe(100)
     expect(current.missingCurrencies).toEqual(['USD'])
-  })
-
-  it('waits while a rate is still in flight', () => {
-    mocks.ratesLoading = true
-
-    expect(render().current.isLoading).toBe(true)
   })
 })

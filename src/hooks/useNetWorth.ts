@@ -8,17 +8,16 @@ import { summarizeNetWorth, type InvestmentHoldings, type NetWorthSummary } from
 
 export interface UseNetWorthResult extends NetWorthSummary {
   baseCurrency: string | undefined
-  isLoading: boolean
 }
 
 export function useNetWorth(): UseNetWorthResult {
   const wallets = useLiveWallets()
   const balances = useWalletBalances()
   const brokerAccounts = useLiveBrokerAccounts()
-  const { summary: portfolio, isLoading: isLoadingPortfolio } = usePortfolio()
+  const { summary: portfolio } = usePortfolio()
 
   const currencies = useMemo(() => wallets.map(wallet => wallet.currency), [wallets])
-  const { convert, baseCurrency, isLoading: isLoadingRates } = useCurrentRates(currencies)
+  const { convert, baseCurrency } = useCurrentRates(currencies)
 
   const investments = useMemo<InvestmentHoldings | null>(() => {
     // Someone who invests through nobody has no investments to report, and a
@@ -43,6 +42,5 @@ export function useNetWorth(): UseNetWorthResult {
   return {
     ...summary,
     baseCurrency,
-    isLoading: isLoadingRates || isLoadingPortfolio,
   }
 }

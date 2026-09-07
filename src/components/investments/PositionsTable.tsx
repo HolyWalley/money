@@ -5,7 +5,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SymbolPicker } from './SymbolPicker'
 import { PositionCard, PositionRow } from './PositionRow'
@@ -73,16 +72,6 @@ function exclusions(
   }
 
   return notes
-}
-
-function PositionsSkeleton() {
-  return (
-    <div className="space-y-2" data-testid="positions-loading">
-      {[0, 1, 2].map(row => (
-        <Skeleton key={row} className="h-14 w-full" />
-      ))}
-    </div>
-  )
 }
 
 function EmptyPositions() {
@@ -159,7 +148,6 @@ export function PositionsTable({
   positions,
   summary,
   needsSymbol,
-  isLoading,
 }: PositionsTableProps) {
   const isMobile = useIsMobile()
   const [resolving, setResolving] = useState<Instrument | null>(null)
@@ -219,9 +207,7 @@ export function PositionsTable({
 
   return (
     <section className="space-y-4" aria-label="Holdings">
-      {isLoading ? (
-        <PositionsSkeleton />
-      ) : positions.length === 0 ? (
+      {positions.length === 0 ? (
         <EmptyPositions />
       ) : (
         <>

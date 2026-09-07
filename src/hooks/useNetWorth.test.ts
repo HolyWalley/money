@@ -41,7 +41,6 @@ vi.mock('./usePortfolio', () => ({
     needsSymbol: [],
     baseCurrency: 'EUR',
     asOf: new Date(),
-    isLoading: false,
   }),
 }))
 
@@ -55,7 +54,6 @@ vi.mock('./useCurrentRates', () => ({
       return null
     },
     baseCurrency: 'EUR',
-    isLoading: false,
   }),
 }))
 

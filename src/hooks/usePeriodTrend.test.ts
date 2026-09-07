@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./useDecoratedTransactions', () => ({
   useDecoratedTransactions: (filters: TransactionFilters | null) => {
     mocks.lastFilters = filters
-    return { transactions: filters ? mocks.transactions : [], isLoading: false }
+    return filters ? mocks.transactions : []
   },
 }))
 

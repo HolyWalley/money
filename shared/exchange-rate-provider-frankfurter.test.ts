@@ -203,6 +203,26 @@ describe('FrankfurterExchangeRateProvider', () => {
       ).rejects.toThrow('Failed to fetch exchange rates: Bad Request');
     });
 
+    // 404 is what Frankfurter answers when it publishes none of the currencies
+    // asked for - UAH alone, say. An answer with nothing in it, so the caller
+    // can record that and stop asking, not a failure worth retrying.
+    it('answers with nothing for a currency it does not publish', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+      });
+
+      const result = await provider.getRates(
+        'USD',
+        ['UAH'],
+        new Date('2024-01-15'),
+        new Date('2024-01-16')
+      );
+
+      expect(result.size).toBe(0);
+    });
+
     it('should handle empty rates response', async () => {
       const mockResponse = {
         amount: 1.0,

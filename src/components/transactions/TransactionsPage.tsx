@@ -29,7 +29,7 @@ import type { WalletSavingsSuggestion } from '@/lib/savings-suggestion'
 
 function TransactionsPageContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType, isPending } = useFilterContext()
-  const { transactions } = useDecoratedTransactions(effectiveFilters)
+  const transactions = useDecoratedTransactions(effectiveFilters)
   const isMobile = useIsMobile()
   const { user } = useAuth()
   const wallets = useLiveWallets()

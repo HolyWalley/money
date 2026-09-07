@@ -11,7 +11,6 @@ export interface PeriodCommitments {
   savings: number
   total: number
   missingCurrencies: string[]
-  isLoading: boolean
 }
 
 /**
@@ -30,7 +29,7 @@ export function usePeriodCommitments(periodStart: Date, periodEnd: Date): Period
     [recurringTotals, savingsTotals]
   )
 
-  const { convert, isLoading: isLoadingRates } = useCurrentRates(currencies)
+  const { convert } = useCurrentRates(currencies)
 
   const recurring = useMemo(() => sumToBase(recurringTotals, convert), [recurringTotals, convert])
   const savings = useMemo(() => sumToBase(savingsTotals, convert), [savingsTotals, convert])
@@ -45,6 +44,5 @@ export function usePeriodCommitments(periodStart: Date, periodEnd: Date): Period
     savings: savings.total,
     total: recurring.total + savings.total,
     missingCurrencies,
-    isLoading: isLoadingRates,
   }
 }

@@ -18,7 +18,6 @@ export interface PeriodTrend {
   points: TrendPoint[]
   /** False for the rolling period types, which have no series to walk back through. */
   available: boolean
-  isLoading: boolean
 }
 
 export function usePeriodTrend(
@@ -56,7 +55,7 @@ export function usePeriodTrend(
     }
   }, [filters, periods])
 
-  const { transactions, isLoading } = useDecoratedTransactions(spanFilters)
+  const transactions = useDecoratedTransactions(spanFilters)
 
   const points = useMemo(() => {
     if (periods.length === 0) return []
@@ -72,6 +71,5 @@ export function usePeriodTrend(
   return {
     points,
     available: periods.length > 1,
-    isLoading: periods.length > 0 && isLoading,
   }
 }

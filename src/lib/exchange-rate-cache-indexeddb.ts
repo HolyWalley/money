@@ -1,4 +1,4 @@
-import type { ExchangeRateCache } from '../../shared/exchange-rates';
+import type { CachedRates, ExchangeRateCache } from '../../shared/exchange-rates';
 import { ExchangeRateService } from '../../shared/exchange-rates';
 import { db } from './db-dexie';
 
@@ -19,18 +19,24 @@ export class IndexedDBExchangeRateCache implements ExchangeRateCache {
   }
 
   async getMany(keys: string[]): Promise<Map<string, number>> {
+    const { fresh } = await this.getManyWithExpiry(keys);
+    return fresh;
+  }
+
+  async getManyWithExpiry(keys: string[]): Promise<CachedRates> {
     const records = await db.exchangeRates.bulkGet(keys);
-    const result = new Map<string, number>();
+    const fresh = new Map<string, number>();
+    const expired = new Map<string, number>();
     const now = Date.now();
 
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
-      if (record && (record.expiresAt === null || now <= record.expiresAt)) {
-        result.set(keys[i], record.rate);
-      }
+      if (!record) continue;
+      const valid = record.expiresAt === null || now <= record.expiresAt;
+      (valid ? fresh : expired).set(keys[i], record.rate);
     }
 
-    return result;
+    return { fresh, expired };
   }
 
   async set(from: string, to: string, date: string, rate: number, expiresAt: number | null): Promise<void> {

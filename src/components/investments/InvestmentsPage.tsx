@@ -7,10 +7,14 @@ import { TransactionsCard } from './TransactionsCard'
 import { ImportStatementDrawer } from './ImportStatementDrawer'
 import { useLiveBrokerAccounts } from '@/hooks/useLiveBrokerAccounts'
 import { usePortfolio } from '@/hooks/usePortfolio'
-import { usePortfolioHistory } from '@/hooks/usePortfolioHistory'
+import { usePortfolioHistory, usePreloadPortfolioHistory } from '@/hooks/usePortfolioHistory'
 import type { BrokerAccount } from '../../../shared/schemas/broker-account.schema'
 
 export function InvestmentsPage() {
+  // The curve's prices and rates are asked for before the positions are read:
+  // read one hook after the other, the curve's reads would not start until the
+  // table's had answered, and a cold start would pay them end to end.
+  usePreloadPortfolioHistory()
   const portfolio = usePortfolio()
   const history = usePortfolioHistory()
   const brokerAccounts = useLiveBrokerAccounts()
@@ -43,7 +47,6 @@ export function InvestmentsPage() {
               hasHoldings={portfolio.positions.length > 0}
               baseCurrency={history.baseCurrency ?? portfolio.baseCurrency}
               asOf={history.asOf}
-              isLoading={portfolio.isLoading || history.isLoading}
               onImport={brokerAccounts.length > 0 ? () => startImport() : undefined}
             />
 

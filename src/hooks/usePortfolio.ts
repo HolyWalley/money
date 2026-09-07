@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useCloses } from './useCloses'
 import { useLiveTrades } from './useLiveTrades'
 import { useLiveInstruments } from './useLiveInstruments'
-import { useCurrentRates } from './useCurrentRates'
+import { useCurrentRates, usePreloadCurrentRates } from './useCurrentRates'
 import {
   computePositions,
   summarizePortfolio,
@@ -9,7 +10,6 @@ import {
   type Position,
   type PriceLookup,
 } from '@/lib/positions'
-import { marketDataClient, type CachedCloses } from '@/lib/market-data-client'
 import type { Converter } from '@/lib/currency-conversion'
 import { findClose } from '../../shared/market-data'
 import type { Instrument } from '../../shared/schemas/instrument.schema'
@@ -56,15 +56,6 @@ export interface UsePortfolioResult {
   baseCurrency: string | undefined
   /** The instant every close and rate above was read as of. */
   asOf: Date
-  isLoading: boolean
-}
-
-const EMPTY_CLOSES: CachedCloses = { closes: new Map(), currencies: new Map() }
-
-interface PricedCloses {
-  /** The symbol list this answer covers, joined and sorted. */
-  key: string
-  closes: CachedCloses
 }
 
 /**
@@ -115,10 +106,11 @@ function comparePositions(a: PortfolioPosition, b: PortfolioPosition): number {
  * Every holding, valued at the latest close and converted into the base
  * currency, plus the portfolio's headline totals.
  *
- * Prices are fetched by symbol, and the fetch is keyed on the joined, sorted
+ * Prices are read by symbol, and the read is keyed on the joined, sorted
  * symbol list rather than on the array holding it: an array is rebuilt on
- * every render, and an effect keyed on one fetches forever. `asOf` is pinned
- * once for the same reason - a window read from the clock never stops moving.
+ * every render, and a key made from one is a new key every time. `asOf` is
+ * pinned once for the same reason - a window read from the clock never stops
+ * moving.
  */
 export function usePortfolio(): UsePortfolioResult {
   const trades = useLiveTrades()
@@ -146,42 +138,32 @@ export function usePortfolio(): UsePortfolioResult {
     return [...symbols].sort().join(',')
   }, [positions, instrumentById])
 
-  const [priced, setPriced] = useState<PricedCloses>({ key: '', closes: EMPTY_CLOSES })
+  const positionCurrencies = useMemo(
+    () => [...positions.values()].map(position => position.currency),
+    [positions]
+  )
 
-  useEffect(() => {
-    if (!symbolsKey) return
+  // The rates are asked for before the closes are read rather than after: read
+  // in the order they are used, a cold start waits out the two round trips end
+  // to end. The quote currencies below are not known yet and are usually
+  // position currencies anyway; what this misses, the read below finds cached.
+  usePreloadCurrentRates(positionCurrencies)
 
-    let cancelled = false
-
-    marketDataClient
-      .getCloses(symbolsKey.split(','), asOf, asOf)
-      .then(closes => {
-        if (!cancelled) setPriced({ key: symbolsKey, closes })
-      })
-      .catch(error => {
-        console.error('Failed to fetch closes:', error)
-        // Counted as answered all the same, keeping whatever was cached: the
-        // holdings it could not price already say so, and a spinner that never
-        // stops tells the user less than a total that admits it is partial.
-        if (!cancelled) setPriced(current => ({ key: symbolsKey, closes: current.closes }))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [symbolsKey, asOf])
-
-  const { closes } = priced
+  const closes = useCloses(symbolsKey, asOf, asOf)
 
   const currencies = useMemo(() => {
-    const list = [...positions.values()].map(position => position.currency)
+    const list = [...positionCurrencies]
     // The quote currencies too: a close in one of them has to be restated
-    // before it can value a holding kept in another.
-    list.push(...closes.currencies.values())
+    // before it can value a holding kept in another. Only for what is held:
+    // the closes may still be the last key's answer while this one is read.
+    for (const symbol of symbolsKey ? symbolsKey.split(',') : []) {
+      const quoteCurrency = closes.currencies.get(symbol)
+      if (quoteCurrency) list.push(quoteCurrency)
+    }
     return list
-  }, [positions, closes])
+  }, [positionCurrencies, symbolsKey, closes])
 
-  const { convert, baseCurrency, isLoading: isLoadingRates } = useCurrentRates(currencies)
+  const { convert, baseCurrency } = useCurrentRates(currencies)
 
   const closeOf = useMemo(
     () => (instrumentId: string, positionCurrency: string) => {
@@ -264,17 +246,10 @@ export function usePortfolio(): UsePortfolioResult {
     [enriched]
   )
 
-  const isLoadingPrices = symbolsKey !== '' && priced.key !== symbolsKey
-  const isLoading = isLoadingRates || isLoadingPrices
-
   return {
     positions: enriched,
     summary,
     needsSymbol,
-    // True until every close and rate is in. The figures below are readable
-    // before then, but incomplete - a holding whose price is still in flight
-    // reads as unpriced - so a list is better held back until it clears.
-    isLoading,
     baseCurrency,
     asOf,
   }

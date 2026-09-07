@@ -3,7 +3,6 @@ import { TrendingDown, TrendingUp, Upload } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
-import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { PortfolioMetrics } from './PortfolioMetrics'
 import { formatMoney, formatSignedMoney } from '@/lib/format-money'
@@ -93,7 +92,6 @@ export interface PortfolioOverviewProps {
   baseCurrency: string | undefined
   /** The day the history ends on, pinned by the hook rather than read per render. */
   asOf: Date
-  isLoading: boolean
   /**
    * Starts a statement import. Absent while there is no account to import
    * into, which is the only state where the button would lead nowhere.
@@ -117,7 +115,6 @@ export function PortfolioOverview({
   hasHoldings,
   baseCurrency,
   asOf,
-  isLoading,
   onImport,
 }: PortfolioOverviewProps) {
   // Performance first: what the holdings returned is the question a portfolio
@@ -196,20 +193,16 @@ export function PortfolioOverview({
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            {isLoading ? (
-              <Skeleton className="h-9 w-48" />
-            ) : (
-              hasHoldings && (
-                <div
-                  className="text-3xl font-bold tabular-nums"
-                  title={`Valued at ${asOf.toLocaleDateString()}`}
-                >
-                  {formatMoney(marketValue)}{' '}
-                  <span className="text-muted-foreground text-base font-normal">
-                    {baseCurrency}
-                  </span>
-                </div>
-              )
+            {hasHoldings && (
+              <div
+                className="text-3xl font-bold tabular-nums"
+                title={`Valued at ${asOf.toLocaleDateString()}`}
+              >
+                {formatMoney(marketValue)}{' '}
+                <span className="text-muted-foreground text-base font-normal">
+                  {baseCurrency}
+                </span>
+              </div>
             )}
             {hasCurve && <WindowSummary window={window} />}
           </div>
@@ -236,42 +229,38 @@ export function PortfolioOverview({
           )}
         </div>
 
-        {isLoading ? (
-          <Skeleton className="h-[220px] w-full" data-testid="chart-loading" />
-        ) : (
-          hasCurve && (
-            <>
-              <Curve data={data} mode={mode} baseCurrency={baseCurrency} first={first} last={last} />
+        {hasCurve && (
+          <>
+            <Curve data={data} mode={mode} baseCurrency={baseCurrency} first={first} last={last} />
 
-              {/* Two different gaps, because they cost the reader different
-                  things: a holding with no symbol is one click from being on
-                  the curve, and one the feed cannot reach never will be. */}
-              {needsSymbol.length > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  The curve leaves out {names(needsSymbol)} — no symbol chosen yet, so there is no
-                  price to value {needsSymbol.length === 1 ? 'it' : 'them'} with.
-                </p>
-              )}
+            {/* Two different gaps, because they cost the reader different
+                things: a holding with no symbol is one click from being on
+                the curve, and one the feed cannot reach never will be. */}
+            {needsSymbol.length > 0 && (
+              <p className="text-muted-foreground text-xs">
+                The curve leaves out {names(needsSymbol)} — no symbol chosen yet, so there is no
+                price to value {needsSymbol.length === 1 ? 'it' : 'them'} with.
+              </p>
+            )}
 
-              {unpricedWithSymbol.length > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  The curve leaves out {names(unpricedWithSymbol)} — no price history reaches back
-                  far enough to value {unpricedWithSymbol.length === 1 ? 'it' : 'them'}.
-                </p>
-              )}
+            {unpricedWithSymbol.length > 0 && (
+              <p className="text-muted-foreground text-xs">
+                The curve leaves out {names(unpricedWithSymbol)} — no price history reaches back
+                far enough to value {unpricedWithSymbol.length === 1 ? 'it' : 'them'}.
+              </p>
+            )}
 
-              {mode === 'gain' && (
-                <p className="text-muted-foreground text-xs">
-                  What everything held is worth, less what was paid for it. Money paid in moves
-                  both, so only what the market did shows here.
-                </p>
-              )}
-            </>
-          )
+            {mode === 'gain' && (
+              <p className="text-muted-foreground text-xs">
+                What everything held is worth, less what was paid for it. Money paid in moves
+                both, so only what the market did shows here.
+              </p>
+            )}
+          </>
         )}
       </div>
 
-      {!isLoading && hasCurve && (
+      {hasCurve && (
         <PortfolioMetrics window={window} hasSales={hasSales} baseCurrency={baseCurrency} />
       )}
     </section>

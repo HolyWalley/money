@@ -12,6 +12,7 @@ import { FilterProvider } from '@/contexts/FilterProvider'
 import { useFilterContext } from '@/contexts/FilterContext'
 import { QuickFilterChips } from './transactions/QuickFilterChips'
 import { useNetWorth } from '@/hooks/useNetWorth'
+import { usePreloadCurrentRates } from '@/hooks/useCurrentRates'
 import { usePeriodCommitments } from '@/hooks/usePeriodCommitments'
 import { usePreviousPeriodCashflow } from '@/hooks/usePeriodComparison'
 import { usePeriodTrend } from '@/hooks/usePeriodTrend'
@@ -24,10 +25,17 @@ import { StatDelta } from './overview/StatDelta'
 
 function OverviewContent() {
   const { effectiveFilters, updateBaseFilters, quickFilters, clearQuickFilters, toggleQuickFilter, setQuickFiltersForType, isPending } = useFilterContext()
-  const { transactions } = useDecoratedTransactions(effectiveFilters)
+  const wallets = useLiveWallets()
+  const walletCurrencies = useMemo(() => wallets.map(wallet => wallet.currency), [wallets])
+
+  // What the balance below converts, asked for before the transactions suspend
+  // on rates of their own: read in the order they are used, a cold start waits
+  // out the two round trips end to end.
+  usePreloadCurrentRates(walletCurrencies)
+
+  const transactions = useDecoratedTransactions(effectiveFilters)
   const { user } = useAuth()
   const isMobile = useIsMobile()
-  const wallets = useLiveWallets()
   const categories = useLiveCategories()
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
@@ -60,7 +68,7 @@ function OverviewContent() {
   const isCurrentPeriod = useMemo(() => isDateInPeriod(new Date(), periodDates), [periodDates])
 
   const committed = useMemo(() => {
-    if (!isCurrentPeriod || commitments.isLoading) return null
+    if (!isCurrentPeriod) return null
     return {
       recurring: commitments.recurring,
       savings: commitments.savings,
@@ -78,7 +86,7 @@ function OverviewContent() {
     return [...currencies].sort()
   }, [netWorth.missingCurrencies, committed, commitments.missingCurrencies])
 
-  const showDeltas = comparison.available && !comparison.isLoading
+  const showDeltas = comparison.available
 
   const filteredTransactions = useMemo(() => {
     if (!selectedCategoryId) return []
@@ -163,7 +171,6 @@ function OverviewContent() {
           commitments={committed}
           missingCurrencies={unconvertedCurrencies}
           unvaluedHoldings={netWorth.unvaluedHoldings}
-          isLoading={netWorth.isLoading}
         />
 
         <div className="border rounded-lg p-4">

@@ -137,6 +137,15 @@ export class FrankfurterExchangeRateProvider implements ExchangeRateProvider {
     const url = `${this.baseUrl}/${fetchStartDateStr}..${endDateStr}?base=${baseCurrency}&symbols=${symbols}`;
 
     const response = await fetch(url, { signal: AbortSignal.timeout(this.timeoutMs) });
+
+    // 404 is how Frankfurter says it publishes none of the currencies or days
+    // asked for - a currency it does not carry at all, say - never that it is
+    // down. An answer with nothing in it, so the caller can record that and
+    // stop asking, rather than a failure it retries every thirty seconds.
+    if (response.status === 404) {
+      return new Map();
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
     }

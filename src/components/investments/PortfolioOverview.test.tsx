@@ -54,7 +54,6 @@ function makeInstrument(name: string, symbol?: string): Instrument {
 interface RenderOptions {
   points?: HistoryPoint[]
   unpriced?: Instrument[]
-  isLoading?: boolean
   marketValue?: number
   hasHoldings?: boolean
   onImport?: () => void
@@ -63,7 +62,6 @@ interface RenderOptions {
 function renderChart({
   points = series(400, { value: 12500, invested: 10000, performance: 0.25 }),
   unpriced = [],
-  isLoading = false,
   marketValue = 12500,
   hasHoldings = true,
   onImport,
@@ -76,19 +74,12 @@ function renderChart({
       hasHoldings={hasHoldings}
       baseCurrency="EUR"
       asOf={asOf}
-      isLoading={isLoading}
       onImport={onImport}
     />
   )
 }
 
 describe('PortfolioOverview', () => {
-  it('holds the curve back while the history is still being valued', () => {
-    renderChart({ isLoading: true })
-
-    expect(screen.getByTestId('chart-loading')).toBeInTheDocument()
-  })
-
   // A portfolio a day old has no line to draw between two days that do not
   // exist yet, and an empty axis says less than nothing - but it is still worth
   // something, and that is still the page's headline.
@@ -137,12 +128,6 @@ describe('PortfolioOverview', () => {
     // The last 28 days of a 400-day climb to +25%, measured from the first day
     // of the window rather than from the portfolio's own.
     expect(performance()).toBe('+1.4%')
-  })
-
-  it('states nothing of the kind while the history is still being valued', () => {
-    renderChart({ isLoading: true })
-
-    expect(screen.queryByText('Volatility')).not.toBeInTheDocument()
   })
 
   // What the holdings returned is the question a portfolio page is opened with.

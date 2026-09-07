@@ -10,7 +10,6 @@ function renderCard(overrides: {
   commitments?: CommittedAmounts | null
   missingCurrencies?: string[]
   unvaluedHoldings?: number
-  isLoading?: boolean
 } = {}) {
   return render(
     <BalanceSummaryCard
@@ -22,7 +21,6 @@ function renderCard(overrides: {
       commitments={overrides.commitments ?? null}
       missingCurrencies={overrides.missingCurrencies ?? []}
       unvaluedHoldings={overrides.unvaluedHoldings ?? 0}
-      isLoading={overrides.isLoading ?? false}
     />
   )
 }
@@ -166,23 +164,5 @@ describe('BalanceSummaryCard', () => {
     renderCard({ investments: 2400, unvaluedHoldings: 0 })
 
     expect(screen.queryByText(/holding/)).not.toBeInTheDocument()
-  })
-
-  // The figures come from IndexedDB rather than the network, so this is a frame
-  // or two - but a frame of "0.00" reads as being broke.
-  it('waits rather than showing a figure it does not have yet', () => {
-    renderCard({ isLoading: true })
-
-    expect(screen.getByTestId('net-worth-loading')).toBeInTheDocument()
-    expect(screen.queryByText(/12,480.30/)).not.toBeInTheDocument()
-    expect(screen.queryByText('0.00')).not.toBeInTheDocument()
-  })
-
-  // A column that appears a frame late shifts the two beside it, so the space
-  // is held whether or not there turns out to be a brokerage.
-  it('holds the investments column while it is unknown whether there is one', () => {
-    renderCard({ isLoading: true, investments: null })
-
-    expect(screen.getByText('Investments')).toBeInTheDocument()
   })
 })

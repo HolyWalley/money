@@ -131,7 +131,6 @@ interface RenderOptions {
   positions?: PortfolioPosition[]
   summary?: Partial<PortfolioSummary>
   needsSymbol?: Instrument[]
-  isLoading?: boolean
   baseCurrency?: string
 }
 
@@ -139,7 +138,6 @@ function renderTable({
   positions = [],
   summary = {},
   needsSymbol = [],
-  isLoading = false,
   baseCurrency = 'EUR',
 }: RenderOptions = {}) {
   return render(
@@ -149,7 +147,6 @@ function renderTable({
       needsSymbol={needsSymbol}
       baseCurrency={baseCurrency}
       asOf={asOf}
-      isLoading={isLoading}
     />
   )
 }
@@ -183,13 +180,6 @@ describe('PositionsTable', () => {
 
     expect(screen.getByText('No holdings yet')).toBeInTheDocument()
     expect(screen.getByText(/Import a statement from one of your broker accounts/)).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-  })
-
-  it('holds the figures back while the valuation is still loading', () => {
-    renderTable({ positions: [apple], isLoading: true })
-
-    expect(screen.getByTestId('positions-loading')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 

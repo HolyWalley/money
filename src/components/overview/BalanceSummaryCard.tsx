@@ -1,4 +1,3 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { formatMoney } from '@/lib/format-money'
 
 export interface CommittedAmounts {
@@ -25,14 +24,6 @@ interface BalanceSummaryCardProps {
   missingCurrencies: string[]
   /** How many holdings the total is missing because nothing could value them. */
   unvaluedHoldings: number
-  /**
-   * Whether the figures are still being read.
-   *
-   * They arrive from IndexedDB rather than from the network, so this is a
-   * frame or two - but a frame of "0.00 PLN" reads as being broke, and the
-   * figure it settles on is the one worth waiting a frame for.
-   */
-  isLoading: boolean
 }
 
 function commitmentsCaption(commitments: CommittedAmounts): string {
@@ -80,7 +71,6 @@ export function BalanceSummaryCard({
   commitments,
   missingCurrencies,
   unvaluedHoldings,
-  isLoading,
 }: BalanceSummaryCardProps) {
   // Savings is money already spoken for, and a holding is not money at all
   // until it is sold. Spending against either is how a month ends up eating its
@@ -93,14 +83,10 @@ export function BalanceSummaryCard({
     <div className="border rounded-lg p-4 space-y-3">
       <div>
         <div className="text-xs text-muted-foreground mb-1">Net worth</div>
-        {isLoading ? (
-          <Skeleton className="h-8 w-40" data-testid="net-worth-loading" />
-        ) : (
-          <div className="text-2xl font-bold">
-            {formatMoney(total)}{' '}
-            <span className="text-sm font-normal text-muted-foreground">{baseCurrency}</span>
-          </div>
-        )}
+        <div className="text-2xl font-bold">
+          {formatMoney(total)}{' '}
+          <span className="text-sm font-normal text-muted-foreground">{baseCurrency}</span>
+        </div>
       </div>
 
       {/* Kept side by side rather than spread across the card: these are a
@@ -108,34 +94,17 @@ export function BalanceSummaryCard({
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         <div>
           <div className="text-xs text-muted-foreground">Spendable</div>
-          {isLoading ? (
-            <Skeleton className="h-5 w-20" />
-          ) : (
-            <div className="font-semibold">{formatMoney(spendable)}</div>
-          )}
+          <div className="font-semibold">{formatMoney(spendable)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Savings</div>
-          {isLoading ? (
-            <Skeleton className="h-5 w-20" />
-          ) : (
-            <div className="font-semibold">{formatMoney(savings)}</div>
-          )}
+          <div className="font-semibold">{formatMoney(savings)}</div>
         </div>
-        {/* Nothing while it is unknown whether there is a brokerage at all: a
-            column that appears a frame late shifts the two beside it. */}
-        {isLoading ? (
+        {investments !== null && (
           <div>
             <div className="text-xs text-muted-foreground">Investments</div>
-            <Skeleton className="h-5 w-20" />
+            <div className="font-semibold">{formatMoney(investments)}</div>
           </div>
-        ) : (
-          investments !== null && (
-            <div>
-              <div className="text-xs text-muted-foreground">Investments</div>
-              <div className="font-semibold">{formatMoney(investments)}</div>
-            </div>
-          )
         )}
       </div>
 

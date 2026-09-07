@@ -12,7 +12,6 @@ export interface PeriodComparison {
    * comparison against itself and always show no change at all.
    */
   available: boolean
-  isLoading: boolean
 }
 
 export function usePreviousPeriodCashflow(filters: TransactionFilters): PeriodComparison {
@@ -34,7 +33,7 @@ export function usePreviousPeriodCashflow(filters: TransactionFilters): PeriodCo
     }
   }, [filters])
 
-  const { transactions, isLoading } = useDecoratedTransactions(previousFilters)
+  const transactions = useDecoratedTransactions(previousFilters)
 
   const summary = useMemo(
     () => (previousFilters ? summarizeCashflow(transactions) : EMPTY_CASHFLOW),
@@ -44,6 +43,5 @@ export function usePreviousPeriodCashflow(filters: TransactionFilters): PeriodCo
   return {
     summary,
     available: previousFilters !== null,
-    isLoading: previousFilters !== null && isLoading,
   }
 }

@@ -1,4 +1,4 @@
-import type { DateRange, InstrumentCandidate, PricesResponse } from '../../shared/market-data'
+import type { DateRange, FetchRange, InstrumentCandidate, PricesResponse } from '../../shared/market-data'
 import {
   CLOSE_LOOKBACK_DAYS,
   MAX_SYMBOLS_PER_REQUEST,
@@ -110,15 +110,54 @@ interface Attempt {
   at: number
 }
 
+/** One request's worth of cache: the symbols asked for and every row of theirs. */
+interface CacheRead {
+  unique: string[]
+  fromKey: string
+  toKey: string
+  /** CLOSE_LOOKBACK_DAYS before fromKey: the oldest row the answer keeps. */
+  seedKey: string
+  today: string
+  now: number
+  rows: Map<string, InstrumentPriceRecord[]>
+}
+
+/** A symbol with something worth asking the server for in one window. */
+interface Gap {
+  symbol: string
+  records: InstrumentPriceRecord[]
+  plan: FetchRange[]
+}
+
+function isTipOnly(plan: readonly FetchRange[], today: string): boolean {
+  const tipStart = refreshableFrom(today)
+  return plan.every((range) => range.from >= tipStart)
+}
+
+/** One request in flight, per symbol it names and the window it covers. */
+function inFlightKey(symbol: string, window: DateRange): string {
+  return `${symbol}|${window.from}|${window.to}`
+}
+
 export class MarketDataClient {
   private fetcher: PriceFetcher
   private attempts = new Map<string, Attempt>()
   private failures = new Map<string, number>()
+  private inFlight = new Map<string, Promise<void>>()
   private linkWasDown = false
   private hydrated: Promise<void> | null = null
 
   constructor(fetcher: PriceFetcher = fetchPricesFromApi) {
     this.fetcher = fetcher
+  }
+
+  /** Vitest only: forgets every question the shared client has asked. */
+  resetForTests(): void {
+    this.attempts.clear()
+    this.failures.clear()
+    this.inFlight.clear()
+    this.linkWasDown = false
+    this.hydrated = null
   }
 
   /**
@@ -132,60 +171,209 @@ export class MarketDataClient {
    * such period unpriced.
    */
   async getCloses(symbols: string[], from: Date, to: Date): Promise<CachedCloses> {
-    const unique = [...new Set(symbols)]
-    if (unique.length === 0) {
-      return { closes: new Map(), currencies: new Map() }
+    const read = await this.read(symbols, from, to)
+    if (this.gaps(read).length === 0) {
+      return this.collect(read)
     }
+    const { closes, currencies } = await this.refresh(read)
+    return { closes, currencies }
+  }
 
+  /**
+   * What the cache alone can say for [from, to], and whether it is enough.
+   *
+   * IndexedDB only, so a component can render off it before the network is
+   * consulted. `stale` says a refresh is worth running; `complete` says the
+   * answer is fit to show meanwhile: what is missing is the refreshable tip and
+   * nothing older, and the symbol has a close within findClose's reach of `to`.
+   * A symbol the server could not price is complete while its attempt stands -
+   * nothing is what a refresh would show too.
+   */
+  async readCloses(symbols: string[], from: Date, to: Date): Promise<CachedCloses & { complete: boolean; stale: boolean }> {
+    const read = await this.read(symbols, from, to)
+    const gaps = this.gaps(read)
+    const complete = gaps.every(
+      (gap) =>
+        isTipOnly(gap.plan, read.today) &&
+        gap.records.some((record) => record.date >= read.seedKey && record.date <= read.toKey)
+    )
+    return { ...this.collect(read), complete, stale: gaps.length > 0 }
+  }
+
+  /**
+   * Tops the cache up from the server and answers with the result. `complete`
+   * is false when a request failed in a way worth retrying, was skipped because
+   * one still is, or was never sent because the link is down - so the caller
+   * retries sooner than it would trust a real answer.
+   */
+  async refreshCloses(symbols: string[], from: Date, to: Date): Promise<CachedCloses & { complete: boolean }> {
+    return this.refresh(await this.read(symbols, from, to))
+  }
+
+  private async read(symbols: string[], from: Date, to: Date): Promise<CacheRead> {
+    const unique = [...new Set(symbols)]
     const fromKey = utcDateKey(from)
     const toKey = utcDateKey(to)
-    const seedKey = shiftDateKey(fromKey, -CLOSE_LOOKBACK_DAYS)
-    const today = utcDateKey(new Date())
-    const now = Date.now()
 
     await this.hydrate()
 
-    const cached = await db.instrumentPrices.where('symbol').anyOf(unique).toArray()
+    // One index lookup per symbol rather than anyOf over them all: anyOf walks
+    // a cursor across the whole index, and this halves the read.
+    const rows = await Promise.all(
+      unique.map((symbol) => db.instrumentPrices.where('symbol').equals(symbol).toArray())
+    )
+
+    return {
+      unique,
+      fromKey,
+      toKey,
+      seedKey: shiftDateKey(fromKey, -CLOSE_LOOKBACK_DAYS),
+      today: utcDateKey(new Date()),
+      now: Date.now(),
+      rows: new Map(unique.map((symbol, index) => [symbol, rows[index]])),
+    }
+  }
+
+  private async refresh(read: CacheRead): Promise<CachedCloses & { complete: boolean }> {
+    // Nothing goes out while the link is down, so what comes back is what the
+    // cache already had: incomplete, and worth retrying long before an hour.
+    if (!this.linkIsUp()) {
+      return { ...this.collect(read), complete: false }
+    }
+
+    let complete = true
 
     // A history chart asks for years at a time, and the server refuses a range
     // past its day cap however few symbols it names. Splitting it here keeps
     // one call at this level answering for a range of any width, and every
     // window that is already cached costs no request at all.
-    if (this.linkIsUp()) {
-      for (const window of fetchWindows(fromKey, toKey)) {
-        const stale = unique.filter((symbol) =>
-          this.needsFetch(
-            symbol,
-            cached.filter((record) => record.symbol === symbol),
-            window.from,
-            window.to,
-            today,
-            now
-          )
-        )
+    for (const window of fetchWindows(read.fromKey, read.toKey)) {
+      const gaps = await this.remaining(this.gapsIn(read, window), read, window)
 
-        for (let start = 0; start < stale.length; start += MAX_SYMBOLS_PER_REQUEST) {
-          const batch = stale.slice(start, start + MAX_SYMBOLS_PER_REQUEST)
-          const outcome = await this.fetcher(batch, window.from, window.to)
-          await this.record(batch, window.from, window.to, outcome, now, cached)
+      const stale: string[] = []
+      for (const gap of gaps) {
+        if (this.heldOff(gap.symbol, read.now)) {
+          complete = false
+          continue
+        }
+        stale.push(gap.symbol)
+      }
+
+      for (let start = 0; start < stale.length; start += MAX_SYMBOLS_PER_REQUEST) {
+        const batch = stale.slice(start, start + MAX_SYMBOLS_PER_REQUEST)
+        const outcome = await this.track(batch, window, read)
+        if (!outcome.ok && outcome.retryable) {
+          complete = false
         }
       }
     }
 
+    return { ...this.collect(read), complete }
+  }
+
+  /**
+   * Waits out any request already asking about these symbols, then works out
+   * what is left to ask for.
+   *
+   * Two entries of the prices resource refresh in the same tick - the holdings
+   * table as of today and the chart's whole history - and each would otherwise
+   * plan its request from a cache neither answer had reached yet, sending the
+   * held symbols' tip to the server twice on every mount and every hour after.
+   */
+  private async remaining(gaps: Gap[], read: CacheRead, window: DateRange): Promise<Gap[]> {
+    if (gaps.length === 0 || this.inFlight.size === 0) return gaps
+
+    const symbols = [...new Set(gaps.map((gap) => gap.symbol))]
+    const wanted = new Set(symbols)
+    const pending: Promise<void>[] = []
+    for (const [key, request] of this.inFlight) {
+      if (wanted.has(key.slice(0, key.indexOf('|')))) pending.push(request)
+    }
+    if (pending.length === 0) return gaps
+
+    await Promise.all(pending)
+
+    // The other answer went to IndexedDB, not to this read's rows, and this
+    // read is what the caller is about to be handed.
+    const rows = await Promise.all(
+      symbols.map((symbol) => db.instrumentPrices.where('symbol').equals(symbol).toArray())
+    )
+    symbols.forEach((symbol, index) => read.rows.set(symbol, rows[index]))
+
+    return this.gapsIn(read, window)
+  }
+
+  /** Sends one request, and lets a concurrent read wait for it. */
+  private async track(batch: string[], window: DateRange, read: CacheRead): Promise<PriceFetchOutcome> {
+    const answered = this.fetcher(batch, window.from, window.to).then(async (outcome) => {
+      await this.record(batch, window.from, window.to, outcome, read.now, read.rows)
+      return outcome
+    })
+
+    const keys = batch.map((symbol) => inFlightKey(symbol, window))
+    const tracked = answered.then(
+      () => {},
+      () => {}
+    )
+    for (const key of keys) {
+      this.inFlight.set(key, tracked)
+    }
+
+    try {
+      return await answered
+    } finally {
+      for (const key of keys) {
+        if (this.inFlight.get(key) === tracked) this.inFlight.delete(key)
+      }
+    }
+  }
+
+  private collect(read: CacheRead): CachedCloses {
     const closes = new Map<string, number>()
     const currencies = new Map<string, string>()
 
-    for (const record of cached) {
-      if (record.date < seedKey || record.date > toKey) {
-        continue
-      }
-      closes.set(record.key, record.close)
-      if (record.currency) {
-        currencies.set(record.symbol, record.currency)
+    for (const records of read.rows.values()) {
+      for (const record of records) {
+        if (record.date < read.seedKey || record.date > read.toKey) {
+          continue
+        }
+        closes.set(record.key, record.close)
+        if (record.currency) {
+          currencies.set(record.symbol, record.currency)
+        }
       }
     }
 
     return { closes, currencies }
+  }
+
+  private gaps(read: CacheRead): Gap[] {
+    return fetchWindows(read.fromKey, read.toKey).flatMap((window) => this.gapsIn(read, window))
+  }
+
+  /** Each symbol with something worth asking for in `window`, and what that is. */
+  private gapsIn(read: CacheRead, window: DateRange): Gap[] {
+    const gaps: Gap[] = []
+
+    for (const symbol of read.unique) {
+      const records = read.rows.get(symbol) ?? []
+      const plan = planPriceFetch(examinedRanges(records), window.from, window.to, read.today)
+      if (this.needsFetch(symbol, records, plan, window.from, window.to, read.today, read.now)) {
+        gaps.push({ symbol, records, plan })
+      }
+    }
+
+    return gaps
+  }
+
+  /**
+   * Whether a failed request is still holding the next one off. Kept apart
+   * from needsFetch: a failure is evidence about the link, not about the data,
+   * so it must not make a cache read as fresh for the hour a real answer earns.
+   */
+  private heldOff(symbol: string, now: number): boolean {
+    const failedAt = this.failures.get(symbol)
+    return failedAt !== undefined && failedAt > now - RETRY_AFTER_FAILURE_MS
   }
 
   /**
@@ -263,7 +451,7 @@ export class MarketDataClient {
     to: string,
     outcome: PriceFetchOutcome,
     now: number,
-    cached: InstrumentPriceRecord[]
+    rows: Map<string, InstrumentPriceRecord[]>
   ): Promise<void> {
     if (outcome.ok) {
       await this.remember(symbols, from, to, now)
@@ -273,7 +461,9 @@ export class MarketDataClient {
       const records = toRecords(outcome.prices, nextFetchStamp())
       if (records.length > 0) {
         await db.instrumentPrices.bulkPut(records)
-        cached.push(...records)
+        for (const record of records) {
+          rows.get(record.symbol)?.push(record)
+        }
       }
       return
     }
@@ -297,18 +487,13 @@ export class MarketDataClient {
   private needsFetch(
     symbol: string,
     records: InstrumentPriceRecord[],
+    plan: FetchRange[],
     from: string,
     to: string,
     today: string,
     now: number
   ): boolean {
-    const plan = planPriceFetch(examinedRanges(records), from, to, today)
     if (plan.length === 0) {
-      return false
-    }
-
-    const failedAt = this.failures.get(symbol)
-    if (failedAt !== undefined && failedAt > now - RETRY_AFTER_FAILURE_MS) {
       return false
     }
 
@@ -329,9 +514,8 @@ export class MarketDataClient {
     // A plan that asks for nothing but the refreshable tip is answered by a
     // recent fetch; one that reaches further back is a real backfill and always
     // goes out.
-    const tipStart = refreshableFrom(today)
-    const tipOnly = plan.every((range) => range.from >= tipStart)
-    if (tipOnly) {
+    if (isTipOnly(plan, today)) {
+      const tipStart = refreshableFrom(today)
       // Only rows that cover the tip say anything about how fresh the tip is.
       // Measured across every row of the symbol instead, a fetch of some far
       // older window marks today as freshly known - which is exactly what the

@@ -422,6 +422,225 @@ describe('MarketDataClient', () => {
     expect(closes.size).toBe(0)
     expect(fetcher).not.toHaveBeenCalled()
   })
+
+  it('reads each symbol on its own and answers as one read of them all did', async () => {
+    await seed([
+      { symbol: 'FWIA.DE', date: '2025-03-10', close: 40.1 },
+      { symbol: 'FWIA.DE', date: '2025-03-12', close: 40.9 },
+      { symbol: 'VUAA.DE', date: '2025-03-10', close: 80.1 },
+      { symbol: 'VUAA.DE', date: '2025-03-12', close: 80.9 },
+      { symbol: 'NOTASKED', date: '2025-03-11', close: 1 },
+    ])
+    const fetcher = respondWith({})
+    const client = new MarketDataClient(fetcher)
+
+    const { closes, currencies } = await client.getCloses(
+      ['VUAA.DE', 'FWIA.DE', 'VUAA.DE'],
+      FROM,
+      new UTCDate('2025-03-12T00:00:00Z')
+    )
+
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(new Map(closes)).toEqual(
+      new Map([
+        ['FWIA.DE:2025-03-10', 40.1],
+        ['FWIA.DE:2025-03-12', 40.9],
+        ['VUAA.DE:2025-03-10', 80.1],
+        ['VUAA.DE:2025-03-12', 80.9],
+      ])
+    )
+    expect([...currencies.keys()].sort()).toEqual(['FWIA.DE', 'VUAA.DE'])
+  })
+})
+
+/**
+ * What the cache alone says, so a component can render off it before the
+ * network is consulted: `stale` is whether a refresh is worth running,
+ * `complete` whether what is there is fit to show in the meantime.
+ */
+describe('readCloses', () => {
+  it('is complete and fresh for a fully cached past range', async () => {
+    await seed([
+      { symbol: 'FWIA.DE', date: '2025-03-10', close: 40.1 },
+      { symbol: 'FWIA.DE', date: '2025-03-12', close: 40.9 },
+    ])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], FROM, new UTCDate('2025-03-12T00:00:00Z'))
+
+    expect(answer).toMatchObject({ complete: true, stale: false })
+    expect(answer.closes.size).toBe(2)
+  })
+
+  it('is complete and fresh while the tip was asked about recently', async () => {
+    await seed([{ symbol: 'FWIA.DE', date: '2025-03-13', close: 41.4, fetchedAt: Date.now() - 60_000 }])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], new UTCDate('2025-03-13T00:00:00Z'), TO)
+
+    expect(answer).toMatchObject({ complete: true, stale: false })
+  })
+
+  it('is complete but stale once the tip has aged', async () => {
+    await seed([
+      { symbol: 'FWIA.DE', date: '2025-03-13', close: 41.4, fetchedAt: Date.now() - TIP_TTL_MS - 1 },
+    ])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], new UTCDate('2025-03-13T00:00:00Z'), TO)
+
+    expect(answer).toMatchObject({ complete: true, stale: true })
+    // The aged close is still the answer to show while the refresh runs.
+    expect(answer.closes.get('FWIA.DE:2025-03-13')).toBe(41.4)
+  })
+
+  it('is incomplete while a range reaches back before what is stored', async () => {
+    await seed([{ symbol: 'FWIA.DE', date: '2025-03-13', close: 41.4 }])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], FROM, TO)
+
+    expect(answer).toMatchObject({ complete: false, stale: true })
+  })
+
+  it('is complete for a symbol the server could not price, while that answer stands', async () => {
+    // No price row records the question; the attempt does, across reloads.
+    await db.priceFetches.put({ symbol: 'NOPE', from: '2025-03-10', to: '2025-03-14', at: Date.now() })
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['NOPE'], FROM, TO)
+
+    expect(answer).toMatchObject({ complete: true, stale: false })
+    expect(answer.closes.size).toBe(0)
+  })
+
+  it('is incomplete for today alone when no close is within reach', async () => {
+    // A today-only plan is tip-only whatever the cache holds, so the tip test
+    // alone would call an empty cache complete - and findClose would find nothing.
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], TO, TO)
+
+    expect(answer).toMatchObject({ complete: false, stale: true })
+  })
+
+  it('is complete for today alone once a close within reach can stand in', async () => {
+    await seed([{ symbol: 'FWIA.DE', date: '2025-03-07', close: 40.2, fetchedAt: Date.now() - TIP_TTL_MS - 1 }])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.readCloses(['FWIA.DE'], TO, TO)
+
+    expect(answer).toMatchObject({ complete: true, stale: true })
+    expect(answer.closes.get('FWIA.DE:2025-03-07')).toBe(40.2)
+  })
+
+  it('is complete and fresh with no symbols to price', async () => {
+    const client = new MarketDataClient(failing())
+
+    expect(await client.readCloses([], FROM, TO)).toMatchObject({ complete: true, stale: false })
+  })
+
+  it('never asks the server, whatever is missing', async () => {
+    const fetcher = respondWith({ 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } })
+    const client = new MarketDataClient(fetcher)
+
+    const answer = await client.readCloses(['FWIA.DE'], FROM, TO)
+
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(answer.closes.size).toBe(0)
+  })
+
+  it('still reports a gap while a failed request is holding the next one off', async () => {
+    // A failure says something about the link, not about the data. Read as
+    // "nothing to ask", the pause after one would be mistaken for the hour a
+    // real answer earns.
+    const client = new MarketDataClient(failing())
+    await client.getCloses(['FWIA.DE'], FROM, TO)
+
+    expect(await client.readCloses(['FWIA.DE'], FROM, TO)).toMatchObject({ stale: true })
+  })
+})
+
+describe('refreshCloses', () => {
+  it('is complete once the server has answered', async () => {
+    const fetcher = respondWith({ 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } })
+    const client = new MarketDataClient(fetcher)
+
+    const answer = await client.refreshCloses(['FWIA.DE'], FROM, TO)
+
+    expect(answer.complete).toBe(true)
+    expect(answer.closes.get('FWIA.DE:2025-03-14')).toBe(41.9)
+  })
+
+  it('is incomplete after a failure worth retrying, keeping what was cached', async () => {
+    await seed([
+      { symbol: 'FWIA.DE', date: '2025-03-10', close: 40.1, fetchedAt: Date.now() - TIP_TTL_MS - 1 },
+    ])
+    const client = new MarketDataClient(failing())
+
+    const answer = await client.refreshCloses(['FWIA.DE'], FROM, TO)
+
+    expect(answer.complete).toBe(false)
+    expect(answer.closes.get('FWIA.DE:2025-03-10')).toBe(40.1)
+  })
+
+  it('is incomplete while a failed request is still holding the next one off', async () => {
+    const fetcher = failing()
+    const client = new MarketDataClient(fetcher)
+    await client.refreshCloses(['FWIA.DE'], FROM, TO)
+
+    const answer = await client.refreshCloses(['FWIA.DE'], FROM, TO)
+
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(answer.complete).toBe(false)
+  })
+
+  it('is complete after a refusal, which asking again would not change', async () => {
+    const client = new MarketDataClient(refusing())
+
+    expect((await client.refreshCloses(['FWIA.DE'], FROM, TO)).complete).toBe(true)
+  })
+
+  // Nothing was asked, so nothing was answered: reported complete, the caller
+  // would trust the cache for the hour a real answer earns.
+  it('is incomplete while the link is down, having asked for nothing', async () => {
+    const fetcher = respondWith({})
+    const client = new MarketDataClient(fetcher)
+    vi.stubGlobal('navigator', { onLine: false })
+
+    const answer = await client.refreshCloses(['FWIA.DE'], FROM, TO)
+
+    expect(answer.complete).toBe(false)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  // Two entries of the prices resource refresh in the same tick - the holdings
+  // as of today and the chart's whole history - and each planned its request
+  // from a cache the other's answer had not reached.
+  it('waits for the request already out for a symbol instead of asking again', async () => {
+    let answer: (outcome: PriceFetchOutcome) => void = () => {}
+    const held = new Promise<PriceFetchOutcome>((resolve) => {
+      answer = resolve
+    })
+    const fetcher = vi.fn<PriceFetcher>(() => held)
+    const client = new MarketDataClient(fetcher)
+
+    const history = client.refreshCloses(['FWIA.DE'], FROM, TO)
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+    const tip = client.refreshCloses(['FWIA.DE'], TO, TO)
+    // Long enough for the second read to reach the cache and find the request
+    // already out, which is the moment this is about.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    answer({ ok: true, prices: { 'FWIA.DE': { currency: 'EUR', closes: { '2025-03-14': 41.9 } } } })
+    const [, tipAnswer] = await Promise.all([history, tip])
+
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    // And the waiting read is handed the answer it waited for, not the empty
+    // cache it started from.
+    expect(tipAnswer.closes.get('FWIA.DE:2025-03-14')).toBe(41.9)
+    expect(tipAnswer.complete).toBe(true)
+  })
 })
 
 /**
