@@ -17,13 +17,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette, Bug, Repeat } from 'lucide-react'
+import { LogOut, DollarSign, FolderOpen, Wallet, Moon, Sun, Monitor, Palette, Bug, Repeat, Landmark } from 'lucide-react'
 import { currencies, type Currency } from '../../shared/types/userSettings'
 import { CategoriesDialog } from '@/components/categories/CategoriesDialog'
 import { RecurringPaymentsModal } from '@/components/recurring/RecurringPaymentsModal'
 import { useTheme } from '@/contexts/ThemeContext'
 import { DebugModal } from '@/components/DebugModal'
 import { SyncStatusConnector } from '@/components/sync/SyncStatusConnector'
+import { BankImportDrawer } from '@/components/bank-import/BankImportDrawer'
+import { bankImportService, type BankFetchOutcome } from '@/services/bankImportService'
 
 export function UserDropdownMenu() {
   const { user, signout, setUser } = useAuth()
@@ -32,6 +34,7 @@ export function UserDropdownMenu() {
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
+  const [bankImportRequest, setBankImportRequest] = useState<Promise<BankFetchOutcome> | null>(null)
   
   const showDebug = new URLSearchParams(window.location.search).has('debug')
 
@@ -134,6 +137,10 @@ export function UserDropdownMenu() {
             <Repeat className="mr-2 h-4 w-4" />
             <span>Recurring Payments</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setBankImportRequest(bankImportService.fetchOperations())}>
+            <Landmark className="mr-2 h-4 w-4" />
+            <span>Bank Import</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
@@ -177,6 +184,7 @@ export function UserDropdownMenu() {
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
       <RecurringPaymentsModal open={recurringOpen} onOpenChange={setRecurringOpen} />
       <DebugModal open={debugOpen} onOpenChange={setDebugOpen} />
+      <BankImportDrawer request={bankImportRequest} onClose={() => setBankImportRequest(null)} />
     </>
   )
 }

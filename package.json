@@ -15,6 +15,7 @@
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
+    "hey:token": "./scripts/push-hey-token.sh",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -1,6 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as Y from 'yjs'
-import { addSavingGoal, updateSavingGoal, savingGoals } from './crdts'
+import {
+  addSavingGoal,
+  updateSavingGoal,
+  savingGoals,
+  addTransaction,
+  updateTransaction,
+  transactions,
+  setBankAccountWallet,
+  getBankAccountWallets,
+  dismissBankOperation,
+  getDismissedBankOperations,
+} from './crdts'
 import { db } from './db-dexie'
 
 function goalJson(id: string): Record<string, unknown> {
@@ -262,5 +273,39 @@ describe('updateSavingGoal optional fields', () => {
       await new Promise(resolve => setTimeout(resolve, 10))
     }
     throw new Error('cleared deadline never reached Dexie')
+  })
+})
+
+describe('bank import state', () => {
+  it('remembers the wallet a bank account maps to, last choice winning', () => {
+    setBankAccountWallet('mbank:12345678', 'w1')
+    setBankAccountWallet('mbank:12345678', 'w2')
+
+    expect(getBankAccountWallets()['mbank:12345678']).toBe('w2')
+  })
+
+  it('remembers a dismissed operation', () => {
+    dismissBankOperation('mbank:abc')
+
+    expect(getDismissedBankOperations()).toContain('mbank:abc')
+  })
+
+  it('stores a transaction with its external id and lets it be linked later', () => {
+    const base = {
+      type: 'transaction' as const,
+      transactionType: 'expense' as const,
+      amount: 10,
+      currency: 'PLN' as const,
+      categoryId: 'c1',
+      walletId: 'w1',
+      date: '2026-10-04T11:13:00.000Z',
+    }
+
+    const imported = addTransaction({ ...base, externalId: 'mbank:1' })
+    const manual = addTransaction(base)
+    updateTransaction(manual, { externalId: 'mbank:2' })
+
+    expect(transactions.get(imported)?.get('externalId')).toBe('mbank:1')
+    expect(transactions.get(manual)?.get('externalId')).toBe('mbank:2')
   })
 })

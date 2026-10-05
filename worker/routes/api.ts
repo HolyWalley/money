@@ -14,6 +14,7 @@ import * as debug from '../handlers/debug'
 import * as dump from '../handlers/dump'
 import * as cleanup from '../handlers/cleanup'
 import * as prices from '../handlers/prices'
+import * as bankNotifications from '../handlers/bank-notifications'
 import { ResponseUtils } from '../utils/response'
 import { withPremium } from '../middleware/premium'
 
@@ -79,6 +80,11 @@ export function createAPIRouter() {
 
   router.get('/api/v1/prices/search', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await prices.onRequestGetSearch(request as unknown as Request, env)
+    return withHeaders(response, request)
+  })
+
+  router.get('/api/v1/bank-notifications', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await bankNotifications.onRequestGet(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)
   })
 

@@ -116,6 +116,8 @@ const savingGoals = ydoc.getMap<Y.Map<unknown>>('savingGoals')
 const brokerAccounts = ydoc.getMap<Y.Map<unknown>>('brokerAccounts')
 const instruments = ydoc.getMap<Y.Map<unknown>>('instruments')
 const trades = ydoc.getMap<Y.Map<unknown>>('trades')
+const bankAccountWallets = ydoc.getMap<string>('bankAccountWallets')
+const dismissedBankOperations = ydoc.getMap<string>('dismissedBankOperations')
 
 // Generic observer setup for Yjs maps syncing to Dexie
 function setupDeepObserver<TDexie>(
@@ -418,7 +420,7 @@ export function deleteWallet(id: string) {
   })
 }
 
-export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, split, parts, reimbursement, recurringPaymentLogId }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
+export function addTransaction({ type, transactionType, amount, currency, toAmount, toCurrency, note, categoryId, walletId, toWalletId, date, split, parts, reimbursement, recurringPaymentLogId, externalId }: Omit<Transaction, '_id' | 'createdAt' | 'updatedAt'>) {
   const id = uuid()
   ydoc.transact(() => {
     transactions.set(id, createTransactionMap({
@@ -438,6 +440,7 @@ export function addTransaction({ type, transactionType, amount, currency, toAmou
       parts,
       reimbursement,
       recurringPaymentLogId,
+      externalId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
@@ -465,6 +468,7 @@ export function updateTransaction(id: string, updates: Partial<Transaction>) {
     if (updates.parts !== undefined) transaction.set('parts', updates.parts)
     if (updates.reimbursement !== undefined) transaction.set('reimbursement', updates.reimbursement)
     if (updates.recurringPaymentLogId !== undefined) transaction.set('recurringPaymentLogId', updates.recurringPaymentLogId)
+    if (updates.externalId !== undefined) transaction.set('externalId', updates.externalId)
     transaction.set('updatedAt', new Date().toISOString())
   })
 }
@@ -819,6 +823,26 @@ export function deleteTrades(ids: string[]) {
       trades.delete(id)
     }
   })
+}
+
+export function setBankAccountWallet(account: string, walletId: string) {
+  ydoc.transact(() => {
+    bankAccountWallets.set(account, walletId)
+  })
+}
+
+export function getBankAccountWallets(): Record<string, string> {
+  return Object.fromEntries(bankAccountWallets.entries())
+}
+
+export function dismissBankOperation(externalId: string) {
+  ydoc.transact(() => {
+    dismissedBankOperations.set(externalId, new Date().toISOString())
+  })
+}
+
+export function getDismissedBankOperations(): string[] {
+  return [...dismissedBankOperations.keys()]
 }
 
 export {

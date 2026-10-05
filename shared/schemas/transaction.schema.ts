@@ -25,6 +25,7 @@ export const transactionSchema = z.object({
   })).optional(),
   reimbursement: z.boolean().default(false).optional(),
   recurringPaymentLogId: z.string().optional(),
+  externalId: z.string().optional(),
 })
 
 export const createTransactionSchema = transactionSchema.pick({
@@ -42,6 +43,7 @@ export const createTransactionSchema = transactionSchema.pick({
   parts: true,
   reimbursement: true,
   recurringPaymentLogId: true,
+  externalId: true,
 }).refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
@@ -76,6 +78,7 @@ export const updateTransactionSchema = transactionSchema.pick({
   parts: true,
   reimbursement: true,
   recurringPaymentLogId: true,
+  externalId: true,
 }).partial().refine((data) => {
   if (data.transactionType === 'transfer') {
     return data.toWalletId !== undefined && data.toWalletId !== data.walletId
