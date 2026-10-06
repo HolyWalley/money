@@ -13,6 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -26,12 +27,14 @@ import { transactionsStore } from '@/hooks/useLiveTransactions'
 import { useLiveWallets } from '@/hooks/useLiveWallets'
 import { formatBankAccount } from '@/lib/bank-import'
 import type { ReviewItem } from '@/lib/bank-import/match'
+import { accountWalletKey } from '@/lib/bank-import/types'
 import { formatMoney } from '@/lib/format-money'
 import { formatWalletName } from '@/lib/wallet-utils'
 import {
   bankImportService,
   type BankFetchOutcome,
   type BankImportDecision,
+  type BankImportTransfer,
 } from '@/services/bankImportService'
 import { BANK_NOTIFICATION_DAYS } from '../../../shared/bank-notifications'
 import type { Category } from '../../../shared/schemas/category.schema'
@@ -48,6 +51,16 @@ interface Choice {
   logged: boolean
   walletId?: string
   categoryId?: string
+  /** Logged as a transfer into another of the person's wallets rather than an expense. */
+  transfer: boolean
+  toWalletId?: string
+  toAmount?: number
+}
+
+/** The category a transfer starts with: the default one, else the first. */
+function defaultTransferCategory(categories: Category[]): string | undefined {
+  const transfers = categories.filter((category) => category.type === 'transfer')
+  return (transfers.find((category) => category.isDefault) ?? transfers[0])?._id
 }
 
 export function BankImportDrawer({ request, onClose }: BankImportDrawerProps) {
@@ -84,7 +97,12 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
     Object.fromEntries(
       items.map((item) => [
         item.operation.externalId,
-        { logged: item.matchedTransactionId !== undefined, walletId: item.walletId },
+        {
+          logged: item.matchedTransactionId !== undefined,
+          walletId: item.walletId,
+          transfer: item.operation.suggestTransfer,
+          categoryId: item.operation.suggestTransfer ? defaultTransferCategory(categories) : undefined,
+        },
       ])
     )
   )
@@ -108,12 +126,12 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
   }
 
   // One bank account is one wallet, so choosing it on a row chooses it for the account.
-  const setAccountWallet = (account: string, walletId: string | undefined) => {
+  const setAccountWallet = (key: string, walletId: string | undefined) => {
     setChoices((current) =>
       Object.fromEntries(
         items.map((item) => {
           const choice = current[item.operation.externalId]
-          return [item.operation.externalId, item.operation.account === account ? { ...choice, walletId } : choice]
+          return [item.operation.externalId, accountWalletKey(item.operation) === key ? { ...choice, walletId } : choice]
         })
       )
     )
@@ -124,8 +142,17 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
     const choice = choices[item.operation.externalId]
     if (choice.logged) {
       decisions.push({ item, action: 'logged' })
-    } else if (choice.walletId && choice.categoryId) {
+      continue
+    }
+    if (!choice.walletId || !choice.categoryId) continue
+
+    if (!choice.transfer) {
       decisions.push({ item, action: 'import', walletId: choice.walletId, categoryId: choice.categoryId })
+      continue
+    }
+    const transfer = transferOf(choice, item.operation.currency, wallets)
+    if (transfer) {
+      decisions.push({ item, action: 'import', walletId: choice.walletId, categoryId: choice.categoryId, transfer })
     }
   }
 
@@ -163,7 +190,13 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
               matched={transactions.find((transaction) => transaction._id === item.matchedTransactionId)}
               disabled={isSaving}
               onChange={(changes) => update(item.operation.externalId, changes)}
-              onWalletChange={(walletId) => setAccountWallet(item.operation.account, walletId)}
+              onTransferChange={(transfer) =>
+                update(item.operation.externalId, {
+                  transfer,
+                  categoryId: transfer ? defaultTransferCategory(categories) : undefined,
+                })
+              }
+              onWalletChange={(walletId) => setAccountWallet(accountWalletKey(item.operation), walletId)}
             />
           ))}
         </ul>
@@ -196,6 +229,15 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
   )
 }
 
+/** What a transfer row has settled on, or null while something is still missing. */
+function transferOf(choice: Choice, currency: string, wallets: Wallet[]): BankImportTransfer | null {
+  const toWallet = wallets.find((wallet) => wallet._id === choice.toWalletId)
+  if (!toWallet || toWallet._id === choice.walletId) return null
+  if (toWallet.currency === currency) return { toWalletId: toWallet._id, toCurrency: toWallet.currency }
+  if (!choice.toAmount || choice.toAmount <= 0) return null
+  return { toWalletId: toWallet._id, toCurrency: toWallet.currency, toAmount: choice.toAmount }
+}
+
 interface BankImportRowProps {
   item: ReviewItem
   choice: Choice
@@ -205,9 +247,10 @@ interface BankImportRowProps {
   disabled: boolean
   onChange: (changes: Partial<Choice>) => void
   onWalletChange: (walletId: string | undefined) => void
+  onTransferChange: (transfer: boolean) => void
 }
 
-function BankImportRow({ item, choice, wallets, categories, matched, disabled, onChange, onWalletChange }: BankImportRowProps) {
+function BankImportRow({ item, choice, wallets, categories, matched, disabled, onChange, onWalletChange, onTransferChange }: BankImportRowProps) {
   const { operation } = item
   const sign = operation.direction === 'expense' ? '−' : '+'
 
@@ -215,9 +258,15 @@ function BankImportRow({ item, choice, wallets, categories, matched, disabled, o
   const walletItems = wallets
     .filter((wallet) => wallet.currency === operation.currency)
     .map((wallet) => ({ value: wallet._id, label: formatWalletName(wallet) }))
+  const categoryType = choice.transfer ? 'transfer' : operation.direction
   const categoryItems = categories
-    .filter((category) => category.type === operation.direction)
+    .filter((category) => category.type === categoryType)
     .map((category) => ({ value: category._id, label: category.name }))
+  const toWalletItems = wallets
+    .filter((wallet) => wallet._id !== choice.walletId)
+    .map((wallet) => ({ value: wallet._id, label: formatWalletName(wallet) }))
+  const toWallet = wallets.find((wallet) => wallet._id === choice.toWalletId)
+  const needsReceivedAmount = choice.transfer && toWallet !== undefined && toWallet.currency !== operation.currency
 
   return (
     <li className="space-y-2 rounded-lg border p-3">
@@ -255,6 +304,26 @@ function BankImportRow({ item, choice, wallets, categories, matched, disabled, o
             </SelectContent>
           </Select>
 
+          {choice.transfer && (
+            <Select
+              items={toWalletItems}
+              value={choice.toWalletId ?? null}
+              onValueChange={(value) => onChange({ toWalletId: value ?? undefined })}
+              disabled={disabled}
+            >
+              <SelectTrigger className="w-full min-w-0" aria-label="To wallet">
+                <SelectValue className="min-w-0 truncate" placeholder="To wallet" />
+              </SelectTrigger>
+              <SelectContent>
+                {toWalletItems.map((wallet) => (
+                  <SelectItem key={wallet.value} value={wallet.value}>
+                    {wallet.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select
             items={categoryItems}
             value={choice.categoryId ?? null}
@@ -273,6 +342,35 @@ function BankImportRow({ item, choice, wallets, categories, matched, disabled, o
             </SelectContent>
           </Select>
         </div>
+      )}
+
+      {!choice.logged && needsReceivedAmount && (
+        <label className="flex items-center gap-2 text-xs">
+          <span className="shrink-0">Received</span>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            aria-label="Received amount"
+            value={choice.toAmount ?? ''}
+            onChange={(event) => onChange({ toAmount: event.target.value === '' ? undefined : Number(event.target.value) })}
+            disabled={disabled}
+            className="h-8"
+          />
+          <span className="shrink-0 text-muted-foreground">{toWallet?.currency}</span>
+        </label>
+      )}
+
+      {!choice.logged && (
+        <label className="flex items-center gap-2 text-xs">
+          <Checkbox
+            checked={choice.transfer}
+            onCheckedChange={(checked) => onTransferChange(checked === true)}
+            disabled={disabled}
+          />
+          Transfer to my wallet
+        </label>
       )}
 
       <label className="flex items-center gap-2 text-xs">

@@ -1,6 +1,6 @@
 import { differenceInCalendarDays } from 'date-fns'
 import type { Transaction } from '../../../shared/schemas/transaction.schema'
-import type { BankOperation } from './types'
+import { accountWalletKey, type BankOperation } from './types'
 
 /** How many calendar days a hand-entered date may sit from the bank's and still be the same payment. */
 export const MATCH_WINDOW_DAYS = 1
@@ -58,7 +58,7 @@ export function reviewOperations(operations: BankOperation[], context: ReviewCon
   for (const operation of operations) {
     if (known.has(operation.externalId)) continue
 
-    const mapped = context.accountWallets[operation.account]
+    const mapped = context.accountWallets[accountWalletKey(operation)]
     const walletId = mapped && walletIds.has(mapped) ? mapped : undefined
     const at = new Date(operation.date)
 

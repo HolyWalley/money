@@ -38,6 +38,7 @@ describe('parseMbankNotification', () => {
         title: 'PRZELEW ŚRODKÓW',
         description: TRANSFER,
         balanceAfter: 214.1,
+        suggestTransfer: false,
       },
     ])
   })
@@ -77,13 +78,59 @@ describe('parseMbankNotification', () => {
     expect(operations[0].balanceAfter).toBe(12214.1)
   })
 
-  it('returns a row it does not recognise verbatim', () => {
+  it('reads a card payment, keyed by the card', () => {
+    const row = 'mBank: Autoryzacja karty 5575***9678: LIDL SIERAKOWSKIEGO WARSZAWA. Kwota: 36,53 PLN. Dostepne: 61,57 PLN.'
+
+    const { operations, unreadable } = parseMbankNotification(notification([['18:02', row]]))
+
+    expect(unreadable).toEqual([])
+    expect(operations[0]).toMatchObject({
+      account: 'mbank:card-9678',
+      direction: 'expense',
+      amount: 36.53,
+      currency: 'PLN',
+      counterparty: 'LIDL SIERAKOWSKIEGO WARSZAWA',
+      title: '',
+      balanceAfter: 61.57,
+      suggestTransfer: false,
+    })
+  })
+
+  it('reads a card payment in another currency', () => {
+    const row = 'mBank: Autoryzacja karty 5575***9678: REVOLUT**5738* VILNIUS. Kwota: 382,81 EUR. Dostepne: 0,00 EUR.'
+
+    const { operations } = parseMbankNotification(notification([['12:00', row]]))
+
+    expect(operations[0]).toMatchObject({ amount: 382.81, currency: 'EUR', balanceAfter: 0 })
+  })
+
+  it('suggests a transfer for a Revolut top-up', () => {
+    const row = 'mBank: Autoryzacja karty 5575***9678: REVOLUT**5738* VILNIUS. Kwota: 1346,84 PLN. Dostepne: 98,10 PLN.'
+
+    const { operations } = parseMbankNotification(notification([['12:00', row]]))
+
+    expect(operations[0].suggestTransfer).toBe(true)
+  })
+
+  it('drops sign-ins and declined payments without listing them as unreadable', () => {
     const { operations, unreadable } = parseMbankNotification(
-      notification([['09:00', 'mBank: Autoryzacja karty 1234 kwota 20,00 PLN']])
+      notification([
+        ['08:02', 'mBank: Potwierdzenie poprawnego logowania do kanalu Internet. Data i godzina zdarzenia: 05-10-2026 08:02.'],
+        ['12:00', 'mBank: Odmowa autoryzacji 5575***9678: BRAK ŚRODKÓW. REVOLUT**5738* VILNIUS. Naleznosc: 1346,84 PLN. Dostepne: 98,10 PLN.'],
+      ])
     )
 
     expect(operations).toEqual([])
-    expect(unreadable).toEqual(['09:00 mBank: Autoryzacja karty 1234 kwota 20,00 PLN'])
+    expect(unreadable).toEqual([])
+  })
+
+  it('returns a row it does not recognise verbatim', () => {
+    const { operations, unreadable } = parseMbankNotification(
+      notification([['09:00', 'mBank: Przelew przych. z rach. 11 kwota 20,00 PLN']])
+    )
+
+    expect(operations).toEqual([])
+    expect(unreadable).toEqual(['09:00 mBank: Przelew przych. z rach. 11 kwota 20,00 PLN'])
   })
 
   it('reads nothing from a document that is not a notification', () => {

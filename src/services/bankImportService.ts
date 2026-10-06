@@ -1,6 +1,7 @@
 import { apiClient } from '../lib/api-client'
 import { parseBankDocuments, type ParsedBankDocument } from '../lib/bank-import'
 import { reviewOperations, type ReviewItem } from '../lib/bank-import/match'
+import { accountWalletKey } from '../lib/bank-import/types'
 import {
   dismissBankOperation,
   getBankAccountWallets,
@@ -14,8 +15,15 @@ import type { Wallet } from '../../shared/schemas/wallet.schema'
 
 const NOTE_MAX_LENGTH = 200
 
+export interface BankImportTransfer {
+  toWalletId: string
+  toCurrency: Currency
+  /** What the other wallet received, when it counts in another currency. */
+  toAmount?: number
+}
+
 export type BankImportDecision =
-  | { item: ReviewItem; action: 'import'; walletId: string; categoryId: string }
+  | { item: ReviewItem; action: 'import'; walletId: string; categoryId: string; transfer?: BankImportTransfer }
   | { item: ReviewItem; action: 'logged' }
 
 export type BankFetchOutcome =
@@ -74,16 +82,19 @@ class BankImportService {
       }
 
       await transactionService.createTransaction({
-        transactionType: operation.direction,
+        transactionType: decision.transfer ? 'transfer' : operation.direction,
         amount: operation.amount,
         currency: operation.currency as Currency,
         note: [operation.counterparty, operation.title].filter(Boolean).join('; ').slice(0, NOTE_MAX_LENGTH),
         categoryId: decision.categoryId,
         walletId: decision.walletId,
+        toWalletId: decision.transfer?.toWalletId,
+        toCurrency: decision.transfer?.toCurrency,
+        toAmount: decision.transfer?.toAmount,
         date: operation.date,
         externalId: operation.externalId,
       })
-      setBankAccountWallet(operation.account, decision.walletId)
+      setBankAccountWallet(accountWalletKey(operation), decision.walletId)
       summary.imported += 1
     }
 

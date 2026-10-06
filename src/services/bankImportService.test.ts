@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../lib/crdts', () => ({
   dismissBankOperation: vi.fn(),
-  getBankAccountWallets: vi.fn(() => ({ 'mbank:12345678': 'w1' })),
+  getBankAccountWallets: vi.fn(() => ({ 'mbank:12345678/PLN': 'w1' })),
   getDismissedBankOperations: vi.fn(() => []),
   setBankAccountWallet: vi.fn(),
 }))
@@ -40,6 +40,7 @@ function item(overrides: Partial<ReviewItem> = {}): ReviewItem {
       counterparty: 'ANNA NOWAK',
       title: 'CZYNSZ',
       description: 'row',
+      suggestTransfer: false,
     },
     ...overrides,
   }
@@ -112,11 +113,37 @@ describe('bankImportService', () => {
         note: 'ANNA NOWAK; CZYNSZ',
         categoryId: 'c1',
         walletId: 'w2',
+        toWalletId: undefined,
+        toCurrency: undefined,
+        toAmount: undefined,
         date: '2026-10-04T11:13:00.000Z',
         externalId: 'mbank:1',
       })
-      expect(setBankAccountWallet).toHaveBeenCalledWith('mbank:12345678', 'w2')
+      expect(setBankAccountWallet).toHaveBeenCalledWith('mbank:12345678/PLN', 'w2')
       expect(summary).toEqual({ imported: 1, logged: 0 })
+    })
+
+    it('creates a transfer when the row was imported as one', async () => {
+      await bankImportService.save([
+        {
+          item: item(),
+          action: 'import',
+          walletId: 'w1',
+          categoryId: 'transfer-misc',
+          transfer: { toWalletId: 'w2', toCurrency: 'EUR', toAmount: 27.5 },
+        },
+      ])
+
+      expect(transactionService.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactionType: 'transfer',
+          walletId: 'w1',
+          toWalletId: 'w2',
+          toCurrency: 'EUR',
+          toAmount: 27.5,
+          categoryId: 'transfer-misc',
+        })
+      )
     })
 
     it('links an operation to the hand-entered transaction it matched', async () => {

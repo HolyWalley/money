@@ -15,6 +15,7 @@ function operation(overrides: Partial<BankOperation> = {}): BankOperation {
     counterparty: 'ANNA NOWAK',
     title: 'CZYNSZ',
     description: 'row',
+    suggestTransfer: false,
     ...overrides,
   }
 }
@@ -57,13 +58,13 @@ describe('reviewOperations', () => {
   })
 
   it('prefills the wallet the account was imported into before', () => {
-    const [item] = reviewOperations([operation()], context({ accountWallets: { 'mbank:12345678': 'w2' } }))
+    const [item] = reviewOperations([operation()], context({ accountWallets: { 'mbank:12345678/PLN': 'w2' } }))
 
     expect(item.walletId).toBe('w2')
   })
 
   it('forgets a mapping to a wallet that no longer exists', () => {
-    const [item] = reviewOperations([operation()], context({ accountWallets: { 'mbank:12345678': 'gone' } }))
+    const [item] = reviewOperations([operation()], context({ accountWallets: { 'mbank:12345678/PLN': 'gone' } }))
 
     expect(item.walletId).toBeUndefined()
   })
@@ -99,7 +100,7 @@ describe('reviewOperations', () => {
   it('only pairs within the mapped wallet once the account is mapped', () => {
     const [item] = reviewOperations(
       [operation()],
-      context({ transactions: [transaction({ walletId: 'w1' })], accountWallets: { 'mbank:12345678': 'w2' } })
+      context({ transactions: [transaction({ walletId: 'w1' })], accountWallets: { 'mbank:12345678/PLN': 'w2' } })
     )
 
     expect(item.matchedTransactionId).toBeUndefined()
@@ -125,7 +126,7 @@ describe('reviewOperations', () => {
 
     const [item] = reviewOperations(
       [operation({ direction: 'income' })],
-      context({ transactions: [transfer], accountWallets: { 'mbank:12345678': 'w2' } })
+      context({ transactions: [transfer], accountWallets: { 'mbank:12345678/PLN': 'w2' } })
     )
 
     expect(item.matchedTransactionId).toBe('t1')

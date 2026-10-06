@@ -15,6 +15,7 @@ const wallets = [
 const categories = [
   { _id: 'c1', name: 'Rent', type: 'expense' },
   { _id: 'c2', name: 'Salary', type: 'income' },
+  { _id: 'c3', name: 'Misc', type: 'transfer', isDefault: true },
 ] as Category[]
 const transactions = [{ _id: 't1', date: '2026-10-04T09:00:00.000Z' }] as Transaction[]
 
@@ -88,6 +89,7 @@ function item(overrides: Partial<ReviewItem> = {}, externalId = 'mbank:1'): Revi
       counterparty: 'ANNA NOWAK',
       title: 'CZYNSZ',
       description: 'row',
+      suggestTransfer: false,
     },
     ...overrides,
   }
@@ -168,16 +170,18 @@ describe('BankImportDrawer', () => {
       item(),
       item({}, 'mbank:2'),
       { operation: { ...item().operation, externalId: 'mbank:3', account: 'mbank:99999999' } },
+      { operation: { ...item().operation, externalId: 'mbank:4', currency: 'EUR' } },
     ])
     const user = userEvent.setup()
 
     await open()
     await user.selectOptions(screen.getAllByRole('combobox', { name: 'Wallet' })[0], 'w1')
 
-    const [first, second, other] = screen.getAllByRole('combobox', { name: 'Wallet' })
+    const [first, second, otherAccount, otherCurrency] = screen.getAllByRole('combobox', { name: 'Wallet' })
     expect(first).toHaveValue('w1')
     expect(second).toHaveValue('w1')
-    expect(other).toHaveValue('')
+    expect(otherAccount).toHaveValue('')
+    expect(otherCurrency).toHaveValue('')
   })
 
   it('marks a matched operation as already logged and saves it as such', async () => {
@@ -188,7 +192,7 @@ describe('BankImportDrawer', () => {
 
     const onClose = await open()
 
-    expect(screen.getByRole('checkbox')).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Already logged/ })).toBeChecked()
     expect(screen.getByText(/looks like your entry from 4 Oct/)).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Wallet' })).not.toBeInTheDocument()
 
@@ -205,15 +209,52 @@ describe('BankImportDrawer', () => {
     const user = userEvent.setup()
 
     await open()
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('checkbox', { name: /Already logged/ }))
 
     expect(screen.queryByRole('combobox', { name: 'Wallet' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save 1' })).toBeEnabled()
 
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('checkbox', { name: /Already logged/ }))
 
     expect(screen.getByRole('combobox', { name: 'Wallet' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save 0' })).toBeDisabled()
+  })
+
+  it('offers a transfer with a destination wallet and received amount for a top-up', async () => {
+    review.mockReturnValue([{ operation: { ...item().operation, suggestTransfer: true } }])
+    const user = userEvent.setup()
+
+    await open()
+
+    expect(screen.getByRole('checkbox', { name: 'Transfer to my wallet' })).toBeChecked()
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveValue('c3')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Wallet' }), 'w1')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'To wallet' }), 'w2')
+    expect(screen.getByRole('button', { name: 'Save 0' })).toBeDisabled()
+
+    await user.type(screen.getByRole('spinbutton', { name: 'Received amount' }), '27.5')
+
+    await user.click(screen.getByRole('button', { name: 'Save 1' }))
+
+    expect(save).toHaveBeenCalledWith([
+      expect.objectContaining({
+        action: 'import',
+        walletId: 'w1',
+        categoryId: 'c3',
+        transfer: { toWalletId: 'w2', toCurrency: 'EUR', toAmount: 27.5 },
+      }),
+    ])
+  })
+
+  it('turning the transfer off clears the transfer category', async () => {
+    review.mockReturnValue([{ operation: { ...item().operation, suggestTransfer: true } }])
+    const user = userEvent.setup()
+
+    await open()
+    await user.click(screen.getByRole('checkbox', { name: 'Transfer to my wallet' }))
+
+    expect(screen.queryByRole('combobox', { name: 'To wallet' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveValue('')
   })
 
   it('lists the rows that could not be read', async () => {

@@ -15,6 +15,16 @@ export interface BankOperation {
   /** The row as the bank wrote it. */
   description: string
   balanceAfter?: number
+  /** The counterparty is one of the person's own accounts elsewhere, so a transfer is the likely truth. */
+  suggestTransfer: boolean
+}
+
+/**
+ * The key a wallet is remembered under. A multi-currency card charges a
+ * different sub-account per currency, so the currency is part of it.
+ */
+export function accountWalletKey(operation: Pick<BankOperation, 'account' | 'currency'>): string {
+  return `${operation.account}/${operation.currency}`
 }
 
 export interface ParsedBankDocument {
