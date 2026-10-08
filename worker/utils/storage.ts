@@ -16,6 +16,10 @@ export interface UserRecord {
   isActive: boolean,
   premium: IPremium,
   settings: UserSettings
+  /** The local part of the address bank notifications are sent to. */
+  inboxToken?: string
+  /** A mailbox of the person's own that may forward bank notifications to the inbox. */
+  inboxForwarder?: string
 }
 
 // 'read' is a transport failure: retrying is the right answer and it will clear

@@ -21,8 +21,8 @@ export interface CloudflareEnv {
   // is public, not per-user.
   MARKET_OBJECT: DurableObjectNamespace<MarketObject>;
   ENVIRONMENT?: string; // 'development' | 'production'
-  HEY_TOKEN?: string;
-  BANK_IMPORT_USERNAME?: string;
+  // Where bank notifications are received: a person's address is <token>@INBOX_DOMAIN.
+  INBOX_DOMAIN?: string;
 }
 
 export interface CloudflareContext {

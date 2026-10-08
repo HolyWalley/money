@@ -1,5 +1,6 @@
 import type { CloudflareEnv } from './types/cloudflare'
 import { createAPIRouter } from './routes/api'
+import { receiveEmail } from './email/receive'
 import { SecurityUtils } from './utils/security'
 import { ResponseUtils } from './utils/response'
 
@@ -25,6 +26,10 @@ export default {
 
     // For non-API routes, return 404 and let Cloudflare serve static assets
     return new Response('Not found', { status: 404 })
+  },
+
+  async email(message: ForwardableEmailMessage, env: CloudflareEnv): Promise<void> {
+    await receiveEmail(message, env)
   }
 }
 

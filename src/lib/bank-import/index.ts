@@ -56,6 +56,33 @@ export function parseBankDocuments(documents: BankNotificationDocument[]): Parse
 }
 
 /**
+ * The messages nothing more can come of: every operation in them is imported
+ * or dismissed, and no row in them went unread. A message with an unreadable
+ * row is kept, so a fixed parser can still read it before it expires.
+ */
+export function settledMessageIds(documents: BankNotificationDocument[], known: ReadonlySet<string>): string[] {
+  const messages = new Map<string, BankNotificationDocument[]>()
+  for (const document of documents) {
+    messages.set(document.messageId, [...(messages.get(document.messageId) ?? []), document])
+  }
+
+  const settled: string[] = []
+  for (const [messageId, parts] of messages) {
+    let parsed: ParsedBankDocument
+    try {
+      parsed = parseBankDocuments(parts)
+    } catch {
+      continue
+    }
+    const done = parsed.operations.every(
+      (operation) => known.has(operation.externalId) && operation.linkedExternalIds.every((id) => known.has(id))
+    )
+    if (done && parsed.unreadable.length === 0) settled.push(messageId)
+  }
+  return settled
+}
+
+/**
  * Folds the two sides of a currency exchange into one outgoing operation
  * that knows what the other account received. A side that arrived alone
  * stays a plain row until its partner turns up.

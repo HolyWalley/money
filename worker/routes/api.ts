@@ -88,6 +88,21 @@ export function createAPIRouter() {
     return withHeaders(response, request)
   })
 
+  router.delete('/api/v1/bank-notifications', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await bankNotifications.onRequestDelete(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.post('/api/v1/bank-notifications/address', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await bankNotifications.onRequestPostAddress(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
+  router.put('/api/v1/bank-notifications/forwarder', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
+    const response = await bankNotifications.onRequestPutForwarder(request as unknown as Request, env, request.user!)
+    return withHeaders(response, request)
+  })
+
   router.get('/api/v1/debug', async (request: AuthenticatedRequest, env: CloudflareEnv) => {
     const response = await debug.onRequestGet(request as unknown as Request, env, request.user!)
     return withHeaders(response, request)

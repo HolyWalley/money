@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import * as Y from 'yjs';
 import { planPull } from "../lib/sync-cursor";
+import { InboxStore, type StoredDocument, type StoredNotice } from "../lib/inbox-store";
 import { BinaryUtils } from "../utils/binary";
 
 interface Update {
@@ -20,6 +21,7 @@ interface CompiledState {
 
 export class MoneyObject extends DurableObject {
   private storage: DurableObjectState['storage'];
+  private inbox: InboxStore;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -46,6 +48,23 @@ export class MoneyObject extends DurableObject {
     );
 
     this.storage = ctx.storage;
+    this.inbox = new InboxStore(ctx.storage.sql);
+  }
+
+  async addInboxDocuments(documents: StoredDocument[]): Promise<void> {
+    this.inbox.addDocuments(documents);
+  }
+
+  async addInboxNotice(notice: StoredNotice): Promise<void> {
+    this.inbox.addNotice(notice);
+  }
+
+  async listInbox(): Promise<ReturnType<InboxStore['list']>> {
+    return this.inbox.list();
+  }
+
+  async removeFromInbox(messageIds: string[]): Promise<void> {
+    this.inbox.remove(messageIds);
   }
 
   async pushUpdates(updates: Update[]): Promise<void> {

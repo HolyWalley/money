@@ -11,21 +11,31 @@ vi.mock('./transactionService', () => ({
   transactionService: {
     createTransaction: vi.fn(async () => ({})),
     updateTransaction: vi.fn(async () => ({})),
+    getAllTransactions: vi.fn(async () => []),
   },
 }))
 
 vi.mock('../lib/api-client', () => ({
-  apiClient: { getBankNotifications: vi.fn() },
+  apiClient: {
+    getBankNotifications: vi.fn(),
+    removeBankNotifications: vi.fn(async () => ({ ok: true, status: 200, data: { removed: 1 } })),
+    createInboxAddress: vi.fn(),
+    setInboxForwarder: vi.fn(),
+  },
 }))
 
 import { apiClient } from '../lib/api-client'
-import { dismissBankOperation, setBankAccountWallet } from '../lib/crdts'
+import { dismissBankOperation, getDismissedBankOperations, setBankAccountWallet } from '../lib/crdts'
+import { parseBankDocuments } from '../lib/bank-import'
 import type { ReviewItem } from '../lib/bank-import/match'
 import { bankImportService } from './bankImportService'
 import { transactionService } from './transactionService'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
 
 const getBankNotifications = vi.mocked(apiClient.getBankNotifications)
+const removeBankNotifications = vi.mocked(apiClient.removeBankNotifications)
+const createInboxAddress = vi.mocked(apiClient.createInboxAddress)
+const setInboxForwarder = vi.mocked(apiClient.setInboxForwarder)
 
 function item(overrides: Partial<ReviewItem> = {}): ReviewItem {
   return {
@@ -47,6 +57,10 @@ function item(overrides: Partial<ReviewItem> = {}): ReviewItem {
   }
 }
 
+function document() {
+  return { bank: 'mbank' as const, messageId: '1', receivedAt: '2026-10-05T05:50:51Z', filename: 'a.htm', content: notification() }
+}
+
 function notification(): string {
   return btoa(`<html><body><h1>2026-10-04 - Powiadomienie</h1>
     <table><tr><th>Czas operacji</th><th>Opis operacji</th></tr>
@@ -64,16 +78,28 @@ describe('bankImportService', () => {
       getBankNotifications.mockResolvedValue({
         ok: true,
         status: 200,
-        data: {
-          documents: [
-            { bank: 'mbank', messageId: '1', receivedAt: '2026-10-05T05:50:51Z', filename: 'a.htm', content: notification() },
-          ],
-        },
+        data: { documents: [document()], notices: [], address: 'abcdefghjkmnpqrs@in.example.com', forwarder: null },
       })
 
       const outcome = await bankImportService.fetchOperations()
 
       expect(outcome.ok && outcome.parsed.operations.map((operation) => operation.amount)).toEqual([116])
+      expect(outcome.ok && outcome.address).toBe('abcdefghjkmnpqrs@in.example.com')
+      expect(removeBankNotifications).not.toHaveBeenCalled()
+    })
+
+    it('drops the messages whose operations were all dealt with before', async () => {
+      const [operation] = parseBankDocuments([document()]).operations
+      vi.mocked(getDismissedBankOperations).mockReturnValueOnce([operation.externalId])
+      getBankNotifications.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { documents: [document()], notices: [], address: null, forwarder: null },
+      })
+
+      await bankImportService.fetchOperations()
+
+      await vi.waitFor(() => expect(removeBankNotifications).toHaveBeenCalledWith(['1']))
     })
 
     it('answers with the server reason instead of rejecting', async () => {
@@ -88,6 +114,42 @@ describe('bankImportService', () => {
         ok: false,
         error: 'The mail provider token has expired',
       })
+    })
+  })
+
+  describe('createAddress', () => {
+    it('answers with the new address', async () => {
+      createInboxAddress.mockResolvedValue({ ok: true, status: 200, data: { address: 'a@in.example.com' } })
+
+      expect(await bankImportService.createAddress()).toEqual({ ok: true, address: 'a@in.example.com' })
+    })
+
+    it('answers with the server reason instead of rejecting', async () => {
+      createInboxAddress.mockResolvedValue({ ok: false, status: 503, failure: 'server', error: 'Not set up' })
+
+      expect(await bankImportService.createAddress()).toEqual({ ok: false, error: 'Not set up' })
+    })
+  })
+
+  describe('setForwarder', () => {
+    it('answers with the saved mailbox', async () => {
+      setInboxForwarder.mockResolvedValue({ ok: true, status: 200, data: { forwarder: 'me@hey.com' } })
+
+      expect(await bankImportService.setForwarder('me@hey.com')).toEqual({ ok: true, forwarder: 'me@hey.com' })
+      expect(setInboxForwarder).toHaveBeenCalledWith('me@hey.com')
+    })
+
+    it('answers with the server reason instead of rejecting', async () => {
+      setInboxForwarder.mockResolvedValue({ ok: false, status: 422, failure: 'server', error: 'Invalid' })
+
+      expect(await bankImportService.setForwarder('nope')).toEqual({ ok: false, error: 'Invalid' })
+    })
+  })
+
+  describe('dismissNotice', () => {
+    it('removes the notice from the inbox', async () => {
+      expect(await bankImportService.dismissNotice('g1')).toBe(true)
+      expect(removeBankNotifications).toHaveBeenCalledWith(['g1'])
     })
   })
 
@@ -174,6 +236,20 @@ describe('bankImportService', () => {
       expect(dismissBankOperation).not.toHaveBeenCalled()
       expect(transactionService.createTransaction).not.toHaveBeenCalled()
       expect(summary).toEqual({ imported: 0, logged: 1 })
+    })
+
+    it('drops the messages it settled from the inbox', async () => {
+      const [operation] = parseBankDocuments([document()]).operations
+
+      await bankImportService.save([{ item: item({ operation }), action: 'import', walletId: 'w1', categoryId: 'c1' }], [document()])
+
+      expect(removeBankNotifications).toHaveBeenCalledWith(['1'])
+    })
+
+    it('keeps the messages with operations still undecided', async () => {
+      await bankImportService.save([{ item: item(), action: 'import', walletId: 'w1', categoryId: 'c1' }], [document()])
+
+      expect(removeBankNotifications).not.toHaveBeenCalled()
     })
 
     it('dismisses an operation marked as logged with nothing to link', async () => {

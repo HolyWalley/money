@@ -61,7 +61,7 @@ vi.mock('@/components/ui/select', () => {
 
 vi.mock('sonner', () => ({ toast: vi.fn() }))
 vi.mock('@/services/bankImportService', () => ({
-  bankImportService: { review: vi.fn(), save: vi.fn() },
+  bankImportService: { review: vi.fn(), save: vi.fn(), createAddress: vi.fn(), dismissNotice: vi.fn(), setForwarder: vi.fn() },
 }))
 
 import { toast } from 'sonner'
@@ -75,6 +75,9 @@ if (!window.PointerEvent) {
 
 const review = vi.mocked(bankImportService.review)
 const save = vi.mocked(bankImportService.save)
+const createAddress = vi.mocked(bankImportService.createAddress)
+const dismissNotice = vi.mocked(bankImportService.dismissNotice)
+const setForwarder = vi.mocked(bankImportService.setForwarder)
 
 function item(overrides: Partial<ReviewItem> = {}, externalId = 'mbank:1'): ReviewItem {
   return {
@@ -96,7 +99,18 @@ function item(overrides: Partial<ReviewItem> = {}, externalId = 'mbank:1'): Revi
   }
 }
 
-const fetched: BankFetchOutcome = { ok: true, parsed: { operations: [], unreadable: [] } }
+const documents = [
+  { bank: 'mbank' as const, messageId: 'm1', receivedAt: '2026-10-05T05:50:51Z', filename: 'a.htm', content: '' },
+]
+
+const fetched: Extract<BankFetchOutcome, { ok: true }> = {
+  ok: true,
+  parsed: { operations: [], unreadable: [] },
+  documents,
+  notices: [],
+  address: 'abcdefghjkmnpqrs@in.example.com',
+  forwarder: null,
+}
 
 async function open(outcome: BankFetchOutcome = fetched, onClose = vi.fn()) {
   const request = Promise.resolve(outcome)
@@ -199,7 +213,7 @@ describe('BankImportDrawer', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save 1' }))
 
-    expect(save).toHaveBeenCalledWith([{ item: matched, action: 'logged' }])
+    expect(save).toHaveBeenCalledWith([{ item: matched, action: 'logged' }], documents)
     expect(toast).toHaveBeenCalledWith('Imported 0, marked 1 as already logged')
     expect(onClose).toHaveBeenCalled()
   })
@@ -244,7 +258,7 @@ describe('BankImportDrawer', () => {
         categoryId: 'c3',
         transfer: { toWalletId: 'w2', toCurrency: 'EUR', toAmount: 27.5 },
       }),
-    ])
+    ], documents)
   })
 
   it('prefills a merged exchange with its destination wallet and received amount', async () => {
@@ -276,7 +290,7 @@ describe('BankImportDrawer', () => {
   })
 
   it('lists the rows that could not be read', async () => {
-    await open({ ok: true, parsed: { operations: [], unreadable: ['09:00 mBank: Autoryzacja karty'] } })
+    await open({ ...fetched, parsed: { operations: [], unreadable: ['09:00 mBank: Autoryzacja karty'] } })
 
     expect(screen.getByText('1 row could not be read')).toBeInTheDocument()
     expect(screen.getByText('09:00 mBank: Autoryzacja karty')).toBeInTheDocument()
@@ -293,5 +307,112 @@ describe('BankImportDrawer', () => {
 
     expect(screen.getByText('The import could not be saved')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  describe('notification address', () => {
+    it('shows the address and copies it', async () => {
+      const user = userEvent.setup()
+      // userEvent.setup installs its own clipboard, so this one goes in after it.
+      const writeText = vi.fn(async () => {})
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+
+      await open()
+      await user.click(screen.getByRole('button', { name: 'Copy address' }))
+
+      expect(screen.getByText('abcdefghjkmnpqrs@in.example.com')).toBeInTheDocument()
+      expect(writeText).toHaveBeenCalledWith('abcdefghjkmnpqrs@in.example.com')
+      expect(toast).toHaveBeenCalledWith('Address copied')
+    })
+
+    it('creates an address when there is none', async () => {
+      createAddress.mockResolvedValue({ ok: true, address: 'zyxwvutsrqpnmkjh@in.example.com' })
+      const user = userEvent.setup()
+
+      await open({ ...fetched, address: null })
+      await user.click(screen.getByRole('button', { name: 'Create address' }))
+
+      expect(screen.getByText('zyxwvutsrqpnmkjh@in.example.com')).toBeInTheDocument()
+    })
+
+    it('replaces the address', async () => {
+      createAddress.mockResolvedValue({ ok: true, address: 'zyxwvutsrqpnmkjh@in.example.com' })
+      const user = userEvent.setup()
+
+      await open()
+      await user.click(screen.getByRole('button', { name: 'Replace address' }))
+
+      expect(screen.getByText('zyxwvutsrqpnmkjh@in.example.com')).toBeInTheDocument()
+      expect(screen.queryByText('abcdefghjkmnpqrs@in.example.com')).not.toBeInTheDocument()
+    })
+
+    it('saves the mailbox allowed to forward notifications', async () => {
+      setForwarder.mockResolvedValue({ ok: true, forwarder: 'me@hey.com' })
+      const user = userEvent.setup()
+
+      await open()
+      await user.type(screen.getByRole('textbox', { name: 'Forwarded from' }), ' Me@hey.com ')
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(setForwarder).toHaveBeenCalledWith('Me@hey.com')
+      expect(screen.getByRole('textbox', { name: 'Forwarded from' })).toHaveValue('me@hey.com')
+      expect(toast).toHaveBeenCalledWith('Forwarding address saved')
+    })
+
+    it('turns forwarding off when the mailbox is cleared', async () => {
+      setForwarder.mockResolvedValue({ ok: true, forwarder: null })
+      const user = userEvent.setup()
+
+      await open({ ...fetched, forwarder: 'me@hey.com' })
+      await user.clear(screen.getByRole('textbox', { name: 'Forwarded from' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(setForwarder).toHaveBeenCalledWith(null)
+      expect(toast).toHaveBeenCalledWith('Forwarding turned off')
+    })
+
+    it('says why an address could not be created', async () => {
+      createAddress.mockResolvedValue({ ok: false, error: 'Receiving mail is not set up on this server' })
+      const user = userEvent.setup()
+
+      await open({ ...fetched, address: null })
+      await user.click(screen.getByRole('button', { name: 'Create address' }))
+
+      expect(toast).toHaveBeenCalledWith('Receiving mail is not set up on this server')
+    })
+  })
+
+  describe('notices', () => {
+    const notice = {
+      messageId: 'g1',
+      receivedAt: '2026-10-08T05:00:00.000Z',
+      sender: 'forwarding-noreply@google.com',
+      subject: 'Gmail Forwarding Confirmation',
+      text: 'Confirmation code: 123456',
+    }
+
+    it('shows a forwarding confirmation and dismisses it', async () => {
+      dismissNotice.mockResolvedValue(true)
+      const user = userEvent.setup()
+
+      await open({ ...fetched, notices: [notice] })
+      expect(screen.getByText('Gmail Forwarding Confirmation')).toBeInTheDocument()
+      expect(screen.getByText('Confirmation code: 123456')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      expect(dismissNotice).toHaveBeenCalledWith('g1')
+      expect(screen.queryByText('Gmail Forwarding Confirmation')).not.toBeInTheDocument()
+    })
+
+    it('keeps a notice that could not be dismissed', async () => {
+      dismissNotice.mockResolvedValue(false)
+      const user = userEvent.setup()
+
+      await open({ ...fetched, notices: [notice] })
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      expect(screen.getByText('Gmail Forwarding Confirmation')).toBeInTheDocument()
+      expect(toast).toHaveBeenCalledWith('The message could not be dismissed')
+    })
   })
 })

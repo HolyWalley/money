@@ -1,6 +1,6 @@
 import { use, useState } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Copy, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Drawer,
@@ -36,7 +36,7 @@ import {
   type BankImportDecision,
   type BankImportTransfer,
 } from '@/services/bankImportService'
-import { BANK_NOTIFICATION_DAYS } from '../../../shared/bank-notifications'
+import { BANK_NOTIFICATION_DAYS, type InboxNotice } from '../../../shared/bank-notifications'
 import type { Category } from '../../../shared/schemas/category.schema'
 import type { Transaction } from '../../../shared/schemas/transaction.schema'
 import type { Wallet } from '../../../shared/schemas/wallet.schema'
@@ -162,7 +162,7 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
     setIsSaving(true)
     setSaveError(null)
     try {
-      const summary = await bankImportService.save(decisions)
+      const summary = await bankImportService.save(decisions, outcome.documents)
       toast(`Imported ${summary.imported}, marked ${summary.logged} as already logged`)
       onClose()
     } catch (error) {
@@ -219,7 +219,13 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
           </Alert>
         )}
 
+        {outcome.notices.map((notice) => (
+          <InboxNoticeAlert key={notice.messageId} notice={notice} />
+        ))}
+
         {saveError && <p className="text-destructive">{saveError}</p>}
+
+        <InboxAddressPanel initialAddress={outcome.address} initialForwarder={outcome.forwarder} />
       </div>
 
       <DrawerFooter>
@@ -228,6 +234,133 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
         </Button>
       </DrawerFooter>
     </>
+  )
+}
+
+/** Mail that needs the person rather than the parsers, such as Gmail asking to confirm forwarding. */
+function InboxNoticeAlert({ notice }: { notice: InboxNotice }) {
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
+
+  const handleDismiss = async () => {
+    if (await bankImportService.dismissNotice(notice.messageId)) {
+      setDismissed(true)
+    } else {
+      toast('The message could not be dismissed')
+    }
+  }
+
+  return (
+    <Alert>
+      <Mail className="h-4 w-4" />
+      <AlertTitle>{notice.subject || notice.sender}</AlertTitle>
+      <AlertDescription className="space-y-2">
+        <p className="text-xs">From {notice.sender}</p>
+        <p className="whitespace-pre-wrap break-words">{notice.text}</p>
+        <Button variant="outline" size="sm" onClick={handleDismiss}>
+          Dismiss
+        </Button>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+/** Where the bank should send its notifications, with a way to replace it. */
+function InboxAddressPanel({ initialAddress, initialForwarder }: { initialAddress: string | null; initialForwarder: string | null }) {
+  const [address, setAddress] = useState(initialAddress)
+  const [isCreating, setIsCreating] = useState(false)
+  const [forwarder, setForwarder] = useState(initialForwarder ?? '')
+  const [savedForwarder, setSavedForwarder] = useState(initialForwarder ?? '')
+  const [isSavingForwarder, setIsSavingForwarder] = useState(false)
+
+  const handleSaveForwarder = async () => {
+    setIsSavingForwarder(true)
+    const outcome = await bankImportService.setForwarder(forwarder.trim() || null)
+    setIsSavingForwarder(false)
+    if (outcome.ok) {
+      setForwarder(outcome.forwarder ?? '')
+      setSavedForwarder(outcome.forwarder ?? '')
+      toast(outcome.forwarder ? 'Forwarding address saved' : 'Forwarding turned off')
+    } else {
+      toast(outcome.error)
+    }
+  }
+
+  const handleCreate = async () => {
+    setIsCreating(true)
+    const outcome = await bankImportService.createAddress()
+    setIsCreating(false)
+    if (outcome.ok) {
+      setAddress(outcome.address)
+    } else {
+      toast(outcome.error)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!address) return
+    try {
+      await navigator.clipboard.writeText(address)
+      toast('Address copied')
+    } catch {
+      toast('The address could not be copied')
+    }
+  }
+
+  return (
+    <section className="space-y-2 rounded-lg border p-3" aria-label="Notification address">
+      <p className="font-medium">Notification address</p>
+      {address ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Have your bank send its email notifications here, or forward them from your mailbox.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{address}</code>
+            <Button variant="outline" size="icon" aria-label="Copy address" onClick={handleCopy}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleCreate} disabled={isCreating}>
+            Replace address
+          </Button>
+          <p className="text-xs text-muted-foreground">Replacing it stops the current address at once.</p>
+          <label className="block space-y-1 pt-2 text-xs">
+            <span className="text-muted-foreground">
+              Your own mailbox, if a script forwards notifications from it as attached .eml files
+            </span>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                aria-label="Forwarded from"
+                placeholder="you@example.com"
+                value={forwarder}
+                onChange={(event) => setForwarder(event.target.value)}
+                disabled={isSavingForwarder}
+                className="h-8"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveForwarder}
+                disabled={isSavingForwarder || forwarder.trim() === savedForwarder}
+              >
+                Save
+              </Button>
+            </div>
+          </label>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Create an address for your bank to send its email notifications to.
+          </p>
+          <Button variant="outline" size="sm" onClick={handleCreate} disabled={isCreating}>
+            Create address
+          </Button>
+        </>
+      )}
+    </section>
   )
 }
 

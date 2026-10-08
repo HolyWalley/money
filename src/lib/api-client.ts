@@ -1,6 +1,6 @@
 import type { User } from '../contexts/AuthContext';
 import type { InstrumentCandidate, PricesResponse } from '../../shared/market-data';
-import type { BankNotificationsResponse } from '../../shared/bank-notifications';
+import type { BankNotificationsResponse, InboxAddressResponse, InboxForwarderRequest } from '../../shared/bank-notifications';
 import { reportRequestOutcome } from './network-status';
 
 /**
@@ -42,8 +42,6 @@ export const API_TIMEOUTS = {
   // One price request may wait on several provider calls behind the worker,
   // each with its own 8s deadline, so the default one is too short for it.
   prices: 20_000,
-  // One mail search, then a message read and a download per notification.
-  bankNotifications: 30_000,
   syncPull: 30_000,
   syncPush: 45_000,
   syncInitialPush: 120_000,
@@ -370,7 +368,22 @@ class ApiClient {
   }
 
   async getBankNotifications(): Promise<ApiResponse<BankNotificationsResponse>> {
-    return this.request<BankNotificationsResponse>('/bank-notifications', { timeoutMs: API_TIMEOUTS.bankNotifications });
+    return this.request<BankNotificationsResponse>('/bank-notifications');
+  }
+
+  async removeBankNotifications(messageIds: string[]): Promise<ApiResponse<{ removed: number }>> {
+    return this.request<{ removed: number }>('/bank-notifications', { method: 'DELETE', body: { messageIds } });
+  }
+
+  async createInboxAddress(): Promise<ApiResponse<InboxAddressResponse>> {
+    return this.request<InboxAddressResponse>('/bank-notifications/address', { method: 'POST' });
+  }
+
+  async setInboxForwarder(forwarder: string | null): Promise<ApiResponse<{ forwarder: string | null }>> {
+    return this.request<{ forwarder: string | null }>('/bank-notifications/forwarder', {
+      method: 'PUT',
+      body: { forwarder } satisfies InboxForwarderRequest,
+    });
   }
 
   async searchInstruments(query: string): Promise<ApiResponse<{ results: InstrumentCandidate[] }>> {

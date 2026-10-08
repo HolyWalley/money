@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BankNotificationDocument } from '../../../shared/bank-notifications'
-import { decodeBankDocument, formatBankAccount, mergeExchanges, parseBankDocuments } from './index'
+import { decodeBankDocument, formatBankAccount, mergeExchanges, parseBankDocuments, settledMessageIds } from './index'
 import type { BankOperation } from './types'
 
 function toBase64(bytes: number[]): string {
@@ -102,5 +102,25 @@ describe('formatBankAccount', () => {
   it('names the bank and the end of the account number', () => {
     expect(formatBankAccount('mbank:12345678')).toBe('mBank …5678')
     expect(formatBankAccount('pko:73..7365')).toBe('PKO BP …7365')
+  })
+})
+
+describe('settledMessageIds', () => {
+  const first = mbankDocument('m1', row('13:13', '214,10'))
+  const second = mbankDocument('m2', row('14:00', '98,10'))
+  const idOf = (document: BankNotificationDocument) => parseBankDocuments([document]).operations[0].externalId
+
+  it('names the messages whose every operation is known', () => {
+    expect(settledMessageIds([first, second], new Set([idOf(first)]))).toEqual(['m1'])
+  })
+
+  it('names a message with nothing in it to decide', () => {
+    expect(settledMessageIds([mbankDocument('m3', '')], new Set())).toEqual(['m3'])
+  })
+
+  it('keeps a message with a row no parser could read', () => {
+    const unreadable = mbankDocument('m4', '<tr><td>09:00</td><td>mBank: Something new</td></tr>')
+
+    expect(settledMessageIds([unreadable], new Set())).toEqual([])
   })
 })

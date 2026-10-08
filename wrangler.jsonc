@@ -11,7 +11,13 @@
 	"observability": {
 		"enabled": true
 	},
-	"vars": {},
+	"workers_dev": true,
+	"routes": [
+		{ "pattern": "money.yakau.dev", "custom_domain": true }
+	],
+	"vars": {
+		"INBOX_DOMAIN": "in.yakau.dev"
+	},
 	"kv_namespaces": [
 		{
 			"binding": "MONEY_USER_AUTH",

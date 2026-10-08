@@ -15,8 +15,10 @@
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
-    "hey:token": "./scripts/push-hey-token.sh",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "dev:mail": "./scripts/send-test-email.sh",
+    "hey:forward": "node scripts/hey-forward/forward.ts",
+    "hey:forward:install": "./scripts/hey-forward/install.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -43,6 +45,7 @@
     "lucide-react": "^0.511.0",
     "nanoevents": "^9.1.0",
     "next-themes": "^0.4.6",
+    "postal-mime": "^4.0.5",
     "react": "^19.1.0",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.1.0",
@@ -60,7 +63,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.5.1",
+    "@cloudflare/vite-plugin": "^1.63.0",
     "@date-fns/utc": "^2.1.1",
     "@eslint/js": "^9.25.0",
     "@playwright/test": "^1.58.2",
@@ -93,6 +96,6 @@
     "vite-plugin-svgr": "^4.3.0",
     "vitest": "^3.1.4",
     "workbox-window": "^7.3.0",
-    "wrangler": "^4.16.1"
+    "wrangler": "^4.148.0"
   }
 }
