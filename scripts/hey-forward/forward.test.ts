@@ -38,6 +38,7 @@ function fakeHey() {
     calls.push(args)
     const envelope = (data: unknown) => JSON.stringify({ ok: true, data })
     const [command, sub] = args
+    if (command === 'search' && args[1] === '--to') return envelope([{ id: 31, topic_id: 301, subject: 'Bank notification: x', messages: [] }])
     if (command === 'search') return envelope(args[2] === 'kontakt@mbank.pl' ? MBANK_SEARCH : PKO_SEARCH)
     if (command === 'attachment' && sub === 'list') {
       return envelope(
@@ -92,6 +93,13 @@ describe('forwardNotifications', () => {
     expect(summary).toEqual({ forwarded: 2, skipped: 1, seen: 2 })
   })
 
+  it('files the copies HEY kept of what it sent into the Paper Trail, read', () => {
+    const { calls } = run()
+
+    expect(calls).toContainEqual(['seen', '31'])
+    expect(calls).toContainEqual(['move', '31', '--to', 'paper trail'])
+  })
+
   it('remembers what it dealt with and never sends it again', () => {
     const first = run()
     expect(first.state.handled.sort()).toEqual([1001, 1002, 2001])
@@ -100,7 +108,7 @@ describe('forwardNotifications', () => {
     const second = run({ handled: first.state.handled })
 
     expect(second.sent).toEqual([])
-    expect(second.calls.some(([command]) => command === 'seen')).toBe(false)
+    expect(second.calls.some(([command, id]) => command === 'seen' && id !== '31')).toBe(false)
   })
 
   it('writes the mail instead of sending it on a dry run', () => {

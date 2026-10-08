@@ -81,6 +81,15 @@ function documentOf(
   return { attachment: { filename: wanted.filename, contentType: wanted.content_type, bytes: readFileSync(path) } }
 }
 
+/** The copies HEY keeps of what was sent to the inbox go to the Paper Trail, read, out of the Imbox. */
+function fileSentCopies(hey: Hey, inbox: string): void {
+  const sent = json<SearchResult[]>(hey, ['search', '--to', inbox, '--in', 'imbox', '--date', 'last_7_days', '--all'])
+  const ids = sent.flatMap((result) => (result.id === null ? [] : [String(result.id)]))
+  if (ids.length === 0) return
+  hey(['seen', ...ids])
+  hey(['move', ...ids, '--to', 'paper trail'])
+}
+
 export function forwardNotifications(options: ForwardOptions): ForwardSummary {
   const { hey, inbox, state, saveState, dryRunDir, log = () => {} } = options
   const handled = new Set(state.handled)
@@ -140,6 +149,7 @@ export function forwardNotifications(options: ForwardOptions): ForwardSummary {
       hey(['seen', ...toSee.map(String)])
       summary.seen = toSee.length
     }
+    if (!dryRunDir) fileSentCopies(hey, inbox)
     return summary
   } finally {
     if (!dryRunDir) rmSync(workDir, { recursive: true, force: true })
@@ -158,7 +168,7 @@ function main(): void {
   const args = process.argv.slice(2)
   const dryRunAt = args.indexOf('--dry-run')
   const dryRunDir = dryRunAt === -1 ? undefined : args[dryRunAt + 1]
-  const inbox = args.find((arg, index) => !arg.startsWith('--') && index !== dryRunAt + 1) ?? process.env.MONEY_INBOX
+  const inbox = args.find((arg, index) => !arg.startsWith('--') && (dryRunAt === -1 || index !== dryRunAt + 1)) ?? process.env.MONEY_INBOX
   if (!inbox || (dryRunAt !== -1 && !dryRunDir)) {
     console.error('usage: node scripts/hey-forward/forward.ts <inbox address> [--dry-run <dir>]')
     process.exit(1)
