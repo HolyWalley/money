@@ -26,6 +26,13 @@ export interface HeyAttachmentRef {
   contentType: string
 }
 
+interface HeyAttachmentTag {
+  url: string
+  filename: string
+  contentType: string
+  content: string
+}
+
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
 function decodeEntities(value: string): string {
@@ -36,12 +43,32 @@ function decodeEntities(value: string): string {
   })
 }
 
-function readAttributes(tag: string): Record<string, string> {
+/**
+ * The attributes of the tag that opens at `start`. Read token by token rather
+ * than up to the next '>', because a wrapper's `content` attribute holds a
+ * whole email, and a '>' inside a quoted value does not end the tag.
+ */
+function readTagAttributes(html: string, start: number): Record<string, string> {
   const attributes: Record<string, string> = {}
-  for (const match of tag.matchAll(/([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
-    attributes[match[1].toLowerCase()] = decodeEntities(match[2] ?? match[3] ?? '')
+  const attribute = /\s*([\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/y
+  let at = html.indexOf(' ', start)
+  if (at === -1) return attributes
+
+  for (;;) {
+    attribute.lastIndex = at
+    const match = attribute.exec(html)
+    if (!match || match[0].trim() === '') break
+    attributes[match[1].toLowerCase()] = decodeEntities(match[2] ?? match[3] ?? match[4] ?? '')
+    at = attribute.lastIndex
   }
   return attributes
+}
+
+function* openingTags(html: string, name: string): Generator<Record<string, string>> {
+  const opener = new RegExp(`<${name}\\b`, 'gi')
+  for (const match of html.matchAll(opener)) {
+    yield readTagAttributes(html, match.index)
+  }
 }
 
 function isBlobPath(url: string): boolean {
@@ -49,42 +76,67 @@ function isBlobPath(url: string): boolean {
 }
 
 /**
- * The files a HEY message body links to.
- *
- * HEY serves a message as HTML in which each file is an action-text-attachment
- * tag or a Trix figure, and an inbound email's own files sit one level down,
- * inside the escaped markup such a tag carries as `content`.
+ * The attachment tags in a HEY message body: each file is an
+ * action-text-attachment tag or a Trix figure.
  */
-export function extractHeyAttachments(html: string, depth = 0): HeyAttachmentRef[] {
-  if (depth > MAX_EMBED_DEPTH) return []
+function attachmentTags(html: string): HeyAttachmentTag[] {
+  const tags: HeyAttachmentTag[] = []
 
-  const found: HeyAttachmentRef[] = []
-  const collect = (url: string, filename: string, contentType: string, content: string) => {
-    if (isBlobPath(url) && filename) {
-      found.push({ url, filename, contentType })
-    } else if (content) {
-      found.push(...extractHeyAttachments(content, depth + 1))
-    }
+  for (const attributes of openingTags(html, 'action-text-attachment')) {
+    tags.push({
+      url: attributes.url ?? '',
+      filename: attributes.filename ?? '',
+      contentType: attributes['content-type'] ?? '',
+      content: attributes.content ?? '',
+    })
   }
 
-  for (const [tag] of html.matchAll(/<action-text-attachment\b[^>]*>/gi)) {
-    const attributes = readAttributes(tag)
-    collect(attributes.url ?? '', attributes.filename ?? '', attributes['content-type'] ?? '', attributes.content ?? '')
-  }
-
-  for (const [tag] of html.matchAll(/<figure\b[^>]*>/gi)) {
-    const raw = readAttributes(tag)['data-trix-attachment']
+  for (const attributes of openingTags(html, 'figure')) {
+    const raw = attributes['data-trix-attachment']
     if (!raw) continue
     try {
       const trix = JSON.parse(raw) as Record<string, unknown>
       const text = (key: string) => (typeof trix[key] === 'string' ? (trix[key] as string) : '')
-      collect(text('url'), text('filename'), text('contentType'), text('content'))
+      tags.push({ url: text('url'), filename: text('filename'), contentType: text('contentType'), content: text('content') })
     } catch {
       continue
     }
   }
 
+  return tags
+}
+
+/**
+ * The files a HEY message body links to. An inbound email's own files sit
+ * one level down, inside the escaped markup its wrapper tag carries as
+ * `content`.
+ */
+export function extractHeyAttachments(html: string, depth = 0): HeyAttachmentRef[] {
+  if (depth > MAX_EMBED_DEPTH) return []
+
+  const found: HeyAttachmentRef[] = []
+  for (const tag of attachmentTags(html)) {
+    if (isBlobPath(tag.url) && tag.filename) {
+      found.push({ url: tag.url, filename: tag.filename, contentType: tag.contentType })
+    } else if (tag.content) {
+      found.push(...extractHeyAttachments(tag.content, depth + 1))
+    }
+  }
   return found
+}
+
+/**
+ * An inbound email's own HTML. HEY wraps it in an HTML attachment tag whose
+ * `content` is the email, itself inside a <shadow-content><template> pair
+ * that an HTML parser would keep out of the document's text; a body with
+ * no such wrapper is returned as it is.
+ */
+export function unwrapHeyBody(html: string): string {
+  const wrapper = attachmentTags(html).find(
+    (tag) => tag.content && !tag.filename && /^text\/html\b/i.test(tag.contentType)
+  )
+  if (!wrapper) return html
+  return wrapper.content.replace(/<\/?(?:shadow-content|template)\b[^>]*>/gi, '')
 }
 
 export class HeyMailProvider implements MailProvider {
@@ -112,9 +164,17 @@ export class HeyMailProvider implements MailProvider {
     return messages
   }
 
-  async getAttachments(messageId: string, wanted: (filename: string) => boolean): Promise<MailAttachment[]> {
+  async getBody(messageId: string): Promise<string> {
+    return unwrapHeyBody(await this.getContent(messageId))
+  }
+
+  private async getContent(messageId: string): Promise<string> {
     const message = await this.getJson<HeyMessage>(`/messages/${encodeURIComponent(messageId)}`)
-    const refs = extractHeyAttachments(message.content ?? '').filter((ref) => wanted(ref.filename))
+    return message.content ?? ''
+  }
+
+  async getAttachments(messageId: string, wanted: (filename: string) => boolean): Promise<MailAttachment[]> {
+    const refs = extractHeyAttachments(await this.getContent(messageId)).filter((ref) => wanted(ref.filename))
 
     return Promise.all(
       refs.map(async (ref) => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { BankNotificationDocument } from '../../../shared/bank-notifications'
-import { decodeBankDocument, formatBankAccount, parseBankDocuments } from './index'
+import { decodeBankDocument, formatBankAccount, mergeExchanges, parseBankDocuments } from './index'
+import type { BankOperation } from './types'
 
 function toBase64(bytes: number[]): string {
   return btoa(String.fromCharCode(...bytes))
@@ -35,6 +36,12 @@ describe('decodeBankDocument', () => {
     expect(decodeBankDocument(toBase64(bytes))).toContain('ŚRODKÓW')
   })
 
+  it('reads the charset it is told, over the one the document declares', () => {
+    const bytes = [...ascii('<meta charset="iso-8859-2">'), 0xc5, 0x9a]
+
+    expect(decodeBankDocument(toBase64(bytes), 'utf-8')).toContain('Ś')
+  })
+
   it('falls back to UTF-8', () => {
     expect(decodeBankDocument(btoa('<p>plain</p>'))).toBe('<p>plain</p>')
   })
@@ -51,8 +58,49 @@ describe('parseBankDocuments', () => {
   })
 })
 
+function side(overrides: Partial<BankOperation>): BankOperation {
+  return {
+    externalId: 'pko:x',
+    bank: 'pko',
+    account: 'pko:31..0034',
+    date: '2026-10-08T04:33:09Z',
+    direction: 'expense',
+    amount: 298.34,
+    currency: 'EUR',
+    counterparty: '',
+    title: '',
+    description: '',
+    suggestTransfer: true,
+    exchangeId: 'pko:FX1',
+    linkedExternalIds: [],
+    ...overrides,
+  }
+}
+
+describe('mergeExchanges', () => {
+  it('folds the two sides of an exchange into one transfer', () => {
+    const out = side({ externalId: 'pko:out' })
+    const into = side({ externalId: 'pko:in', account: 'pko:73..7365', direction: 'income', amount: 1300, currency: 'PLN' })
+
+    expect(mergeExchanges([into, out])).toEqual([
+      {
+        ...out,
+        received: { account: 'pko:73..7365', amount: 1300, currency: 'PLN' },
+        linkedExternalIds: ['pko:in'],
+      },
+    ])
+  })
+
+  it('leaves a side whose partner has not arrived as it is', () => {
+    const out = side({ externalId: 'pko:out' })
+
+    expect(mergeExchanges([out])).toEqual([out])
+  })
+})
+
 describe('formatBankAccount', () => {
   it('names the bank and the end of the account number', () => {
     expect(formatBankAccount('mbank:12345678')).toBe('mBank …5678')
+    expect(formatBankAccount('pko:73..7365')).toBe('PKO BP …7365')
   })
 })

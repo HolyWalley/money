@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { HeyMailProvider, extractHeyAttachments } from './hey'
+import { HeyMailProvider, extractHeyAttachments, unwrapHeyBody } from './hey'
 import { MailProviderError } from './types'
 
 const BLOB = '/rails/active_storage/blobs/redirect/abc123/statement.htm'
@@ -46,6 +46,34 @@ describe('extractHeyAttachments', () => {
     ].join('')
 
     expect(extractHeyAttachments(html)).toEqual([])
+  })
+})
+
+describe('unwrapHeyBody', () => {
+  it('returns a plain body as it is', () => {
+    expect(unwrapHeyBody('<p>Hello</p>')).toBe('<p>Hello</p>')
+  })
+
+  it('reads a wrapper whose email carries raw angle brackets inside the attribute', () => {
+    const email = '<html><body><span style="x">Obciążenie</span><br>\n konta</body></html>'
+    const trix = JSON.stringify({ contentType: 'text/html', content: email })
+    const html = `<figure data-trix-attachment="${trix.replace(/"/g, '&quot;')}" class="attachment"></figure>`
+
+    expect(unwrapHeyBody(html)).toBe(email)
+  })
+
+  it('removes the template HEY puts the email inside', () => {
+    const email = '<shadow-content><template><p>Obciążenie konta</p></template></shadow-content>'
+    const trix = JSON.stringify({ contentType: 'text/html', content: email })
+    const html = `<figure data-trix-attachment="${escapeHtml(trix)}"></figure>`
+
+    expect(unwrapHeyBody(html)).toBe('<p>Obciążenie konta</p>')
+  })
+
+  it('does not mistake a downloadable HTML file for the body', () => {
+    const html = attachmentTag(BLOB, 'statement.htm')
+
+    expect(unwrapHeyBody(html)).toBe(html)
   })
 })
 
@@ -98,6 +126,16 @@ describe('HeyMailProvider', () => {
     expect(calls.map(([url]) => url)).not.toContain(`https://app.hey.com${BLOB}2`)
     const storage = calls.find(([url]) => url === 'https://storage.example/signed')!
     expect(storage[1].headers.Authorization).toBeUndefined()
+  })
+
+  it('reads a message body, unwrapped from the HEY markup around it', async () => {
+    const email = '<html><body><p>Obciążenie konta</p></body></html>'
+    const wrapped = `<figure data-trix-attachment="${escapeHtml(JSON.stringify({ contentType: 'text/html', content: email }))}"></figure>`
+    const fetcher = vi.fn(async () => json({ content: wrapped }))
+    const provider = new HeyMailProvider('token', fetcher as unknown as typeof fetch)
+
+    expect(await provider.getBody('7')).toBe(email)
+    expect((fetcher.mock.calls[0] as unknown as [string])[0]).toBe('https://app.hey.com/messages/7')
   })
 
   it('reports a refused token as an auth failure', async () => {

@@ -9,6 +9,8 @@ export interface ReviewItem {
   operation: BankOperation
   /** The wallet this bank account was imported into before, if it still exists. */
   walletId?: string
+  /** The wallet the other side of an exchange was imported into before. */
+  toWalletId?: string
   /** A hand-entered transaction that looks like this operation. */
   matchedTransactionId?: string
 }
@@ -51,6 +53,10 @@ export function reviewOperations(operations: BankOperation[], context: ReviewCon
   }
 
   const walletIds = new Set(context.walletIds)
+  const rememberedWallet = (key: string) => {
+    const mapped = context.accountWallets[key]
+    return mapped && walletIds.has(mapped) ? mapped : undefined
+  }
   const candidates = context.transactions.filter((transaction) => !transaction.externalId)
   const claimed = new Set<string>()
   const items: ReviewItem[] = []
@@ -58,8 +64,8 @@ export function reviewOperations(operations: BankOperation[], context: ReviewCon
   for (const operation of operations) {
     if (known.has(operation.externalId)) continue
 
-    const mapped = context.accountWallets[accountWalletKey(operation)]
-    const walletId = mapped && walletIds.has(mapped) ? mapped : undefined
+    const walletId = rememberedWallet(accountWalletKey(operation))
+    const toWalletId = operation.received ? rememberedWallet(accountWalletKey(operation.received)) : undefined
     const at = new Date(operation.date)
 
     let best: { id: string; distance: number } | null = null
@@ -76,7 +82,7 @@ export function reviewOperations(operations: BankOperation[], context: ReviewCon
     }
 
     if (best) claimed.add(best.id)
-    items.push({ operation, walletId, matchedTransactionId: best?.id })
+    items.push({ operation, walletId, toWalletId, matchedTransactionId: best?.id })
   }
 
   return items

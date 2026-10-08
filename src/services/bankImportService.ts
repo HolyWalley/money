@@ -68,6 +68,8 @@ class BankImportService {
     for (const decision of decisions) {
       const { operation, matchedTransactionId } = decision.item
 
+      for (const linked of operation.linkedExternalIds) dismissBankOperation(linked)
+
       if (decision.action === 'logged') {
         // Linking the hand-entered record keeps it from being paired with a
         // later, identical operation; with nothing to link, the operation is
@@ -95,6 +97,9 @@ class BankImportService {
         externalId: operation.externalId,
       })
       setBankAccountWallet(accountWalletKey(operation), decision.walletId)
+      if (operation.received && decision.transfer) {
+        setBankAccountWallet(accountWalletKey(operation.received), decision.transfer.toWalletId)
+      }
       summary.imported += 1
     }
 

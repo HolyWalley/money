@@ -90,6 +90,7 @@ function item(overrides: Partial<ReviewItem> = {}, externalId = 'mbank:1'): Revi
       title: 'CZYNSZ',
       description: 'row',
       suggestTransfer: false,
+    linkedExternalIds: [],
     },
     ...overrides,
   }
@@ -244,6 +245,23 @@ describe('BankImportDrawer', () => {
         transfer: { toWalletId: 'w2', toCurrency: 'EUR', toAmount: 27.5 },
       }),
     ])
+  })
+
+  it('prefills a merged exchange with its destination wallet and received amount', async () => {
+    review.mockReturnValue([
+      {
+        operation: { ...item().operation, suggestTransfer: true, received: { account: 'pko:73..7365', amount: 1300, currency: 'EUR' } },
+        walletId: 'w1',
+        toWalletId: 'w2',
+      },
+    ])
+
+    await open()
+
+    expect(screen.getByText(/→ \+1,300\.00 EUR/)).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'To wallet' })).toHaveValue('w2')
+    expect(screen.getByRole('spinbutton', { name: 'Received amount' })).toHaveValue(1300)
+    expect(screen.getByRole('button', { name: 'Save 1' })).toBeEnabled()
   })
 
   it('turning the transfer off clears the transfer category', async () => {

@@ -30,10 +30,25 @@ export async function onRequestGet(
 
     for (const source of bankNotificationSources) {
       const messages = await provider.listMessages({ from: source.sender, sinceDays: BANK_NOTIFICATION_DAYS })
+
+      if (source.content === 'body') {
+        const bodies = await Promise.all(messages.map((message) => provider.getBody(message.id)))
+        messages.forEach((message, index) => {
+          documents.push({
+            bank: source.bank,
+            messageId: message.id,
+            receivedAt: message.receivedAt,
+            filename: '',
+            content: BinaryUtils.toBase64(new TextEncoder().encode(bodies[index])),
+            charset: 'utf-8',
+          })
+        })
+        continue
+      }
+
       const attachments = await Promise.all(
         messages.map((message) => provider.getAttachments(message.id, (filename) => source.attachment.test(filename)))
       )
-
       messages.forEach((message, index) => {
         for (const attachment of attachments[index]) {
           documents.push({

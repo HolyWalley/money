@@ -102,6 +102,8 @@ function BankImportBody({ request, onClose }: { request: Promise<BankFetchOutcom
           walletId: item.walletId,
           transfer: item.operation.suggestTransfer,
           categoryId: item.operation.suggestTransfer ? defaultTransferCategory(categories) : undefined,
+          toWalletId: item.toWalletId,
+          toAmount: item.operation.received?.amount,
         },
       ])
     )
@@ -276,6 +278,9 @@ function BankImportRow({ item, choice, wallets, categories, matched, disabled, o
         </span>
         <span className="shrink-0 font-medium tabular-nums">
           {sign}{formatMoney(operation.amount)} {operation.currency}
+          {operation.received && (
+            <span className="text-muted-foreground"> → +{formatMoney(operation.received.amount)} {operation.received.currency}</span>
+          )}
         </span>
       </div>
 

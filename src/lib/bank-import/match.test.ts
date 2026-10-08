@@ -16,6 +16,7 @@ function operation(overrides: Partial<BankOperation> = {}): BankOperation {
     title: 'CZYNSZ',
     description: 'row',
     suggestTransfer: false,
+    linkedExternalIds: [],
     ...overrides,
   }
 }
@@ -43,7 +44,7 @@ function context(overrides: Partial<ReviewContext> = {}): ReviewContext {
 describe('reviewOperations', () => {
   it('returns a new operation with nothing prefilled', () => {
     expect(reviewOperations([operation()], context())).toEqual([
-      { operation: operation(), walletId: undefined, matchedTransactionId: undefined },
+      { operation: operation(), walletId: undefined, toWalletId: undefined, matchedTransactionId: undefined },
     ])
   })
 
@@ -67,6 +68,14 @@ describe('reviewOperations', () => {
     const [item] = reviewOperations([operation()], context({ accountWallets: { 'mbank:12345678/PLN': 'gone' } }))
 
     expect(item.walletId).toBeUndefined()
+  })
+
+  it('prefills the wallet the other side of an exchange was imported into', () => {
+    const exchange = operation({ received: { account: 'pko:73..7365', amount: 1300, currency: 'PLN' } })
+
+    const [item] = reviewOperations([exchange], context({ accountWallets: { 'pko:73..7365/PLN': 'w2' } }))
+
+    expect(item.toWalletId).toBe('w2')
   })
 
   it('pairs an operation with a hand-entered transaction of the same amount and day', () => {

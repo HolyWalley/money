@@ -41,6 +41,7 @@ function item(overrides: Partial<ReviewItem> = {}): ReviewItem {
       title: 'CZYNSZ',
       description: 'row',
       suggestTransfer: false,
+    linkedExternalIds: [],
     },
     ...overrides,
   }
@@ -144,6 +145,26 @@ describe('bankImportService', () => {
           categoryId: 'transfer-misc',
         })
       )
+    })
+
+    it('remembers both wallets of an exchange and settles its folded side', async () => {
+      const exchange = item({
+        operation: {
+          ...item().operation,
+          account: 'pko:31..0034',
+          currency: 'EUR',
+          received: { account: 'pko:73..7365', amount: 1300, currency: 'PLN' },
+          linkedExternalIds: ['pko:in'],
+        },
+      })
+
+      await bankImportService.save([
+        { item: exchange, action: 'import', walletId: 'w1', categoryId: 'c3', transfer: { toWalletId: 'w2', toCurrency: 'PLN', toAmount: 1300 } },
+      ])
+
+      expect(setBankAccountWallet).toHaveBeenCalledWith('pko:31..0034/EUR', 'w1')
+      expect(setBankAccountWallet).toHaveBeenCalledWith('pko:73..7365/PLN', 'w2')
+      expect(dismissBankOperation).toHaveBeenCalledWith('pko:in')
     })
 
     it('links an operation to the hand-entered transaction it matched', async () => {

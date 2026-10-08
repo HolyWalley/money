@@ -39,6 +39,7 @@ describe('parseMbankNotification', () => {
         description: TRANSFER,
         balanceAfter: 214.1,
         suggestTransfer: false,
+        linkedExternalIds: [],
       },
     ])
   })

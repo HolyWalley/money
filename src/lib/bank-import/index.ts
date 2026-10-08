@@ -1,13 +1,16 @@
 import type { BankId, BankNotificationDocument } from '../../../shared/bank-notifications'
 import { parseMbankNotification } from './mbank'
-import type { ParsedBankDocument } from './types'
+import { parsePkoNotification } from './pko'
+import type { BankOperation, ParsedBankDocument } from './types'
 
-const parsers: Record<BankId, (html: string) => ParsedBankDocument> = {
+const parsers: Record<BankId, (html: string, document: BankNotificationDocument) => ParsedBankDocument> = {
   mbank: parseMbankNotification,
+  pko: parsePkoNotification,
 }
 
 const bankNames: Record<BankId, string> = {
   mbank: 'mBank',
+  pko: 'PKO BP',
 }
 
 export function bankName(bank: BankId): string {
@@ -21,11 +24,11 @@ export function formatBankAccount(account: string): string {
   return number ? `${name} …${number.slice(-4)}` : name
 }
 
-/** The attachment's text, read in the charset the document itself declares. */
-export function decodeBankDocument(content: string): string {
+/** The document's text, in the charset it was sent in or the one it declares. */
+export function decodeBankDocument(content: string, charset?: string): string {
   const binary = atob(content)
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0))
-  const charset = binary.slice(0, 2048).match(/charset\s*=\s*["']?([\w-]+)/i)?.[1] ?? 'utf-8'
+  charset ??= binary.slice(0, 2048).match(/charset\s*=\s*["']?([\w-]+)/i)?.[1] ?? 'utf-8'
   try {
     return new TextDecoder(charset).decode(bytes)
   } catch {
@@ -38,7 +41,7 @@ export function parseBankDocuments(documents: BankNotificationDocument[]): Parse
   const seen = new Set<string>()
 
   for (const document of documents) {
-    const result = parsers[document.bank](decodeBankDocument(document.content))
+    const result = parsers[document.bank](decodeBankDocument(document.content, document.charset), document)
     for (const operation of result.operations) {
       if (seen.has(operation.externalId)) continue
       seen.add(operation.externalId)
@@ -47,8 +50,40 @@ export function parseBankDocuments(documents: BankNotificationDocument[]): Parse
     parsed.unreadable.push(...result.unreadable)
   }
 
+  parsed.operations = mergeExchanges(parsed.operations)
   parsed.operations.sort((a, b) => a.date.localeCompare(b.date))
   return parsed
+}
+
+/**
+ * Folds the two sides of a currency exchange into one outgoing operation
+ * that knows what the other account received. A side that arrived alone
+ * stays a plain row until its partner turns up.
+ */
+export function mergeExchanges(operations: BankOperation[]): BankOperation[] {
+  const sides = new Map<string, BankOperation[]>()
+  for (const operation of operations) {
+    if (!operation.exchangeId) continue
+    sides.set(operation.exchangeId, [...(sides.get(operation.exchangeId) ?? []), operation])
+  }
+
+  const folded = new Set<string>()
+  const merged = new Map<string, BankOperation>()
+  for (const pair of sides.values()) {
+    const out = pair.find((side) => side.direction === 'expense')
+    const into = pair.find((side) => side.direction === 'income')
+    if (pair.length !== 2 || !out || !into) continue
+    folded.add(into.externalId)
+    merged.set(out.externalId, {
+      ...out,
+      received: { account: into.account, amount: into.amount, currency: into.currency },
+      linkedExternalIds: [...out.linkedExternalIds, into.externalId],
+    })
+  }
+
+  return operations
+    .filter((operation) => !folded.has(operation.externalId))
+    .map((operation) => merged.get(operation.externalId) ?? operation)
 }
 
 export type { BankOperation, ParsedBankDocument } from './types'

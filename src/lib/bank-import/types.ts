@@ -17,6 +17,12 @@ export interface BankOperation {
   balanceAfter?: number
   /** The counterparty is one of the person's own accounts elsewhere, so a transfer is the likely truth. */
   suggestTransfer: boolean
+  /** Shared by the two sides of one currency exchange, so they can be read as one transfer. */
+  exchangeId?: string
+  /** What the other side of a merged exchange delivered. */
+  received?: { account: string; amount: number; currency: string }
+  /** Rows folded into this one; settled together with it, so they are never suggested on their own. */
+  linkedExternalIds: string[]
 }
 
 /**

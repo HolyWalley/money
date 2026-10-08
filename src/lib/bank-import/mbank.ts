@@ -19,7 +19,7 @@ const NOT_OPERATIONS = [/^mBank: Potwierdzenie poprawnego logowania/, /^mBank: O
 /** Card payments that are really top-ups of the person's other accounts. */
 const OWN_ACCOUNT_MERCHANTS = /^REVOLUT\b/i
 
-type Reading = Omit<BankOperation, 'externalId' | 'bank' | 'date' | 'description'>
+type Reading = Omit<BankOperation, 'externalId' | 'bank' | 'date' | 'description' | 'linkedExternalIds'>
 
 function parseAmount(value: string): number {
   return Number(value.replace(/\s/g, '').replace(',', '.'))
@@ -121,6 +121,7 @@ export function parseMbankNotification(html: string): ParsedBankDocument {
       bank: 'mbank',
       date: zonedToIso(dateKey, time, TIME_ZONE),
       description,
+      linkedExternalIds: [],
       ...reading,
     })
   }

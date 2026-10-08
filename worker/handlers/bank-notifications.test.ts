@@ -11,7 +11,12 @@ const env = { BANK_IMPORT_USERNAME: 'owner' } as CloudflareEnv
 
 function fakeProvider(overrides: Partial<MailProvider> = {}): MailProvider {
   return {
-    listMessages: vi.fn(async () => [{ id: '1', receivedAt: '2026-10-05T05:50:51Z' }]),
+    listMessages: vi.fn(async ({ from }: { from: string }) =>
+      from === 'kontakt@mbank.pl'
+        ? [{ id: '1', receivedAt: '2026-10-05T05:50:51Z' }]
+        : [{ id: '2', receivedAt: '2026-10-08T04:33:09Z' }]
+    ),
+    getBody: vi.fn(async () => '<p>Obciążenie konta</p>'),
     getAttachments: vi.fn(async (_id: string, wanted: (filename: string) => boolean) =>
       [
         { filename: 'Powiadomienie e-mail z 2026-10-04.htm', contentType: 'text/html', bytes: new TextEncoder().encode('<html/>') },
@@ -70,8 +75,20 @@ describe('bank-notifications handler', () => {
         filename: 'Powiadomienie e-mail z 2026-10-04.htm',
         content: btoa('<html/>'),
       },
+      {
+        bank: 'pko',
+        messageId: '2',
+        receivedAt: '2026-10-08T04:33:09Z',
+        filename: '',
+        content: expect.any(String),
+        charset: 'utf-8',
+      },
     ])
+    expect(new TextDecoder().decode(Uint8Array.from(atob(data.documents[1].content), (c) => c.charCodeAt(0)))).toBe(
+      '<p>Obciążenie konta</p>'
+    )
     expect(provider.listMessages).toHaveBeenCalledWith({ from: 'kontakt@mbank.pl', sinceDays: 7 })
+    expect(provider.listMessages).toHaveBeenCalledWith({ from: 'powiadomienia@pkobp.pl', sinceDays: 7 })
   })
 
   it('says the token has expired when the provider refuses it', async () => {
