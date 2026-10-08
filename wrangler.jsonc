@@ -16,7 +16,7 @@
 		{ "pattern": "money.yakau.dev", "custom_domain": true }
 	],
 	"vars": {
-		"INBOX_DOMAIN": "in.yakau.dev"
+		"INBOX_DOMAIN": "money.yakau.dev"
 	},
 	"kv_namespaces": [
 		{
