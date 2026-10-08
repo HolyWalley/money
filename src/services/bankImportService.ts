@@ -70,6 +70,24 @@ class BankImportService {
     return { ok: true, parsed, documents, notices, address, forwarder }
   }
 
+  /**
+   * How many operations and notices in the inbox still want the person: what
+   * the review would list, read against the local ledger. Null when the inbox
+   * could not be read, which is not the same as nothing to review.
+   */
+  async countPending(): Promise<number | null> {
+    const outcome = await this.fetchOperations()
+    if (!outcome.ok) return null
+    const transactions = await transactionService.getAllTransactions()
+    const items = reviewOperations(outcome.parsed.operations, {
+      transactions,
+      accountWallets: {},
+      dismissed: getDismissedBankOperations(),
+      walletIds: [],
+    })
+    return items.length + outcome.notices.length
+  }
+
   /** Replaces the person's inbox address; the old one stops accepting mail. */
   async createAddress(): Promise<InboxAddressOutcome> {
     const response = await apiClient.createInboxAddress()

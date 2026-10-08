@@ -31,6 +31,7 @@ import type { ReviewItem } from '../lib/bank-import/match'
 import { bankImportService } from './bankImportService'
 import { transactionService } from './transactionService'
 import type { Wallet } from '../../shared/schemas/wallet.schema'
+import type { Transaction } from '../../shared/schemas/transaction.schema'
 
 const getBankNotifications = vi.mocked(apiClient.getBankNotifications)
 const removeBankNotifications = vi.mocked(apiClient.removeBankNotifications)
@@ -114,6 +115,43 @@ describe('bankImportService', () => {
         ok: false,
         error: 'The mail provider token has expired',
       })
+    })
+  })
+
+  describe('countPending', () => {
+    it('counts the operations not yet in the ledger, and the notices', async () => {
+      getBankNotifications.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: {
+          documents: [document()],
+          notices: [{ messageId: 'g1', receivedAt: '', sender: 's', subject: '', text: '' }],
+          address: null,
+          forwarder: null,
+        },
+      })
+
+      expect(await bankImportService.countPending()).toBe(2)
+    })
+
+    it('leaves out what was already imported', async () => {
+      const [operation] = parseBankDocuments([document()]).operations
+      const imported = [{ externalId: operation.externalId } as Transaction]
+      // Read twice: once to clear settled mail, once to count.
+      vi.mocked(transactionService.getAllTransactions).mockResolvedValueOnce(imported).mockResolvedValueOnce(imported)
+      getBankNotifications.mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { documents: [document()], notices: [], address: null, forwarder: null },
+      })
+
+      expect(await bankImportService.countPending()).toBe(0)
+    })
+
+    it('answers null when the inbox cannot be read', async () => {
+      getBankNotifications.mockResolvedValue({ ok: false, status: 0, failure: 'network', error: 'offline' })
+
+      expect(await bankImportService.countPending()).toBeNull()
     })
   })
 

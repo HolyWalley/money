@@ -12,6 +12,7 @@ import { SavingsNotificationListener } from '@/components/savings/SavingsNotific
 import { RecurringGoalLinkSubscriber } from '@/components/recurring/RecurringGoalLinkSubscriber'
 import { SyncNotificationListener } from '@/components/sync/SyncNotificationListener'
 import { TransactionsPage } from '@/components/transactions/TransactionsPage'
+import { BankImportPrompt } from '@/components/bank-import/BankImportPrompt'
 import { AppSidebar } from './AppSidebar'
 import { PageErrorBoundary } from './PageErrorBoundary'
 
@@ -68,6 +69,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <SavingsNotificationListener />
       <RecurringGoalLinkSubscriber />
       <SyncNotificationListener status={sync.status} />
+      <BankImportPrompt />
     </div>
   )
 }

@@ -21,6 +21,7 @@ vi.mock('@/components/sync/SyncNotificationListener', () => ({
 }))
 
 // The pages are routed by AppRoutes, not by the layout under test.
+vi.mock('@/components/bank-import/BankImportPrompt', () => ({ BankImportPrompt: () => null }))
 vi.mock('@/components/Overview', () => ({ Overview: () => null }))
 vi.mock('@/components/wallets/WalletsPage', () => ({ WalletsPage: () => null }))
 vi.mock('@/components/investments/InvestmentsPage', () => ({ InvestmentsPage: () => null }))

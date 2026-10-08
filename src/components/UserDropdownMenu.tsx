@@ -1,4 +1,4 @@
-import { useState, startTransition } from 'react'
+import { useState, useSyncExternalStore, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api-client'
@@ -24,8 +24,7 @@ import { RecurringPaymentsModal } from '@/components/recurring/RecurringPayments
 import { useTheme } from '@/contexts/ThemeContext'
 import { DebugModal } from '@/components/DebugModal'
 import { SyncStatusConnector } from '@/components/sync/SyncStatusConnector'
-import { BankImportDrawer } from '@/components/bank-import/BankImportDrawer'
-import { bankImportService, type BankFetchOutcome } from '@/services/bankImportService'
+import { getBankImportStatus, openBankImport, subscribeBankImportStatus } from '@/lib/bank-import-status'
 
 export function UserDropdownMenu() {
   const { user, signout, setUser } = useAuth()
@@ -34,7 +33,7 @@ export function UserDropdownMenu() {
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
-  const [bankImportRequest, setBankImportRequest] = useState<Promise<BankFetchOutcome> | null>(null)
+  const { pending: pendingBankOperations } = useSyncExternalStore(subscribeBankImportStatus, getBankImportStatus, getBankImportStatus)
   
   const showDebug = new URLSearchParams(window.location.search).has('debug')
 
@@ -101,6 +100,11 @@ export function UserDropdownMenu() {
               </AvatarFallback>
             </Avatar>
             <SyncStatusConnector variant="dot" />
+            {pendingBankOperations > 0 && (
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background">
+                <span className="sr-only">{pendingBankOperations} bank operations to review</span>
+              </span>
+            )}
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="right" className="w-56">
@@ -137,9 +141,14 @@ export function UserDropdownMenu() {
             <Repeat className="mr-2 h-4 w-4" />
             <span>Recurring Payments</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setBankImportRequest(bankImportService.fetchOperations())}>
+          <DropdownMenuItem onClick={openBankImport}>
             <Landmark className="mr-2 h-4 w-4" />
             <span>Bank Import</span>
+            {pendingBankOperations > 0 && (
+              <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground tabular-nums">
+                {pendingBankOperations}
+              </span>
+            )}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
@@ -184,7 +193,6 @@ export function UserDropdownMenu() {
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
       <RecurringPaymentsModal open={recurringOpen} onOpenChange={setRecurringOpen} />
       <DebugModal open={debugOpen} onOpenChange={setDebugOpen} />
-      <BankImportDrawer request={bankImportRequest} onClose={() => setBankImportRequest(null)} />
     </>
   )
 }
